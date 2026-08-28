@@ -48,8 +48,8 @@ export const FloatingPlayerDock: React.FC = () => {
         const y = canvas.height - barHeight;
 
         const gradient = ctx.createLinearGradient(0, y, 0, canvas.height);
-        gradient.addColorStop(0, "var(--accent-secondary)");
-        gradient.addColorStop(1, "var(--accent-primary)");
+        gradient.addColorStop(0, currentTrack?.palette?.secondary || "#ec4899");
+        gradient.addColorStop(1, currentTrack?.palette?.primary || "#6366f1");
 
         ctx.fillStyle = gradient;
         ctx.beginPath();
