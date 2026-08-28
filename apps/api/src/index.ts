@@ -27,9 +27,9 @@ const MCK_TRACKS = [
     id: "mck-01",
     title: "01. Elegie",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 198,
-    coverUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=800&auto=format&fit=crop",
+    coverUrl: "https://hidden-music-api.postlain-music.workers.dev/api/stream/covers/HVL_Album_Cover.jpg",
     audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
     r2Key: "1786880055560_01_Elegie.flac",
     palette: { primary: "#6366f1", secondary: "#ec4899", accent: "#8b5cf6", glow: "rgba(99, 102, 241, 0.45)" },
@@ -483,52 +483,100 @@ const R2_CLEAN_MAP: Record<string, string> = {
   "30": "30. Thịt Lợn.flac",
 };
 
-// Endpoint to physically rename objects inside the Cloudflare R2 bucket
+// Video Object Name Clean Mapping
+const VIDEO_CLEAN_MAP: Record<string, string> = {
+  "Elegie": "01. Elegie - MCK.mkv",
+  "IDK": "02. IDK - MCK (Official Music Video).mkv",
+  "Wtf_Bby": "03. Wtf Bby I'm Lit - MCK.mkv",
+  "Anh_Kh_ng": "04. Anh Không Muốn Nó Dễ Dàng - MCK.mkv",
+  "Baby": "05. Baby - MCK ft. marzuz.mkv",
+  "Y_u_Anh": "06. Yêu Anh Giết Anh - MCK.mkv",
+  "TAY_CH_N": "07. Mắt Môi Tay Chân - MCK ft. Tage (Official Music Video).mkv",
+  "ao_C_a": "08. Đạo Của Anh Vừa - MCK.mkv",
+  "L__G__": "09. Là Gì Của Nhau - MCK.mkv",
+  "Night_In": "10. Night In Prague - MCK.mkv",
+  "M_t_C_i": "11. Một Cái Ôm - MCK.mkv",
+  "Li_m": "12. Liệm - MCK.mkv",
+  "N_u_Nh": "13. Nếu Như Ta Chẳng Còn - MCK ft. AAP Ướt Mi.mkv",
+  "Ai_M_i": "14. Ai Mới Là Kẻ Xấu Xa - MCK.mkv",
+  "SLIPPERY": "15. Slippery - MCK ft. Tùng Dương (Official Music Video).mkv",
+  "Intenpol": "16. Intenpol - MCK.mkv",
+  "T_y_Thi": "17. Tây Thi - MCK.mkv",
+  "H_t_v": "18. Hút và Hút - MCK.mkv",
+  "D_a_Chua": "19. Dưa Chua - MCK.mkv",
+  "XA_X_I": "20. Xa Xôi - MCK ft. Obito (Official Music Video).mkv",
+  "Che_Ph": "21. Che Phù - MCK.mkv",
+  "Oanh_M": "22. Oanh M - Thuoc - MCK.mkv",
+  "Ghet_Xog": "23. Ghét Xog Lại Thik - MCK.mkv",
+  "TH__C_A_TAO": "24. Nhìn Kẻ Thù Của Tao - MCK (Official Music Video).mkv",
+  "Envy": "25. Envy - MCK ft. THANHDRAW.mkv",
+  "C_m__n": "26. Cảm Ơn - MCK.mkv",
+  "Kh_ng_C_n": "27. Không Cần Lo Cho Tao - MCK.mkv",
+  "Huh": "28. Huh - MCK ft. RPT ORIJINN & THANHDRAW.mkv",
+  "Nguy_n_V_n": "29. Nguyễn Văn Mười - MCK.mkv",
+  "Th_t_L_n": "30. Thịt Lợn - MCK.mkv"
+};
+
+// Endpoint to physically rename objects inside the Cloudflare R2 bucket (audio, videos, covers)
 app.all("/api/r2/rename-vault-objects", async (c) => {
   if (!c.env.MUSIC_ASSETS) {
     return c.json({ error: "R2 Bucket not bound" }, 503);
   }
 
-  const listed = await c.env.MUSIC_ASSETS.list({ limit: 100 });
+  const listed = await c.env.MUSIC_ASSETS.list({ limit: 500 });
   const results: any[] = [];
 
   for (const obj of listed.objects) {
     const oldKey = obj.key;
-    const hasAudioPrefix = oldKey.startsWith("audio/");
-    const filenameOnly = hasAudioPrefix ? oldKey.replace("audio/", "") : oldKey;
+    let newKey = "";
 
-    // Find track number (e.g. _01_, _02_, 01_, 02_)
-    let matchedTrackNum = "";
-    for (let i = 1; i <= 30; i++) {
-      const numStr = i < 10 ? `0${i}` : `${i}`;
-      if (filenameOnly.includes(`_${numStr}_`) || filenameOnly.startsWith(`${numStr}_`) || filenameOnly.startsWith(`${numStr}.`)) {
-        matchedTrackNum = numStr;
-        break;
+    // 1. Rename Audio folder files
+    if (oldKey.startsWith("audio/") || oldKey.endsWith(".flac")) {
+      const hasAudioPrefix = oldKey.startsWith("audio/");
+      const filenameOnly = hasAudioPrefix ? oldKey.replace("audio/", "") : oldKey;
+
+      for (let i = 1; i <= 30; i++) {
+        const numStr = i < 10 ? `0${i}` : `${i}`;
+        if (filenameOnly.includes(`_${numStr}_`) || filenameOnly.startsWith(`${numStr}_`) || filenameOnly.startsWith(`${numStr}.`)) {
+          const cleanName = R2_CLEAN_MAP[numStr];
+          if (cleanName) {
+            newKey = hasAudioPrefix ? `audio/${cleanName}` : `audio/${cleanName}`;
+          }
+          break;
+        }
       }
     }
+    // 2. Rename Video folder files (.mkv)
+    else if (oldKey.startsWith("videos/") || oldKey.endsWith(".mkv")) {
+      const filenameOnly = oldKey.replace("videos/", "");
 
-    if (matchedTrackNum && R2_CLEAN_MAP[matchedTrackNum]) {
-      const cleanName = R2_CLEAN_MAP[matchedTrackNum];
-      const newKey = hasAudioPrefix ? `audio/${cleanName}` : cleanName;
-
-      if (newKey !== oldKey) {
-        const oldObject = await c.env.MUSIC_ASSETS.get(oldKey);
-        if (oldObject) {
-          // Copy to new clean object key in R2
-          await c.env.MUSIC_ASSETS.put(newKey, oldObject.body, {
-            httpMetadata: oldObject.httpMetadata,
-            customMetadata: oldObject.customMetadata,
-          });
-
-          // Delete the old mangled object key from R2
-          await c.env.MUSIC_ASSETS.delete(oldKey);
-
-          results.push({
-            oldKey,
-            newKey,
-            status: "SUCCESS_RENAMED"
-          });
+      for (const [matchKey, cleanName] of Object.entries(VIDEO_CLEAN_MAP)) {
+        if (filenameOnly.includes(matchKey)) {
+          newKey = `videos/${cleanName}`;
+          break;
         }
+      }
+    }
+    // 3. Rename Covers folder files (.jpg / .png)
+    else if (oldKey.startsWith("covers/") || oldKey.endsWith(".jpg") || oldKey.endsWith(".png")) {
+      newKey = "covers/HVL_Album_Cover.jpg";
+    }
+
+    // Execute physical copy & delete in R2
+    if (newKey && newKey !== oldKey) {
+      const oldObject = await c.env.MUSIC_ASSETS.get(oldKey);
+      if (oldObject) {
+        await c.env.MUSIC_ASSETS.put(newKey, oldObject.body, {
+          httpMetadata: oldObject.httpMetadata,
+          customMetadata: oldObject.customMetadata,
+        });
+        await c.env.MUSIC_ASSETS.delete(oldKey);
+
+        results.push({
+          oldKey,
+          newKey,
+          status: "SUCCESS_RENAMED"
+        });
       }
     }
   }
