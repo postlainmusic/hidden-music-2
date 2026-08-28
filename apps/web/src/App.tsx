@@ -2,14 +2,18 @@ import React, { useEffect, useRef } from "react";
 import { MeshGradientBackground } from "./components/MeshGradientBackground";
 import { GlassNavbar } from "./components/GlassNavbar";
 import { FloatingPlayerDock } from "./components/FloatingPlayerDock";
+import { MobilePlayerDock } from "./components/MobilePlayerDock";
 import { VaultGate } from "./components/VaultGate";
 import { HomePage } from "./pages/HomePage";
+import { MobileHomePage } from "./pages/MobileHomePage";
 import { useAudioStore } from "./store/audioStore";
+import { useIsMobile } from "./hooks/useIsMobile";
 
 export const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [activeTab, setActiveTab] = React.useState<"vault" | "explore">("vault");
   const { currentTrack, isPlaying, volume, isMuted, currentUser, setAudioElement, nextTrack, initAudioEngine } = useAudioStore();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     initAudioEngine();
@@ -47,7 +51,7 @@ export const App: React.FC = () => {
   }, [isPlaying, currentTrack?.audioUrl]);
 
   return (
-    <div style={{ position: "relative", minHeight: "100vh", overflowX: "hidden", backgroundColor: "#000000" }}>
+    <div style={{ position: "relative", minHeight: "100dvh", width: "100vw", overflowX: "hidden", backgroundColor: "#000000" }}>
       {/* 1. Subtle Monochrome Background */}
       <MeshGradientBackground />
 
@@ -61,11 +65,15 @@ export const App: React.FC = () => {
 
           {/* Tab Content */}
           {activeTab === "vault" ? (
-            <HomePage onExploreClick={() => setActiveTab("explore")} />
+            isMobile ? (
+              <MobileHomePage onExploreClick={() => setActiveTab("explore")} />
+            ) : (
+              <HomePage onExploreClick={() => setActiveTab("explore")} />
+            )
           ) : (
             <div
               style={{
-                minHeight: "100vh",
+                minHeight: "100dvh",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
@@ -97,8 +105,8 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          {/* Floating Player Dock (Only shows when playing) */}
-          {isPlaying && <FloatingPlayerDock />}
+          {/* Player Dock (Shows when playing) */}
+          {isPlaying && (isMobile ? <MobilePlayerDock /> : <FloatingPlayerDock />)}
         </>
       )}
 

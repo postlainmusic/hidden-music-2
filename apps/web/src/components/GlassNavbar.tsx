@@ -2,6 +2,7 @@ import React from "react";
 import { useAudioStore } from "../store/audioStore";
 import { Disc3, LogOut, Compass, Database } from "lucide-react";
 import { motion } from "framer-motion";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 interface GlassNavbarProps {
   activeTab?: "vault" | "explore";
@@ -13,6 +14,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
   onTabChange
 }) => {
   const { currentUser, logoutUser } = useAudioStore();
+  const isMobile = useIsMobile();
 
   return (
     <header
@@ -22,12 +24,18 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
         left: 0,
         right: 0,
         zIndex: 100,
-        background: "transparent",
-        padding: "0 36px",
-        height: "72px",
+        background: isMobile ? "rgba(0, 0, 0, 0.4)" : "transparent",
+        backdropFilter: isMobile ? "blur(16px)" : "none",
+        WebkitBackdropFilter: isMobile ? "blur(16px)" : "none",
+        paddingLeft: isMobile ? "14px" : "36px",
+        paddingRight: isMobile ? "14px" : "36px",
+        paddingTop: "max(8px, env(safe-area-inset-top, 8px))",
+        paddingBottom: "8px",
+        minHeight: isMobile ? "58px" : "72px",
         display: "flex",
         alignItems: "center",
-        pointerEvents: "auto"
+        pointerEvents: "auto",
+        borderBottom: isMobile ? "1px solid rgba(255, 255, 255, 0.08)" : "none"
       }}
     >
       <div
@@ -37,37 +45,38 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
           margin: "0 auto",
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between"
+          justifyContent: "space-between",
+          gap: isMobile ? "8px" : "16px"
         }}
       >
         {/* ── GÓC TRÁI: ICON + TÊN WEB ─────────────────────────────────────── */}
         <div
           onClick={() => onTabChange?.("vault")}
-          style={{ display: "flex", alignItems: "center", gap: "12px", cursor: "pointer" }}
+          style={{ display: "flex", alignItems: "center", gap: isMobile ? "8px" : "12px", cursor: "pointer", flexShrink: 0 }}
         >
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ repeat: Infinity, duration: 24, ease: "linear" }}
             style={{
-              width: "36px",
-              height: "36px",
-              borderRadius: "10px",
+              width: isMobile ? "30px" : "36px",
+              height: isMobile ? "30px" : "36px",
+              borderRadius: "8px",
               background: "linear-gradient(135deg, #ffffff 0%, #71717a 100%)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              boxShadow: "0 2px 12px rgba(255, 255, 255, 0.15)"
+              boxShadow: "0 2px 10px rgba(255, 255, 255, 0.15)"
             }}
           >
-            <Disc3 size={20} color="#000000" />
+            <Disc3 size={isMobile ? 18 : 20} color="#000000" />
           </motion.div>
 
           <span
             style={{
               fontFamily: "var(--font-display)",
               fontWeight: 800,
-              fontSize: "1.1rem",
-              letterSpacing: "0.08em",
+              fontSize: isMobile ? "0.92rem" : "1.1rem",
+              letterSpacing: "0.06em",
               color: "#ffffff"
             }}
           >
@@ -82,8 +91,9 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
             alignItems: "center",
             background: "rgba(255, 255, 255, 0.08)",
             borderRadius: "999px",
-            padding: "4px",
-            border: "1px solid rgba(255, 255, 255, 0.12)"
+            padding: "3px",
+            border: "1px solid rgba(255, 255, 255, 0.12)",
+            flexShrink: 0
           }}
         >
           <button
@@ -91,10 +101,10 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "6px",
-              padding: "6px 18px",
+              gap: "4px",
+              padding: isMobile ? "4px 12px" : "6px 18px",
               borderRadius: "999px",
-              fontSize: "0.86rem",
+              fontSize: isMobile ? "0.78rem" : "0.86rem",
               fontWeight: 600,
               border: "none",
               cursor: "pointer",
@@ -103,7 +113,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
               color: activeTab === "vault" ? "#000000" : "rgba(255, 255, 255, 0.6)"
             }}
           >
-            <Database size={14} />
+            <Database size={isMobile ? 12 : 14} />
             <span>Vault</span>
           </button>
 
@@ -112,10 +122,10 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "6px",
-              padding: "6px 18px",
+              gap: "4px",
+              padding: isMobile ? "4px 12px" : "6px 18px",
               borderRadius: "999px",
-              fontSize: "0.86rem",
+              fontSize: isMobile ? "0.78rem" : "0.86rem",
               fontWeight: 600,
               border: "none",
               cursor: "pointer",
@@ -124,20 +134,20 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
               color: activeTab === "explore" ? "#000000" : "rgba(255, 255, 255, 0.6)"
             }}
           >
-            <Compass size={14} />
+            <Compass size={isMobile ? 12 : 14} />
             <span>Khám phá</span>
           </button>
         </div>
 
         {/* ── GÓC PHẢI: AVATAR PROFILE (BỎ TÊN) + SIGN OUT ─────────────────── */}
-        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "8px" : "14px", flexShrink: 0 }}>
           {currentUser?.avatarUrl ? (
             <img
               src={currentUser.avatarUrl}
               alt="Profile Avatar"
               style={{
-                width: "36px",
-                height: "36px",
+                width: isMobile ? "30px" : "36px",
+                height: isMobile ? "30px" : "36px",
                 borderRadius: "50%",
                 objectFit: "cover",
                 border: "1px solid rgba(255, 255, 255, 0.25)"
@@ -146,8 +156,8 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
           ) : (
             <div
               style={{
-                width: "36px",
-                height: "36px",
+                width: isMobile ? "30px" : "36px",
+                height: isMobile ? "30px" : "36px",
                 borderRadius: "50%",
                 background: "rgba(255, 255, 255, 0.1)",
                 display: "flex",
@@ -156,7 +166,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
                 border: "1px solid rgba(255, 255, 255, 0.2)"
               }}
             >
-              <span style={{ fontSize: "0.82rem", fontWeight: 700 }}>
+              <span style={{ fontSize: isMobile ? "0.75rem" : "0.82rem", fontWeight: 700 }}>
                 {currentUser?.email?.[0]?.toUpperCase() || "U"}
               </span>
             </div>
@@ -169,8 +179,8 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
               background: "rgba(255, 255, 255, 0.08)",
               border: "1px solid rgba(255, 255, 255, 0.12)",
               borderRadius: "50%",
-              width: "36px",
-              height: "36px",
+              width: isMobile ? "30px" : "36px",
+              height: isMobile ? "30px" : "36px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -187,7 +197,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
               e.currentTarget.style.color = "rgba(255, 255, 255, 0.7)";
             }}
           >
-            <LogOut size={16} />
+            <LogOut size={isMobile ? 14 : 16} />
           </button>
         </div>
       </div>
