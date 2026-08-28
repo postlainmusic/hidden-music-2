@@ -117,11 +117,21 @@ export const HomePage: React.FC = () => {
               <motion.button
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
-                onClick={() => (featuredTrack.id === currentTrack?.id ? togglePlay() : playTrack(featuredTrack))}
+                onClick={() => {
+                  if (featuredTrack.id === currentTrack?.id) {
+                    togglePlay();
+                  } else {
+                    playTrack(featuredTrack);
+                  }
+                }}
                 className="apple-btn-primary"
                 style={{ padding: "14px 28px", fontSize: "1rem" }}
               >
-                <Play size={18} fill="#ffffff" />
+                {featuredTrack.id === currentTrack?.id && isPlaying ? (
+                  <Pause size={18} fill="#ffffff" />
+                ) : (
+                  <Play size={18} fill="#ffffff" />
+                )}
                 <span>{featuredTrack.id === currentTrack?.id && isPlaying ? "Tạm dừng phát" : "Nghe ngay"}</span>
               </motion.button>
 

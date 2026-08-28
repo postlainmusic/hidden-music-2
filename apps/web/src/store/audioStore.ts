@@ -494,7 +494,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             set({ isPlaying: true });
           })
           .catch((e) => {
-            console.warn("Play deferred or interrupted:", e);
+            if (e.name !== "AbortError") {
+              console.warn("Play error:", e);
+            }
           });
       }
     }
@@ -509,7 +511,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   togglePlay: () => {
-    const { isPlaying, currentTrack, initAudioEngine, playTrack } = get();
+    const { currentTrack, initAudioEngine, playTrack } = get();
 
     if (!audioElement) {
       initAudioEngine();
@@ -521,7 +523,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     }
 
     if (audioElement) {
-      if (isPlaying) {
+      if (!audioElement.paused) {
         audioElement.pause();
         set({ isPlaying: false });
       } else {
@@ -531,7 +533,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             .then(() => {
               set({ isPlaying: true });
             })
-            .catch((e) => console.warn("Audio play error:", e));
+            .catch((e) => {
+              if (e.name !== "AbortError") {
+                console.warn("Audio play error:", e);
+              }
+            });
         }
       }
     }
