@@ -170,9 +170,6 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
   const currentMarbleStep = MARBLE_STEPS[revolverIndex] ?? 0;
   const marbleBaseX = currentMarbleStep * 24;
 
-  // Tính toán vị trí Y và Scale của Album trung tâm
-  // Khi ở Section 1: nếu settled thì y = -135px, scale = 0.58; nếu đang ở tâm thì y = 0, scale = 1.0
-  // Khi ở Section 2: y = 0px, scale = 1.0
   const centerCardY = activeSection === 0
     ? (isSec1Settled ? -135 : 0)
     : 0;
@@ -216,12 +213,14 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
       >
         {/* Localized metallic sheen glow behind cards in Section 2 */}
         <motion.div
+          initial={{ opacity: 0 }}
           animate={{
             opacity: activeSection === 1 ? 0.35 : 0,
             scale: activeSection === 1 ? 1 : 0.8
           }}
           transition={{ duration: 0.6, ease: "easeInOut" }}
           className="metallic-sheen-glow"
+          style={{ opacity: 0, pointerEvents: "none" }}
         />
 
         {/* ── SECTION 2 WINGS: LEFT & RIGHT CARDS (FADE & SLIDE INTO PLACE) ── */}
@@ -232,6 +231,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
           return (
             <motion.div
               key={`${slot.id}-${offset}`}
+              initial={{ opacity: 0 }}
               onClick={() => {
                 if (isSection2) {
                   setRevolverIndex((prev) => (prev + offset + totalSlots) % totalSlots);
@@ -261,6 +261,8 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                   : "linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%)",
                 backdropFilter: slot.isReal ? "none" : "blur(20px)",
                 WebkitBackdropFilter: slot.isReal ? "none" : "blur(20px)",
+                opacity: 0,
+                pointerEvents: "none",
                 zIndex: 5
               }}
             >
@@ -339,6 +341,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
               drag={isSection2 ? "x" : false}
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.4}
+              initial={{ opacity: 0, scale: 0.96 }}
               onDrag={(_, info) => {
                 if (isSection2) setDragOffset(info.offset.x);
               }}
@@ -366,6 +369,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
               transition={{
                 y: { duration: 1.1, ease: [0.16, 1, 0.3, 1] },
                 scale: { duration: 1.1, ease: [0.16, 1, 0.3, 1] },
+                opacity: { duration: 0.4, ease: "easeOut" },
                 x: { duration: 0.2, ease: "easeOut" }
               }}
               style={{
@@ -460,6 +464,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
 
         {/* ── SECTION 1: 5 TRACKS LIST (BOTTOM HALF) ── */}
         <motion.div
+          initial={{ opacity: 0 }}
           animate={{
             opacity: activeSection === 0 && isSec1Settled ? 1 : 0,
             y: activeSection === 0 && isSec1Settled ? 0 : 20,
@@ -475,6 +480,8 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
             display: "flex",
             flexDirection: "column",
             gap: "6px",
+            opacity: 0,
+            pointerEvents: "none",
             zIndex: 6
           }}
         >
@@ -580,6 +587,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
 
         {/* ── SECTION 2: 5-POINT MAGNETIC ROLLING MARBLE CAPSULE ── */}
         <motion.div
+          initial={{ opacity: 0 }}
           animate={{
             opacity: activeSection === 1 ? 1 : 0,
             y: activeSection === 1 ? 0 : 20,
@@ -602,6 +610,8 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
             alignItems: "center",
             justifyContent: "center",
             boxShadow: "0 8px 24px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.2)",
+            opacity: 0,
+            pointerEvents: "none",
             zIndex: 20,
             overflow: "hidden"
           }}
