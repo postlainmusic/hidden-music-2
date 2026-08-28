@@ -8,7 +8,7 @@ import { useAudioStore } from "./store/audioStore";
 
 export const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const { currentTrack, setAudioElement, nextTrack, initAudioEngine } = useAudioStore();
+  const { currentTrack, isPlaying, volume, isMuted, setAudioElement, nextTrack, initAudioEngine } = useAudioStore();
 
   useEffect(() => {
     initAudioEngine();
@@ -16,6 +16,34 @@ export const App: React.FC = () => {
       setAudioElement(audioRef.current);
     }
   }, [initAudioEngine, setAudioElement]);
+
+  // Volume & Mute synchronizer
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = isMuted ? 0 : volume;
+      audioRef.current.muted = isMuted;
+    }
+  }, [volume, isMuted]);
+
+  // Proven HTML5 Audio Player Controller (Play/Pause/Track switch)
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !currentTrack?.audioUrl) return;
+
+    if (isPlaying) {
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          if (err?.name !== "AbortError") {
+            console.warn("Audio play notice:", err);
+            useAudioStore.setState({ isPlaying: false, isBuffering: false });
+          }
+        });
+      }
+    } else {
+      audio.pause();
+    }
+  }, [isPlaying, currentTrack?.audioUrl]);
 
   return (
     <div style={{ position: "relative", minHeight: "100vh", overflowX: "hidden" }}>
@@ -34,12 +62,13 @@ export const App: React.FC = () => {
       {/* 5. Liquid Glass Login Modal */}
       <LoginModal />
 
-      {/* 6. Primary Global HTML5 Lossless Audio Engine */}
+      {/* 6. Primary Global HTML5 Lossless Audio Engine (Proven Byte-Range Seeking Lifecycle) */}
       <audio
         ref={audioRef}
-        src={currentTrack?.audioUrl}
-        preload="auto"
+        src={currentTrack?.audioUrl || undefined}
+        preload="metadata"
         playsInline
+        crossOrigin="anonymous"
         onPlay={() => useAudioStore.setState({ isPlaying: true })}
         onPause={() => useAudioStore.setState({ isPlaying: false })}
         onWaiting={() => useAudioStore.setState({ isBuffering: true })}
@@ -56,9 +85,14 @@ export const App: React.FC = () => {
             isPlaying: !e.currentTarget.paused
           });
         }}
+        onDurationChange={(e) => {
+          if (e.currentTarget.duration && !isNaN(e.currentTarget.duration) && e.currentTarget.duration > 0) {
+            useAudioStore.setState({ duration: Math.round(e.currentTarget.duration) });
+          }
+        }}
         onLoadedMetadata={(e) => {
-          if (e.currentTarget.duration && !isNaN(e.currentTarget.duration)) {
-            useAudioStore.setState({ duration: e.currentTarget.duration });
+          if (e.currentTarget.duration && !isNaN(e.currentTarget.duration) && e.currentTarget.duration > 0) {
+            useAudioStore.setState({ duration: Math.round(e.currentTarget.duration) });
           }
         }}
         onEnded={() => nextTrack()}

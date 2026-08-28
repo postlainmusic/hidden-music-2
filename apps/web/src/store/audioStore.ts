@@ -468,26 +468,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       currentTrack: track,
       duration: track.duration,
       currentTime: 0,
-      isBuffering: true,
+      isBuffering: false,
       isPlaying: true
     });
-
-    setTimeout(() => {
-      if (audioElement) {
-        audioElement.volume = get().volume;
-        audioElement.muted = get().isMuted;
-        const playPromise = audioElement.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              set({ isPlaying: true, isBuffering: false });
-            })
-            .catch((e) => {
-              if (e.name !== "AbortError") console.warn("Audio play error:", e);
-            });
-        }
-      }
-    }, 50);
   },
 
   togglePlay: () => {
@@ -498,21 +481,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       return;
     }
 
-    if (audioElement) {
-      if (!audioElement.paused) {
-        audioElement.pause();
-        set({ isPlaying: false, isBuffering: false });
-      } else {
-        audioElement.volume = get().volume;
-        audioElement.muted = get().isMuted;
-        audioElement.play().catch((e) => {
-          if (e.name !== "AbortError") console.warn("Audio toggle error:", e);
-        });
-        set({ isPlaying: true, isBuffering: false });
-      }
-    } else {
-      set({ isPlaying: !isPlaying });
-    }
+    set({ isPlaying: !isPlaying });
   },
 
   nextTrack: () => {
