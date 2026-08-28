@@ -32,21 +32,12 @@ const formatDuration = (seconds: number) => {
 };
 
 export const HomePage: React.FC = () => {
-  const { currentUser } = useAudioStore();
+  const { currentUser, favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
   const [selectedAlbumModal, setSelectedAlbumModal] = useState<string | null>(null);
-  const [favoritedIds, setFavoritedIds] = useState<Set<string>>(new Set());
 
   const toggleFavorite = (e: React.MouseEvent, trackId: string) => {
     e.stopPropagation();
-    setFavoritedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(trackId)) {
-        next.delete(trackId);
-      } else {
-        next.add(trackId);
-      }
-      return next;
-    });
+    toggleFavoriteTrack(trackId);
   };
 
   const handleAlbumClick = (albumName: string) => {
@@ -317,7 +308,7 @@ export const HomePage: React.FC = () => {
               {/* 5 Real Best Play Tracks List */}
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 {BEST_PLAY_TRACKS.map((track, idx) => {
-                  const isFav = favoritedIds.has(track.id);
+                  const isFav = favoritedTrackIds.includes(track.id);
                   return (
                     <div
                       key={track.id}

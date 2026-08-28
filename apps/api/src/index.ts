@@ -114,6 +114,81 @@ app.get("/api/auth/me", async (c) => {
   }
 });
 
+// Get User Favorites from D1
+app.get("/api/favorites", async (c) => {
+  const authHeader = c.req.header("Authorization") || "";
+  if (!authHeader.startsWith("Bearer sess_")) {
+    return c.json({ favorites: [] });
+  }
+
+  try {
+    const raw = authHeader.replace("Bearer sess_", "");
+    const user = JSON.parse(decodeURIComponent(escape(atob(raw))));
+    if (!user?.id || !c.env.DB) {
+      return c.json({ favorites: [] });
+    }
+
+    const { results } = await c.env.DB.prepare(
+      "SELECT track_id FROM user_favorites WHERE user_id = ? ORDER BY created_at DESC"
+    )
+      .bind(user.id)
+      .all();
+
+    const trackIds = results ? results.map((r: any) => r.track_id) : [];
+    return c.json({ success: true, favorites: trackIds });
+  } catch (err: any) {
+    return c.json({ favorites: [], error: err.message });
+  }
+});
+
+// Toggle Favorite Track in D1
+app.post("/api/favorites/toggle", async (c) => {
+  const authHeader = c.req.header("Authorization") || "";
+  if (!authHeader.startsWith("Bearer sess_")) {
+    return c.json({ success: false, error: "Yêu cầu đăng nhập" }, 401);
+  }
+
+  try {
+    const raw = authHeader.replace("Bearer sess_", "");
+    const user = JSON.parse(decodeURIComponent(escape(atob(raw))));
+    const { trackId } = await c.req.json();
+
+    if (!user?.id || !trackId) {
+      return c.json({ success: false, error: "Thiếu thông tin trackId hoặc userId" }, 400);
+    }
+
+    if (c.env.DB) {
+      const existing = await c.env.DB.prepare(
+        "SELECT 1 FROM user_favorites WHERE user_id = ? AND track_id = ?"
+      )
+        .bind(user.id, trackId)
+        .first();
+
+      if (existing) {
+        await c.env.DB.prepare(
+          "DELETE FROM user_favorites WHERE user_id = ? AND track_id = ?"
+        )
+          .bind(user.id, trackId)
+          .run();
+
+        return c.json({ success: true, favorited: false, trackId });
+      } else {
+        await c.env.DB.prepare(
+          "INSERT INTO user_favorites (user_id, track_id, created_at) VALUES (?, ?, ?)"
+        )
+          .bind(user.id, trackId, Date.now())
+          .run();
+
+        return c.json({ success: true, favorited: true, trackId });
+      }
+    }
+
+    return c.json({ success: true, favorited: true, trackId });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
 const R2_BASE = "https://media.postlain.com";
 const HVL_COVER = `${R2_BASE}/covers/HVL_Album_Cover.jpg`;
 

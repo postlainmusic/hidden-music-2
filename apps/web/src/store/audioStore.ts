@@ -406,6 +406,7 @@ interface AudioState {
   isMuted: boolean;
   isLoginModalOpen: boolean;
   currentUser: UserSession | null;
+  favoritedTrackIds: string[];
   analyserNode: AnalyserNode | null;
 
   // Actions
@@ -422,6 +423,8 @@ interface AudioState {
   logoutUser: () => void;
   initAudioEngine: () => void;
   getFrequencyData: () => Uint8Array;
+  loadFavorites: () => Promise<void>;
+  toggleFavoriteTrack: (trackId: string) => Promise<void>;
 }
 
 let audioElement: HTMLAudioElement | null = null;
@@ -446,6 +449,16 @@ const getInitialUser = (): UserSession | null => {
   }
 };
 
+const getInitialFavorites = (): string[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const saved = localStorage.getItem("vault_favorites");
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+};
+
 export const useAudioStore = create<AudioState>((set, get) => ({
   currentTrack: DEFAULT_TRACKS[0],
   queue: DEFAULT_TRACKS,
@@ -457,6 +470,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   isMuted: false,
   isLoginModalOpen: false,
   currentUser: getInitialUser(),
+  favoritedTrackIds: getInitialFavorites(),
   analyserNode: null,
 
   setAudioElement: (el: HTMLAudioElement | null) => {
@@ -545,14 +559,67 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       localStorage.setItem("vault_user", JSON.stringify(user));
     }
     set({ currentUser: user, isLoginModalOpen: false });
+    get().loadFavorites();
   },
 
   logoutUser: () => {
     if (typeof window !== "undefined") {
       localStorage.removeItem("vault_user");
       localStorage.removeItem("vault_token");
+      localStorage.removeItem("vault_favorites");
     }
-    set({ currentUser: null });
+    set({ currentUser: null, favoritedTrackIds: [] });
+  },
+
+  loadFavorites: async () => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("vault_token") : null;
+    if (!token) return;
+
+    try {
+      const res = await fetch("https://hidden-music-api.postlain-music.workers.dev/api/favorites", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.favorites)) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("vault_favorites", JSON.stringify(data.favorites));
+        }
+        set({ favoritedTrackIds: data.favorites });
+      }
+    } catch (err) {
+      console.warn("Load favorites notice:", err);
+    }
+  },
+
+  toggleFavoriteTrack: async (trackId: string) => {
+    const { favoritedTrackIds } = get();
+    const isCurrentlyFav = favoritedTrackIds.includes(trackId);
+    const updated = isCurrentlyFav
+      ? favoritedTrackIds.filter((id) => id !== trackId)
+      : [...favoritedTrackIds, trackId];
+
+    // Optimistic UI update + local storage
+    if (typeof window !== "undefined") {
+      localStorage.setItem("vault_favorites", JSON.stringify(updated));
+    }
+    set({ favoritedTrackIds: updated });
+
+    // Sync to Cloudflare D1
+    const token = typeof window !== "undefined" ? localStorage.getItem("vault_token") : null;
+    if (token) {
+      try {
+        await fetch("https://hidden-music-api.postlain-music.workers.dev/api/favorites/toggle", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ trackId })
+        });
+      } catch (err) {
+        console.warn("Toggle favorite sync notice:", err);
+      }
+    }
   },
 
   getFrequencyData: () => {
