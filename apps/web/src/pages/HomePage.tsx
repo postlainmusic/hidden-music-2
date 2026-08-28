@@ -12,9 +12,10 @@ const BEST_PLAY_TRACKS = [
   DEFAULT_TRACKS[19], // 20. Xa Xôi (feat. Obito)
 ];
 
-// 6 Slots for Section 2: 1 Real Album + 5 Frosted Glass Cards
+// Exact 5 Slots Layout: Bìa 1 ở giữa, sang phải là Bìa 2 & 3, sang trái là Bìa 5 & 4
 interface RevolverSlot {
   id: string;
+  slotNumber: number;
   title: string;
   artist: string;
   isReal: boolean;
@@ -22,13 +23,20 @@ interface RevolverSlot {
 }
 
 const REVOLVER_SLOTS: RevolverSlot[] = [
-  { id: "hvl", title: "HVL (99%)", artist: "MCK • 30 Tracks", isReal: true, coverUrl: "https://media.postlain.com/covers/HVL_Album_Cover.jpg" },
-  { id: "slot-2", title: "VAULT SLOT 02", artist: "Lossless Ready", isReal: false },
-  { id: "slot-3", title: "VAULT SLOT 03", artist: "Lossless Ready", isReal: false },
-  { id: "slot-4", title: "VAULT SLOT 04", artist: "Lossless Ready", isReal: false },
-  { id: "slot-5", title: "VAULT SLOT 05", artist: "Lossless Ready", isReal: false },
-  { id: "slot-6", title: "VAULT SLOT 06", artist: "Lossless Ready", isReal: false },
+  { id: "hvl", slotNumber: 1, title: "HVL (99%)", artist: "MCK • 30 Tracks", isReal: true, coverUrl: "https://media.postlain.com/covers/HVL_Album_Cover.jpg" }, // Bìa 1 (Tâm ban đầu)
+  { id: "slot-2", slotNumber: 2, title: "VAULT SLOT 02", artist: "Lossless Ready", isReal: false }, // Bìa 2 (Bên phải Bìa 1)
+  { id: "slot-3", slotNumber: 3, title: "VAULT SLOT 03", artist: "Lossless Ready", isReal: false }, // Bìa 3 (Sát rìa phải)
+  { id: "slot-4", slotNumber: 4, title: "VAULT SLOT 04", artist: "Lossless Ready", isReal: false }, // Bìa 4 (Sát rìa trái)
+  { id: "slot-5", slotNumber: 5, title: "VAULT SLOT 05", artist: "Lossless Ready", isReal: false }, // Bìa 5 (Bên trái Bìa 1)
 ];
+
+// Mapping từ slot index (0..4) sang vị trí bậc trên thanh bi (-2..+2)
+// Index 0 (Bìa 1) -> 0 (Tâm)
+// Index 1 (Bìa 2) -> +1 (Giữa tâm và rìa phải)
+// Index 2 (Bìa 3) -> +2 (Sát rìa phải)
+// Index 3 (Bìa 4) -> -2 (Sát rìa trái)
+// Index 4 (Bìa 5) -> -1 (Giữa tâm và rìa trái)
+const SLOT_TO_MARBLE_STEP = [0, 1, 2, -2, -1];
 
 const formatDuration = (seconds: number) => {
   const m = Math.floor(seconds / 60);
@@ -47,21 +55,18 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
   const [activeSection, setActiveSection] = useState(0);
   const [selectedAlbumModal, setSelectedAlbumModal] = useState<string | null>(null);
 
-  // Section 2 Revolver Index (0 to 5)
+  // Section 2 Revolver Index (0 to 4) - Luôn khởi tạo là 0 (Bìa 1 HVL)
   const [revolverIndex, setRevolverIndex] = useState<number>(0);
   const [dragOffset, setDragOffset] = useState<number>(0);
 
   // Section 1 Internal States (Desktop)
-  // - "fadeIn": 0s - 0.5s (fade in at center)
-  // - "resting_initial": 0.5s - 2.0s (rest at center for 1.5s)
-  // - "settled": 2.0s+ (slid left in 2.0s + tracks slid right in 2.0s)
-  // - "returning_center": tracks sucking in (2.0s) + album sliding back to center (2.0s) (ZERO HALO)
-  // - "resting_center": resting still at dead-center for 0.5s
   const [sec1State, setSec1State] = useState<"fadeIn" | "resting_initial" | "settled" | "returning_center" | "resting_center">("fadeIn");
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
 
   const isScrollingRef = useRef(false);
   const touchStartYRef = useRef(0);
+  const touchStartXRef = useRef(0);
+  const isTouchInsideCarousel = useRef<boolean>(false);
 
   // Initial Section 1 Sequence on Page Load (+1.5s initial rest)
   useEffect(() => {
@@ -94,20 +99,21 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
     playTrack(track);
   };
 
-  // Forward Transition: Section 1 ➔ Section 2 (2.0s simultaneous collapse ➔ 0.5s rest ➔ Section 2)
+  // Forward Transition: Section 1 ➔ Section 2 (Bìa 1 HVL luôn là bìa trung tâm khi xuất hiện)
   const handleTransition1To2 = () => {
     if (isAnimating) return;
     setIsAnimating(true);
 
-    // Bước 1: 5 tracks thu vào bìa (2.0s) + Bìa trượt về tâm (2.0s) (Bỏ hoàn toàn hào quang)
+    // Bước 1: 5 tracks thu vào bìa (2.0s) + Bìa trượt về tâm (2.0s) (Zero Halo)
     setSec1State("returning_center");
 
     // Bước 2: Sau 2.0s, bước vào khoảng nghỉ tĩnh tại tâm 0.5s
     setTimeout(() => {
       setSec1State("resting_center");
 
-      // Bước 3: Sau khoảng nghỉ 0.5s (tổng 2.5s), đổi sang Section 2 mà KHÔNG BỊ CHỚP
+      // Bước 3: Sau khoảng nghỉ 0.5s, đổi sang Section 2 và ĐẢM BẢO revolverIndex = 0 (Bìa 1 HVL)
       setTimeout(() => {
+        setRevolverIndex(0);
         setActiveSection(1);
         setIsAnimating(false);
       }, 500);
@@ -119,11 +125,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
     if (isAnimating) return;
     setIsAnimating(true);
 
-    // Đưa về Section 1 ở trạng thái tâm điểm (returning_center)
     setActiveSection(0);
     setSec1State("returning_center");
 
-    // Lập tức cho bìa trượt sang trái mượt mà trong 2.0s và các track bung mở sang phải trong 2.0s
     setTimeout(() => {
       setSec1State("settled");
       setTimeout(() => {
@@ -138,8 +142,23 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
       e.preventDefault();
       if (isScrollingRef.current || isAnimating) return;
 
-      if (e.deltaY > 25) {
-        // Cuộn xuống ➔ Next Section
+      // Trong Section 2: Nếu con trỏ chuột nằm trong khu vực Carousel thì ưu tiên cuộn ngang đổi đĩa
+      if (activeSection === 1) {
+        const target = e.target as HTMLElement | null;
+        if (target && target.closest(".carousel-interactive-zone")) {
+          // Lăn chuột ngang hoặc lăn chuột dọc nhẹ trong khu vực đĩa -> xoay đĩa theo quán tính
+          if (Math.abs(e.deltaX) > 10 || Math.abs(e.deltaY) < 60) {
+            if (e.deltaX > 20 || e.deltaY > 30) {
+              setRevolverIndex((prev) => (prev + 1) % 5);
+            } else if (e.deltaX < -20 || e.deltaY < -30) {
+              setRevolverIndex((prev) => (prev - 1 + 5) % 5);
+            }
+            return;
+          }
+        }
+      }
+
+      if (e.deltaY > 35) {
         if (activeSection === 0 && sec1State === "settled") {
           handleTransition1To2();
         } else if (activeSection === 1) {
@@ -149,8 +168,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
             isScrollingRef.current = false;
           }, 600);
         }
-      } else if (e.deltaY < -25) {
-        // Cuộn lên ➔ Prev Section
+      } else if (e.deltaY < -35) {
         if (activeSection === 1) {
           handleTransition2To1();
         } else if (activeSection === 2) {
@@ -165,6 +183,17 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isScrollingRef.current || isAnimating) return;
+
+      if (activeSection === 1) {
+        if (e.key === "ArrowLeft") {
+          setRevolverIndex((prev) => (prev - 1 + 5) % 5);
+          return;
+        } else if (e.key === "ArrowRight") {
+          setRevolverIndex((prev) => (prev + 1) % 5);
+          return;
+        }
+      }
+
       if (e.key === "ArrowDown" || e.key === "PageDown") {
         if (activeSection === 0 && sec1State === "settled") {
           handleTransition1To2();
@@ -190,12 +219,32 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
 
     const handleTouchStart = (e: TouchEvent) => {
       touchStartYRef.current = e.touches[0].clientY;
+      touchStartXRef.current = e.touches[0].clientX;
+
+      if (activeSection === 1) {
+        const target = e.target as HTMLElement | null;
+        if (target && target.closest(".carousel-interactive-zone")) {
+          isTouchInsideCarousel.current = true;
+        } else {
+          isTouchInsideCarousel.current = false;
+        }
+      } else {
+        isTouchInsideCarousel.current = false;
+      }
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
       if (isScrollingRef.current || isAnimating) return;
       const deltaY = touchStartYRef.current - e.changedTouches[0].clientY;
-      if (deltaY > 40) {
+      const deltaX = touchStartXRef.current - e.changedTouches[0].clientX;
+
+      if (activeSection === 1 && isTouchInsideCarousel.current) {
+        if (Math.abs(deltaX) > 15 || Math.abs(deltaY) < 80 || Math.abs(deltaY) < Math.abs(deltaX) * 2) {
+          return;
+        }
+      }
+
+      if (deltaY > 50) {
         if (activeSection === 0 && sec1State === "settled") {
           handleTransition1To2();
         } else if (activeSection === 1) {
@@ -205,7 +254,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
             isScrollingRef.current = false;
           }, 600);
         }
-      } else if (deltaY < -40) {
+      } else if (deltaY < -50) {
         if (activeSection === 1) {
           handleTransition2To1();
         } else if (activeSection === 2) {
@@ -231,12 +280,16 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
     };
   }, [activeSection, sec1State, isAnimating]);
 
-  // Section 2 Revolver Index Helper Functions
-  const totalSlots = REVOLVER_SLOTS.length;
+  // Section 2 5-Slot Helper Functions
+  const totalSlots = 5;
   const getSlot = (offset: number) => {
     const idx = (revolverIndex + offset + totalSlots * 10) % totalSlots;
-    return { slot: REVOLVER_SLOTS[idx], index: idx };
+    return { slot: REVOLVER_SLOTS[idx] };
   };
+
+  // Tính toán vị trí của viên bi: 5 bậc đều nhau với bước nhảy 28px (-56px, -28px, 0px, +28px, +56px)
+  const currentMarbleStep = SLOT_TO_MARBLE_STEP[revolverIndex] ?? 0;
+  const marbleBaseX = currentMarbleStep * 28; // Sát rìa trái là -56px, Sát rìa phải là +56px
 
   return (
     <main
@@ -278,7 +331,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                 justifyContent: "center"
               }}
             >
-              {/* Bìa Album ở tâm thuần khiết (BỎ HOÀN TOÀN HÀO QUANG KHI CHUYỂN SECTION) */}
               <motion.div
                 layoutId="desktop-album-hero"
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -308,7 +360,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
             </div>
           )}
 
-          {/* TRẠNG THÁI ĐÃ TRƯỢT SANG TRÁI (settled): Bìa bên trái (2.0s) + 5 tracks bên phải (2.0s) */}
+          {/* TRẠNG THÁI ĐÃ TRƯỢT SANG TRÁI (settled) */}
           {sec1State === "settled" && (
             <div
               style={{
@@ -319,7 +371,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                 gap: "54px"
               }}
             >
-              {/* Left: Bìa album trượt sang trái chậm rãi 2.0s */}
               <motion.div
                 layoutId="desktop-album-hero"
                 initial={{ x: 140, scale: 1.08, opacity: 0.9 }}
@@ -349,7 +400,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                 />
               </motion.div>
 
-              {/* Right: 5 Tracks trượt sang phải 2.0s */}
               <motion.div
                 initial={{ opacity: 0, x: -40 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -460,8 +510,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
       )}
 
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 2: INFINITE REVOLVER (3 VISIBLE SLOTS + 5 FROSTED GLASS CARDS)
-                     & MAGNETIC ROLLING MARBLE CAPSULE
+          SECTION 2: 5-SLOT INFINITE REVOLVER (INERTIA SWIPE & MAGNETIC MARBLE)
       ────────────────────────────────────────────────────────────────────── */}
       {activeSection === 1 && (
         <div
@@ -478,8 +527,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
           {/* Metallic Sheen Breathing Ambient Glow Background */}
           <div className="metallic-sheen-glow" />
 
-          {/* Edge Vignette Container */}
+          {/* Carousel Interactive Container */}
           <div
+            className="carousel-interactive-zone"
             style={{
               position: "relative",
               width: "100%",
@@ -490,7 +540,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
               justifyContent: "center"
             }}
           >
-            {/* ── 3D INFINITE REVOLVER: 3 VISIBLE CARDS (LEFT, CENTER, RIGHT) ── */}
+            {/* ── 3D INFINITE REVOLVER: 3 VISIBLE CARDS (LEFT = Bìa 5, CENTER = Bìa 1, RIGHT = Bìa 2) ── */}
             {[-1, 0, 1].map((offset) => {
               const { slot } = getSlot(offset);
               const isCenter = offset === 0;
@@ -506,12 +556,19 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                   }}
                   onDragEnd={(_, info) => {
                     setDragOffset(0);
-                    if (info.offset.x < -40) {
-                      // Xoay sang đĩa tiếp theo (Next Revolver Slot)
-                      setRevolverIndex((prev) => (prev + 1) % totalSlots);
-                    } else if (info.offset.x > 40) {
-                      // Xoay về đĩa trước (Prev Revolver Slot)
-                      setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
+                    const velocity = info.velocity.x;
+                    const offsetVal = info.offset.x;
+
+                    // Tính quán tính vuốt: Vuốt mạnh (flick) trượt 2 nấc, vuốt vừa trượt 1 nấc, luôn neo ở 1 trong 5 điểm
+                    let steps = 0;
+                    if (Math.abs(velocity) > 700 || Math.abs(offsetVal) > 140) {
+                      steps = velocity < 0 || offsetVal < -110 ? 2 : -2;
+                    } else if (Math.abs(velocity) > 200 || Math.abs(offsetVal) > 30) {
+                      steps = velocity < 0 || offsetVal < 0 ? 1 : -1;
+                    }
+
+                    if (steps !== 0) {
+                      setRevolverIndex((prev) => (prev + steps + 50) % totalSlots);
                     }
                   }}
                   whileTap={isCenter ? { scale: 0.98 } : {}}
@@ -531,7 +588,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                     filter: offset === 0 ? "blur(0px)" : "blur(3px)",
                     zIndex: offset === 0 ? 10 : 5
                   }}
-                  transition={{ type: "spring", stiffness: 280, damping: 28 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 26 }}
                   style={{
                     position: "absolute",
                     width: "360px",
@@ -569,7 +626,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                       }}
                     />
                   ) : (
-                    /* 5 FROSTED GLASS TRANSLUCENT CARDS (SẴN SÀNG NẠP TRACK MỚI) */
+                    /* 4 FROSTED GLASS CARDS (BÌA 2, 3, 4, 5) */
                     <div
                       style={{
                         width: "100%",
@@ -584,7 +641,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                         color: "#ffffff"
                       }}
                     >
-                      {/* Translucent Vinyl Grooves chìm */}
                       <div
                         style={{
                           position: "absolute",
@@ -629,14 +685,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
               );
             })}
 
-            {/* ── MAGNETIC ROLLING MARBLE CAPSULE INDICATOR ─────────────────── */}
+            {/* ── 5-POINT MAGNETIC ROLLING MARBLE CAPSULE INDICATOR ─────────── */}
             <div
               style={{
                 position: "absolute",
                 bottom: "-54px",
                 left: "50%",
                 transform: "translateX(-50%)",
-                width: "140px",
+                width: "150px", // 5 nấc: -56px, -28px, 0px, +28px, +56px (Viên bi 18px ôm sát rìa)
                 height: "28px",
                 borderRadius: "14px",
                 background: "rgba(255, 255, 255, 0.08)",
@@ -647,23 +703,41 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                 alignItems: "center",
                 justifyContent: "center",
                 boxShadow: "0 8px 24px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.2)",
-                zIndex: 20
+                zIndex: 20,
+                overflow: "hidden"
               }}
             >
-              {/* Viên bi kim loại lăn vô cực (Magnetic Rolling Marble) */}
+              {/* 5 Vạch khắc siêu tinh tế biểu thị 5 điểm neo */}
+              {[-56, -28, 0, 28, 56].map((xPos) => (
+                <div
+                  key={xPos}
+                  style={{
+                    position: "absolute",
+                    left: `calc(50% + ${xPos}px)`,
+                    transform: "translateX(-50%)",
+                    width: "2px",
+                    height: "7px",
+                    borderRadius: "1px",
+                    background: "rgba(255, 255, 255, 0.15)",
+                    pointerEvents: "none"
+                  }}
+                />
+              ))}
+
+              {/* Viên bi kim loại lăn vô cực: Bìa 1 ở giữa (0px), Bìa 3 sát rìa phải (+56px), Bìa 4 sát rìa trái (-56px) */}
               <motion.div
                 animate={{
-                  // Viên bi chắc chắn nằm ở giữa khi revolverIndex = 0, và dịch chuyển tương ứng khi xoay
-                  x: ((revolverIndex % totalSlots) - (totalSlots - 1) / 2) * 14 + dragOffset * 0.15
+                  x: Math.max(-60, Math.min(60, marbleBaseX + dragOffset * 0.12))
                 }}
-                transition={{ type: "spring", stiffness: 320, damping: 24 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
                 style={{
                   width: "18px",
                   height: "18px",
                   borderRadius: "50%",
                   background: "radial-gradient(circle at 35% 35%, #ffffff 0%, #d4d4d8 60%, #71717a 100%)",
                   boxShadow: "0 0 12px rgba(255, 255, 255, 0.75), 0 2px 6px rgba(0, 0, 0, 0.8)",
-                  border: "1px solid rgba(255, 255, 255, 0.9)"
+                  border: "1px solid rgba(255, 255, 255, 0.9)",
+                  zIndex: 2
                 }}
               />
             </div>
