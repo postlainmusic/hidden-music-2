@@ -408,6 +408,7 @@ interface AudioState {
   analyserNode: AnalyserNode | null;
 
   // Actions
+  setAudioElement: (el: HTMLAudioElement | null) => void;
   playTrack: (track: Track) => void;
   togglePlay: () => void;
   nextTrack: () => void;
@@ -426,6 +427,7 @@ let audioElement: HTMLAudioElement | null = null;
 
 // Apply dynamic theme color variables on root DOM
 const updateCssTheme = (palette: TrackPalette) => {
+  if (typeof document === "undefined") return;
   const root = document.documentElement;
   root.style.setProperty("--accent-primary", palette.primary);
   root.style.setProperty("--accent-secondary", palette.secondary);
@@ -446,63 +448,28 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   currentUser: null,
   analyserNode: null,
 
+  setAudioElement: (el: HTMLAudioElement | null) => {
+    audioElement = el;
+    if (el) {
+      el.volume = get().volume;
+      el.muted = get().isMuted;
+    }
+  },
+
   initAudioEngine: () => {
-    if (typeof window === "undefined" || audioElement) return;
-
-    audioElement = new Audio();
-    audioElement.preload = "auto";
-    audioElement.src = DEFAULT_TRACKS[0].audioUrl;
-
-    audioElement.addEventListener("loadstart", () => {
-      set({ isBuffering: true });
-    });
-
-    audioElement.addEventListener("waiting", () => {
-      set({ isBuffering: true });
-    });
-
-    audioElement.addEventListener("canplay", () => {
-      set({ isBuffering: false });
-    });
-
-    audioElement.addEventListener("canplaythrough", () => {
-      set({ isBuffering: false });
-    });
-
-    audioElement.addEventListener("timeupdate", () => {
-      if (audioElement) {
-        set({
-          currentTime: audioElement.currentTime,
-          isBuffering: false,
-          isPlaying: !audioElement.paused
-        });
-      }
-    });
-
-    audioElement.addEventListener("loadedmetadata", () => {
-      if (audioElement && audioElement.duration) {
-        set({ duration: audioElement.duration });
-      }
-    });
-
-    audioElement.addEventListener("playing", () => {
-      set({ isPlaying: true, isBuffering: false });
-    });
-
-    audioElement.addEventListener("pause", () => {
-      set({ isPlaying: false, isBuffering: false });
-    });
-
-    audioElement.addEventListener("ended", () => {
-      get().nextTrack();
-    });
-
-    // Update initial theme
     updateCssTheme(DEFAULT_TRACKS[0].palette);
   },
 
   playTrack: (track: Track) => {
-    get().initAudioEngine();
+    updateCssTheme(track.palette);
+
+    set({
+      currentTrack: track,
+      duration: track.duration,
+      currentTime: 0,
+      isBuffering: true,
+      isPlaying: true
+    });
 
     if (audioElement) {
       if (audioElement.src !== track.audioUrl) {
@@ -511,44 +478,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       audioElement.currentTime = 0;
       audioElement.volume = get().volume;
       audioElement.muted = get().isMuted;
-
-      const playPromise = audioElement.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            set({ isPlaying: true, isBuffering: false });
-          })
-          .catch((e) => {
-            if (e.name !== "AbortError") {
-              console.warn("Play error:", e);
-            }
-          });
-      }
-
-      // Timeout safety: never allow buffering to stick if audio is actively decoding/playing
-      setTimeout(() => {
-        if (audioElement && !audioElement.paused) {
-          set({ isBuffering: false, isPlaying: true });
-        }
-      }, 600);
+      audioElement.play().catch((e) => {
+        if (e.name !== "AbortError") console.warn("Audio play error:", e);
+      });
     }
-
-    updateCssTheme(track.palette);
-
-    set({
-      currentTrack: track,
-      currentTime: 0,
-      duration: track.duration,
-      isPlaying: true
-    });
   },
 
   togglePlay: () => {
-    const { currentTrack, initAudioEngine, playTrack } = get();
-
-    if (!audioElement) {
-      initAudioEngine();
-    }
+    const { currentTrack, isPlaying, playTrack } = get();
 
     if (!currentTrack && DEFAULT_TRACKS.length > 0) {
       playTrack(DEFAULT_TRACKS[0]);
@@ -562,19 +499,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       } else {
         audioElement.volume = get().volume;
         audioElement.muted = get().isMuted;
-        const playPromise = audioElement.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              set({ isPlaying: true, isBuffering: false });
-            })
-            .catch((e) => {
-              if (e.name !== "AbortError") {
-                console.warn("Audio play error:", e);
-              }
-            });
-        }
+        audioElement.play().catch((e) => {
+          if (e.name !== "AbortError") console.warn("Audio toggle error:", e);
+        });
+        set({ isPlaying: true, isBuffering: false });
       }
+    } else {
+      set({ isPlaying: !isPlaying });
     }
   },
 
@@ -597,24 +528,25 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   seek: (time: number) => {
     if (audioElement) {
       audioElement.currentTime = time;
-      set({ currentTime: time });
     }
+    set({ currentTime: time });
   },
 
   setVolume: (volume: number) => {
+    const clamped = Math.max(0, Math.min(1, volume));
     if (audioElement) {
-      audioElement.volume = volume;
+      audioElement.volume = clamped;
     }
-    set({ volume, isMuted: volume === 0 });
+    set({ volume: clamped, isMuted: clamped === 0 });
   },
 
   toggleMute: () => {
-    const { isMuted, setVolume } = get();
-    if (isMuted) {
-      setVolume(0.85);
-    } else {
-      setVolume(0);
+    const { isMuted, volume } = get();
+    const nextMuted = !isMuted;
+    if (audioElement) {
+      audioElement.muted = nextMuted;
     }
+    set({ isMuted: nextMuted });
   },
 
   setLoginModalOpen: (open: boolean) => set({ isLoginModalOpen: open }),
