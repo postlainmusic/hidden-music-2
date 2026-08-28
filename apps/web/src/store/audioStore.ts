@@ -509,6 +509,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         audioElement.src = track.audioUrl;
       }
       audioElement.currentTime = 0;
+      audioElement.volume = get().volume;
+      audioElement.muted = get().isMuted;
+
       const playPromise = audioElement.play();
       if (playPromise !== undefined) {
         playPromise
@@ -521,6 +524,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             }
           });
       }
+
+      // Timeout safety: never allow buffering to stick if audio is actively decoding/playing
+      setTimeout(() => {
+        if (audioElement && !audioElement.paused) {
+          set({ isBuffering: false, isPlaying: true });
+        }
+      }, 600);
     }
 
     updateCssTheme(track.palette);
@@ -548,13 +558,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     if (audioElement) {
       if (!audioElement.paused) {
         audioElement.pause();
-        set({ isPlaying: false });
+        set({ isPlaying: false, isBuffering: false });
       } else {
+        audioElement.volume = get().volume;
+        audioElement.muted = get().isMuted;
         const playPromise = audioElement.play();
         if (playPromise !== undefined) {
           playPromise
             .then(() => {
-              set({ isPlaying: true });
+              set({ isPlaying: true, isBuffering: false });
             })
             .catch((e) => {
               if (e.name !== "AbortError") {
