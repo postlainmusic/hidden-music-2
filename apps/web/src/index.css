@@ -35,17 +35,26 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-html {
-  scroll-behavior: smooth;
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Hide scrollbars everywhere */
+::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 body {
   font-family: var(--font-body);
   background-color: #000000;
-  background-image: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0) 70%), radial-gradient(circle at 50% 100%, rgba(255, 255, 255, 0.02) 0%, rgba(0, 0, 0, 0) 70%);
   color: var(--text-primary);
-  min-height: 100vh;
-  overflow-x: hidden;
   user-select: none;
 }
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, ShieldCheck, Disc3, AlertCircle, Loader2 } from "lucide-react";
+import { ShieldCheck, Disc3, AlertCircle, Loader2 } from "lucide-react";
 import { useAudioStore } from "../store/audioStore";
 
 const GOOGLE_CLIENT_ID = "269738854318-95pab6qb8fmjv4q676s3jeu643e7291p.apps.googleusercontent.com";
@@ -64,12 +64,12 @@ export const VaultGate: React.FC = () => {
             googleBtnContainerRef.current.innerHTML = "";
             window.google.accounts.id.renderButton(googleBtnContainerRef.current, {
               type: "standard",
-              theme: "filled_blue",
+              theme: "filled_black",
               size: "large",
               text: "signin_with",
               shape: "pill",
               logo_alignment: "left",
-              width: 320
+              width: 300
             });
           }
 
@@ -107,84 +107,61 @@ export const VaultGate: React.FC = () => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "radial-gradient(ellipse at center, rgba(15, 23, 42, 0.95) 0%, rgba(3, 7, 18, 0.99) 100%)",
+        background: "rgba(0, 0, 0, 0.95)",
         padding: "24px",
-        backdropFilter: "blur(40px)"
+        backdropFilter: "blur(30px)"
       }}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.92, y: 20 }}
+        initial={{ opacity: 0, scale: 0.94, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 280, damping: 24 }}
+        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         style={{
           width: "100%",
-          maxWidth: "460px",
-          background: "linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)",
+          maxWidth: "440px",
+          background: "linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.01) 100%)",
           border: "1px solid rgba(255, 255, 255, 0.12)",
           borderRadius: "32px",
           padding: "44px 36px",
-          boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 40px rgba(99, 102, 241, 0.2)",
+          boxShadow: "0 30px 70px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.15)",
           textAlign: "center",
           position: "relative",
           overflow: "hidden"
         }}
       >
-        {/* Ambient Top Glow */}
-        <div
-          style={{
-            position: "absolute",
-            top: "-80px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: "240px",
-            height: "160px",
-            background: "radial-gradient(circle, rgba(99, 102, 241, 0.5) 0%, transparent 70%)",
-            pointerEvents: "none"
-          }}
-        />
-
-        {/* Brand Icon */}
+        {/* Monochromatic Brand Icon */}
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 25, ease: "linear" }}
           style={{
-            width: "68px",
-            height: "68px",
-            borderRadius: "22px",
-            background: "linear-gradient(135deg, #6366f1 0%, #ec4899 100%)",
+            width: "64px",
+            height: "64px",
+            borderRadius: "20px",
+            background: "linear-gradient(135deg, #ffffff 0%, #52525b 100%)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             margin: "0 auto 24px",
-            boxShadow: "0 0 30px rgba(99, 102, 241, 0.5)"
+            boxShadow: "0 0 24px rgba(255, 255, 255, 0.15)"
           }}
         >
-          <Disc3 size={36} color="#ffffff" />
+          <Disc3 size={34} color="#000000" />
         </motion.div>
-
-        {/* Title */}
-        <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
-          <Sparkles size={16} color="#818cf8" />
-          <span style={{ fontSize: "0.82rem", fontWeight: 700, letterSpacing: "2px", color: "#818cf8", textTransform: "uppercase" }}>
-            Cổng truy cập Vault
-          </span>
-        </div>
 
         <h1
           style={{
-            fontSize: "2rem",
+            fontSize: "1.8rem",
             fontWeight: 800,
             lineHeight: 1.2,
             marginBottom: "12px",
-            background: "linear-gradient(135deg, #ffffff 40%, rgba(255,255,255,0.7) 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent"
+            color: "#ffffff",
+            letterSpacing: "0.05em"
           }}
         >
           HIDDEN MUSIC
         </h1>
 
-        <p style={{ fontSize: "0.95rem", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: "32px" }}>
+        <p style={{ fontSize: "0.92rem", color: "rgba(255, 255, 255, 0.55)", lineHeight: 1.6, marginBottom: "32px" }}>
           Không gian âm nhạc nghệ thuật độc quyền. Đăng nhập bằng tài khoản Google chính thức để tiếp tục.
         </p>
 
@@ -217,11 +194,11 @@ export const VaultGate: React.FC = () => {
 
         {/* Loading Spinner */}
         {loading && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", margin: "20px 0", color: "#818cf8" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", margin: "20px 0", color: "#ffffff" }}>
             <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-              <Loader2 size={24} />
+              <Loader2 size={22} />
             </motion.div>
-            <span style={{ fontSize: "0.92rem", fontWeight: 600 }}>Đang xác thực với máy chủ Google...</span>
+            <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>Đang xác thực với máy chủ Google...</span>
           </div>
         )}
 
@@ -245,7 +222,7 @@ export const VaultGate: React.FC = () => {
             justifyContent: "center",
             gap: "8px",
             marginTop: "24px",
-            color: "var(--text-muted)",
+            color: "rgba(255, 255, 255, 0.35)",
             fontSize: "0.78rem"
           }}
         >

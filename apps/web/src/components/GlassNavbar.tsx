@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useAudioStore } from "../store/audioStore";
 import { Disc3, LogOut, Compass, Database } from "lucide-react";
 import { motion } from "framer-motion";
@@ -13,15 +13,6 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
   onTabChange
 }) => {
   const { currentUser, logoutUser } = useAudioStore();
-  const [isScrolled, setIsScrolled] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   return (
     <header
@@ -31,19 +22,12 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
         left: 0,
         right: 0,
         zIndex: 100,
-        transition: "all 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
-        background: isScrolled
-          ? "rgba(0, 0, 0, 0.75)"
-          : "transparent",
-        backdropFilter: isScrolled ? "blur(24px) saturate(180%)" : "none",
-        WebkitBackdropFilter: isScrolled ? "blur(24px) saturate(180%)" : "none",
-        borderBottom: isScrolled
-          ? "1px solid rgba(255, 255, 255, 0.08)"
-          : "1px solid transparent",
+        background: "transparent",
         padding: "0 36px",
         height: "72px",
         display: "flex",
-        alignItems: "center"
+        alignItems: "center",
+        pointerEvents: "auto"
       }}
     >
       <div
@@ -96,10 +80,10 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
           style={{
             display: "flex",
             alignItems: "center",
-            background: "rgba(255, 255, 255, 0.06)",
+            background: "rgba(255, 255, 255, 0.08)",
             borderRadius: "999px",
             padding: "4px",
-            border: "1px solid rgba(255, 255, 255, 0.1)"
+            border: "1px solid rgba(255, 255, 255, 0.12)"
           }}
         >
           <button
@@ -182,8 +166,8 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
             onClick={logoutUser}
             title="Đăng xuất"
             style={{
-              background: "rgba(255, 255, 255, 0.06)",
-              border: "1px solid rgba(255, 255, 255, 0.1)",
+              background: "rgba(255, 255, 255, 0.08)",
+              border: "1px solid rgba(255, 255, 255, 0.12)",
               borderRadius: "50%",
               width: "36px",
               height: "36px",
@@ -199,7 +183,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
               e.currentTarget.style.color = "#ef4444";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)";
+              e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
               e.currentTarget.style.color = "rgba(255, 255, 255, 0.7)";
             }}
           >
