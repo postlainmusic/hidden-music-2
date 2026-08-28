@@ -56,14 +56,23 @@ app.post("/api/auth/google", async (c) => {
 
     if (c.env.DB) {
       await c.env.DB.prepare(
-        `INSERT INTO users (id, google_id, email, name, avatar_url, created_at, last_login_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO users (id, google_id, email, username, name, password_hash, avatar_url, created_at, last_login_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
          ON CONFLICT(email) DO UPDATE SET
            name = excluded.name,
            avatar_url = excluded.avatar_url,
            last_login_at = excluded.last_login_at`
       )
-        .bind(userId, userGoogleId || null, userEmail, userName || "Người nghe Vault", userAvatar || "", now, now)
+        .bind(
+          userId,
+          userGoogleId || null,
+          userEmail,
+          userEmail.split("@")[0],
+          userName || "Người nghe Vault",
+          "oauth_google",
+          userAvatar || "",
+          now
+        )
         .run();
     }
 
@@ -75,9 +84,12 @@ app.post("/api/auth/google", async (c) => {
       googleId: userGoogleId || ""
     };
 
+    // Safe UTF-8 Base64 Token
+    const safeBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(user))));
+
     return c.json({
       success: true,
-      token: `sess_${btoa(JSON.stringify(user))}`,
+      token: `sess_${safeBase64}`,
       user
     });
   } catch (err: any) {
@@ -93,7 +105,7 @@ app.get("/api/auth/me", async (c) => {
 
   try {
     const raw = authHeader.replace("Bearer sess_", "");
-    const user = JSON.parse(atob(raw));
+    const user = JSON.parse(decodeURIComponent(escape(atob(raw))));
     return c.json({ authenticated: true, user });
   } catch {
     return c.json({ authenticated: false, user: null });
