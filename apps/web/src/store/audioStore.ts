@@ -497,18 +497,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       get().nextTrack();
     });
 
-    // Active Edge Pre-Warming Engine: silently pre-warm top 3 tracks
-    if (typeof window !== "undefined") {
-      setTimeout(() => {
-        DEFAULT_TRACKS.slice(0, 3).forEach((t) => {
-          fetch(t.audioUrl, {
-            headers: { Range: "bytes=0-262143" },
-            mode: "cors"
-          }).catch(() => {});
-        });
-      }, 500);
-    }
-
     // Update initial theme
     updateCssTheme(DEFAULT_TRACKS[0].palette);
   },
@@ -532,17 +520,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
               console.warn("Play error:", e);
             }
           });
-      }
-
-      // Pre-warm the next track's first 512KB in browser disk cache
-      const queue = get().queue;
-      const curIdx = queue.findIndex((t) => t.id === track.id);
-      const nextT = queue[(curIdx + 1) % queue.length];
-      if (nextT && nextT.id !== track.id) {
-        fetch(nextT.audioUrl, {
-          headers: { Range: "bytes=0-524287" },
-          mode: "cors"
-        }).catch(() => {});
       }
     }
 
