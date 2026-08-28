@@ -30,11 +30,6 @@ const REVOLVER_SLOTS: RevolverSlot[] = [
 ];
 
 // Vị trí con bi theo từng bìa:
-// Bìa 1 (Idx 0) -> 0 (Tâm)
-// Bìa 2 (Idx 1) -> +1 (Giữa tâm và rìa phải)
-// Bìa 3 (Idx 2) -> +2 (Sát rìa phải)
-// Bìa 4 (Idx 3) -> -2 (Sát rìa trái)
-// Bìa 5 (Idx 4) -> -1 (Giữa tâm và rìa trái)
 const MARBLE_STEPS = [0, 1, 2, -2, -1];
 
 const formatDuration = (seconds: number) => {
@@ -58,11 +53,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
   const [revolverIndex, setRevolverIndex] = useState<number>(0);
   const [dragOffset, setDragOffset] = useState<number>(0);
 
-  // Section 1 Internal States:
-  // "initial_center": Bìa xuất hiện ở giữa màn hình (Fade in + Nghỉ 1.5s)
-  // "settled": Bìa trượt lên, 5 tracks hiện ra và GIỮ NGUYÊN để người dùng thưởng thức
-  // "closing_center": Khi người dùng vuốt chuyển section, 5 tracks mờ đi và bìa trở về giữa (2.0s)
-  // "resting_handover": Bìa dừng tĩnh tại tâm 0.5s rồi đổi sang Section 2 mượt mà
+  // Section 1 Internal States
   const [sec1State, setSec1State] = useState<"initial_center" | "settled" | "closing_center" | "resting_handover">("initial_center");
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
 
@@ -71,7 +62,6 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
   const isTouchInsideCarousel = useRef<boolean>(false);
 
   // Initial Section 1 Sequence on Page Load:
-  // Xuất hiện ở tâm -> Nghỉ 1.5s -> Mở rộng trượt lên và hiện 5 tracks (GIỮ CỐ ĐỊNH)
   useEffect(() => {
     setSec1State("initial_center");
 
@@ -84,7 +74,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     };
   }, []);
 
-  // Chuyển cảnh 1 -> 2: Chỉ kích hoạt khi người dùng chủ động vuốt lên
+  // Chuyển cảnh 1 -> 2 mượt mà, không chớp tắt
   const handleTransition1To2 = () => {
     if (isTransitioning || sec1State !== "settled") return;
     setIsTransitioning(true);
@@ -92,11 +82,11 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     // Bước 1: 5 tracks Fade out và bìa trở về tâm êm ái trong 2.0s
     setSec1State("closing_center");
 
-    // Bước 2: Sau 2.0s, bìa nghỉ tĩnh tại tâm 0.5s
+    // Bước 2: Sau 2.0s, bìa dừng tại tâm 0.5s
     setTimeout(() => {
       setSec1State("resting_handover");
 
-      // Bước 3: Đổi sang Section 2 không giật
+      // Bước 3: Chuyển Section 2 - vì cả 2 section đều giữ DOM đã render sẵn nên 0ms flash
       setTimeout(() => {
         setRevolverIndex(0);
         setActiveSection(1);
@@ -208,448 +198,460 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
         alignItems: "center",
         justifyContent: "center",
         color: "#ffffff",
-        zIndex: 1
+        zIndex: 1,
+        background: "#000000"
       }}
     >
+      {/* Persistent Metallic Sheen Glow Background across both sections (No flash) */}
+      <motion.div
+        animate={{ opacity: activeSection === 1 ? 1 : 0.2 }}
+        transition={{ duration: 1.2, ease: "easeInOut" }}
+        className="metallic-sheen-glow"
+        style={{ pointerEvents: "none" }}
+      />
+
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 1: ỔN ĐỊNH TUYỆT ĐỐI (HIỆN RA LÀ GIỮ NGUYÊN)
+          SECTION 1: PERSISTENT IN DOM (ZERO UNMOUNT FLASH)
       ────────────────────────────────────────────────────────────────────── */}
-      {activeSection === 0 && (
-        <div
+      <motion.div
+        animate={{
+          opacity: activeSection === 0 ? 1 : 0,
+          pointerEvents: activeSection === 0 ? "auto" : "none"
+        }}
+        transition={{ duration: 0.4, ease: "easeInOut" }}
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: activeSection === 0 ? 10 : 1
+        }}
+      >
+        {/* Top Album Artwork (Exact coordinate alignment with Section 2 center card) */}
+        <motion.div
+          animate={{
+            y: isSettled ? -135 : 0,
+            scale: isSettled ? 0.58 : 1,
+            opacity: 1
+          }}
+          transition={{ duration: 2.0, ease: [0.16, 1, 0.3, 1] }}
+          onClick={() => {
+            if (isSettled) setSelectedAlbumModal("HVL (99%)");
+          }}
           style={{
             position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            pointerEvents: "auto"
+            width: "min(76vw, 280px)",
+            height: "min(76vw, 280px)",
+            borderRadius: "28px",
+            overflow: "hidden",
+            boxShadow: isSettled
+              ? "0 14px 35px rgba(0, 0, 0, 0.85), 0 0 20px rgba(255, 255, 255, 0.2)"
+              : "0 28px 70px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)",
+            border: "1px solid rgba(255, 255, 255, 0.25)",
+            cursor: isSettled ? "pointer" : "default",
+            background: "#18181b",
+            zIndex: 10
           }}
         >
-          {/* Top Album Artwork */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{
-              opacity: 1,
-              y: isSettled ? -135 : 0,
-              scale: isSettled ? 0.58 : 1
-            }}
-            transition={{ duration: 2.0, ease: [0.16, 1, 0.3, 1] }}
-            onClick={() => {
-              if (isSettled) setSelectedAlbumModal("HVL (99%)");
-            }}
-            style={{
-              position: "absolute",
-              width: "min(76vw, 280px)",
-              height: "min(76vw, 280px)",
-              borderRadius: "28px",
-              overflow: "hidden",
-              boxShadow: isSettled
-                ? "0 14px 35px rgba(0, 0, 0, 0.85), 0 0 20px rgba(255, 255, 255, 0.2)"
-                : "0 28px 70px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)",
-              border: "1px solid rgba(255, 255, 255, 0.25)",
-              cursor: isSettled ? "pointer" : "default",
-              background: "#18181b",
-              zIndex: 10
-            }}
-          >
-            <img
-              src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
-              alt="HVL (99%)"
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            />
-          </motion.div>
+          <img
+            src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
+            alt="HVL (99%)"
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        </motion.div>
 
-          {/* Bottom 5 Tracks List: HIỆN RA LÀ GIỮ CỐ ĐỊNH */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{
-              opacity: isSettled ? 1 : 0,
-              pointerEvents: isSettled ? "auto" : "none"
-            }}
-            transition={{ duration: 1.6, ease: "easeInOut" }}
-            style={{
-              position: "absolute",
-              top: "calc(50% - 35px)",
-              width: "100%",
-              maxWidth: "340px",
-              padding: "0 16px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "6px",
-              zIndex: 5
-            }}
-          >
-            {BEST_PLAY_TRACKS.map((track, idx) => {
-              const isFav = favoritedTrackIds.includes(track.id);
-              const isCurrent = currentTrack?.id === track.id;
+        {/* Bottom 5 Tracks List */}
+        <motion.div
+          animate={{
+            opacity: isSettled ? 1 : 0,
+            pointerEvents: isSettled ? "auto" : "none"
+          }}
+          transition={{ duration: 1.6, ease: "easeInOut" }}
+          style={{
+            position: "absolute",
+            top: "calc(50% - 35px)",
+            width: "100%",
+            maxWidth: "340px",
+            padding: "0 16px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "6px",
+            zIndex: 5
+          }}
+        >
+          {BEST_PLAY_TRACKS.map((track, idx) => {
+            const isFav = favoritedTrackIds.includes(track.id);
+            const isCurrent = currentTrack?.id === track.id;
 
-              return (
-                <div
-                  key={track.id}
-                  onClick={() => handleTrackSelect(track)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "9px 12px",
-                    borderRadius: "15px",
-                    background: isCurrent
-                      ? "rgba(255, 255, 255, 0.12)"
-                      : "rgba(255, 255, 255, 0.04)",
-                    border: isCurrent
-                      ? "1px solid rgba(255, 255, 255, 0.3)"
-                      : "1px solid rgba(255, 255, 255, 0.07)",
-                    boxShadow: isCurrent ? "0 4px 16px rgba(255, 255, 255, 0.15)" : "none",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease"
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: 1 }}>
-                    <span
+            return (
+              <div
+                key={track.id}
+                onClick={() => handleTrackSelect(track)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "9px 12px",
+                  borderRadius: "15px",
+                  background: isCurrent
+                    ? "rgba(255, 255, 255, 0.12)"
+                    : "rgba(255, 255, 255, 0.04)",
+                  border: isCurrent
+                    ? "1px solid rgba(255, 255, 255, 0.3)"
+                    : "1px solid rgba(255, 255, 255, 0.07)",
+                  boxShadow: isCurrent ? "0 4px 16px rgba(255, 255, 255, 0.15)" : "none",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: 1 }}>
+                  <span
+                    style={{
+                      fontSize: "0.78rem",
+                      fontWeight: 700,
+                      color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.4)",
+                      width: "18px",
+                      textAlign: "center"
+                    }}
+                  >
+                    {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
+                  </span>
+
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p
                       style={{
-                        fontSize: "0.78rem",
-                        fontWeight: 700,
-                        color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.4)",
-                        width: "18px",
-                        textAlign: "center"
+                        fontSize: "0.85rem",
+                        fontWeight: isCurrent ? 700 : 600,
+                        color: "#ffffff",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis"
                       }}
                     >
-                      {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
-                    </span>
-
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <p
-                        style={{
-                          fontSize: "0.85rem",
-                          fontWeight: isCurrent ? 700 : 600,
-                          color: "#ffffff",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis"
-                        }}
-                      >
-                        {track.title}
-                      </p>
-                      <p
-                        style={{
-                          fontSize: "0.7rem",
-                          color: "rgba(255, 255, 255, 0.5)",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis"
-                        }}
-                      >
-                        {track.artist}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-                    <span style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.4)" }}>
-                      {formatDuration(track.duration)}
-                    </span>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavoriteTrack(track.id);
-                      }}
+                      {track.title}
+                    </p>
+                    <p
                       style={{
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: "4px",
-                        display: "flex",
-                        alignItems: "center"
+                        fontSize: "0.7rem",
+                        color: "rgba(255, 255, 255, 0.5)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis"
                       }}
                     >
-                      <Heart
-                        size={14}
-                        color={isFav ? "#ffffff" : "rgba(255, 255, 255, 0.35)"}
-                        fill={isFav ? "#ffffff" : "none"}
-                      />
-                    </button>
+                      {track.artist}
+                    </p>
                   </div>
                 </div>
-              );
-            })}
 
-            <div style={{ textAlign: "center", opacity: 0.35, fontSize: "0.68rem", letterSpacing: "0.08em", marginTop: "4px" }}>
-              VUỐT LÊN ĐỂ TIẾP TỤC
-            </div>
-          </motion.div>
-        </div>
-      )}
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+                  <span style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.4)" }}>
+                    {formatDuration(track.duration)}
+                  </span>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavoriteTrack(track.id);
+                    }}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: "4px",
+                      display: "flex",
+                      alignItems: "center"
+                    }}
+                  >
+                    <Heart
+                      size={14}
+                      color={isFav ? "#ffffff" : "rgba(255, 255, 255, 0.35)"}
+                      fill={isFav ? "#ffffff" : "none"}
+                    />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          <div style={{ textAlign: "center", opacity: 0.35, fontSize: "0.68rem", letterSpacing: "0.08em", marginTop: "4px" }}>
+            VUỐT LÊN ĐỂ TIẾP TỤC
+          </div>
+        </motion.div>
+      </motion.div>
 
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 2: VUỐT QUA TỪNG TRACK TUẦN TỰ (BỎ VẬT LÝ NHẢY CÓC)
+          SECTION 2: PERSISTENT IN DOM (ZERO UNMOUNT FLASH)
       ────────────────────────────────────────────────────────────────────── */}
-      {activeSection === 1 && (
+      <motion.div
+        animate={{
+          opacity: activeSection === 1 ? 1 : 0,
+          pointerEvents: activeSection === 1 ? "auto" : "none"
+        }}
+        transition={{ duration: 0.4, ease: "easeInOut" }}
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+          zIndex: activeSection === 1 ? 10 : 1
+        }}
+      >
+        {/* Carousel Interactive Container */}
         <div
+          className="carousel-interactive-zone"
           style={{
-            position: "absolute",
-            inset: 0,
+            position: "relative",
+            width: "100%",
+            maxWidth: "420px",
+            height: "min(76vw, 280px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            overflow: "hidden"
+            touchAction: "pan-x"
           }}
         >
-          {/* Metallic Sheen Breathing Ambient Glow Background */}
-          <div className="metallic-sheen-glow" />
+          {/* ── 3D INFINITE REVOLVER: 3 VISIBLE CARDS ── */}
+          {[-1, 0, 1].map((offset) => {
+            const { slot } = getSlot(offset);
+            const isCenter = offset === 0;
 
-          {/* Carousel Interactive Container */}
-          <div
-            className="carousel-interactive-zone"
-            style={{
-              position: "relative",
-              width: "100%",
-              maxWidth: "420px",
-              height: "min(76vw, 280px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              touchAction: "pan-x"
-            }}
-          >
-            {/* ── 3D INFINITE REVOLVER: 3 VISIBLE CARDS ── */}
-            {[-1, 0, 1].map((offset) => {
-              const { slot } = getSlot(offset);
-              const isCenter = offset === 0;
-
-              return (
-                <motion.div
-                  key={`${slot.id}-${offset}`}
-                  drag={isCenter ? "x" : false}
-                  dragConstraints={{ left: 0, right: 0 }}
-                  dragElastic={0.4}
-                  onDrag={(_, info) => {
-                    if (isCenter) setDragOffset(info.offset.x);
-                  }}
-                  onDragEnd={(_, info) => {
-                    setDragOffset(0);
-                    const offsetVal = info.offset.x;
-                    const velocity = info.velocity.x;
-
-                    // Chuẩn hóa: Cứ vuốt là qua đúng 1 track tuần tự theo thứ tự
-                    // Kéo sang trái (offsetVal < 0 hoặc velocity < 0) -> Qua bài tiếp theo: 1 ➔ 2 ➔ 3 ➔ 4 ➔ 5 ➔ 1
-                    // Kéo sang phải (offsetVal > 0 hoặc velocity > 0) -> Quay lại bài trước: 1 ➔ 5 ➔ 4 ➔ 3 ➔ 2 ➔ 1
-                    if (offsetVal < -30 || velocity < -120) {
-                      setRevolverIndex((prev) => (prev + 1) % totalSlots);
-                    } else if (offsetVal > 30 || velocity > 120) {
-                      setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
-                    }
-                  }}
-                  whileTap={isCenter ? { scale: 0.98 } : {}}
-                  onClick={() => {
-                    if (isCenter) {
-                      setSelectedAlbumModal(slot.title);
-                    } else if (offset === 1) {
-                      // Bấm vào đĩa bên phải để chuyển tiếp đúng 1 track
-                      setRevolverIndex((prev) => (prev + 1) % totalSlots);
-                    } else if (offset === -1) {
-                      // Bấm vào đĩa bên trái để quay lại đúng 1 track
-                      setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
-                    }
-                  }}
-                  animate={{
-                    x: (offset === 0 ? 0 : offset === -1 ? -165 : 165) + dragOffset * (isCenter ? 0.35 : 0.25),
-                    scale: offset === 0 ? 1.0 : 0.8,
-                    opacity: offset === 0 ? 1.0 : 0.45,
-                    filter: offset === 0 ? "blur(0px)" : "blur(2.5px)",
-                    zIndex: offset === 0 ? 10 : 5
-                  }}
-                  transition={{ type: "spring", stiffness: 260, damping: 26, mass: 0.7 }}
-                  style={{
-                    position: "absolute",
-                    width: "min(76vw, 280px)",
-                    height: "min(76vw, 280px)",
-                    borderRadius: "28px",
-                    overflow: "hidden",
-                    cursor: isCenter ? "grab" : "pointer",
-                    boxShadow: isCenter
-                      ? "0 28px 70px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)"
-                      : "0 15px 35px rgba(0, 0, 0, 0.8)",
-                    border: slot.isReal
-                      ? "1px solid rgba(255, 255, 255, 0.3)"
-                      : "1.5px solid rgba(255, 255, 255, 0.22)",
-                    background: slot.isReal
-                      ? "#18181b"
-                      : "linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%)",
-                    backdropFilter: slot.isReal ? "none" : "blur(20px)",
-                    WebkitBackdropFilter: slot.isReal ? "none" : "blur(20px)"
-                  }}
-                >
-                  {/* REAL ALBUM (HVL) */}
-                  {slot.isReal ? (
-                    <img
-                      src={slot.coverUrl}
-                      alt={slot.title}
-                      loading="eager"
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        pointerEvents: "none",
-                        display: "block"
-                      }}
-                    />
-                  ) : (
-                    /* 4 FROSTED GLASS CARDS (BÌA 2, 3, 4, 5) */
-                    <div
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "12px",
-                        padding: "20px",
-                        position: "relative",
-                        color: "#ffffff"
-                      }}
-                    >
-                      <div
-                        style={{
-                          position: "absolute",
-                          inset: "15%",
-                          borderRadius: "50%",
-                          border: "1px dashed rgba(255, 255, 255, 0.15)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center"
-                        }}
-                      >
-                        <Disc3 size={32} color="rgba(255, 255, 255, 0.3)" />
-                      </div>
-
-                      <div style={{ zIndex: 1, textAlign: "center", marginTop: "auto", marginBottom: "8px" }}>
-                        <div
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "4px",
-                            padding: "4px 10px",
-                            borderRadius: "999px",
-                            background: "rgba(255, 255, 255, 0.08)",
-                            border: "1px solid rgba(255, 255, 255, 0.15)",
-                            fontSize: "0.72rem",
-                            fontWeight: 700,
-                            letterSpacing: "0.06em",
-                            color: "rgba(255, 255, 255, 0.8)",
-                            marginBottom: "4px"
-                          }}
-                        >
-                          <Sparkles size={12} />
-                          <span>{slot.title}</span>
-                        </div>
-                        <p style={{ fontSize: "0.7rem", color: "rgba(255, 255, 255, 0.45)" }}>
-                          {slot.artist}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })}
-
-            {/* ── 5-POINT MAGNETIC ROLLING MARBLE CAPSULE ───────────────────── */}
-            <div
-              style={{
-                position: "absolute",
-                bottom: "-48px",
-                left: "50%",
-                transform: "translateX(-50%)",
-                width: "130px", // 5 nấc đều: -48px, -24px, 0px, +24px, +48px
-                height: "26px",
-                borderRadius: "13px",
-                background: "rgba(255, 255, 255, 0.08)",
-                border: "1px solid rgba(255, 255, 255, 0.18)",
-                backdropFilter: "blur(14px)",
-                WebkitBackdropFilter: "blur(14px)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 8px 24px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.2)",
-                zIndex: 20,
-                overflow: "hidden"
-              }}
-            >
+            return (
               <motion.div
+                key={`${slot.id}-${offset}`}
+                drag={isCenter ? "x" : false}
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.4}
+                onDrag={(_, info) => {
+                  if (isCenter) setDragOffset(info.offset.x);
+                }}
+                onDragEnd={(_, info) => {
+                  setDragOffset(0);
+                  const offsetVal = info.offset.x;
+                  const velocity = info.velocity.x;
+
+                  // Chuẩn hóa: Cứ vuốt là qua đúng 1 track tuần tự
+                  if (offsetVal < -30 || velocity < -120) {
+                    setRevolverIndex((prev) => (prev + 1) % totalSlots);
+                  } else if (offsetVal > 30 || velocity > 120) {
+                    setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
+                  }
+                }}
+                whileTap={isCenter ? { scale: 0.98 } : {}}
+                onClick={() => {
+                  if (isCenter) {
+                    setSelectedAlbumModal(slot.title);
+                  } else if (offset === 1) {
+                    setRevolverIndex((prev) => (prev + 1) % totalSlots);
+                  } else if (offset === -1) {
+                    setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
+                  }
+                }}
                 animate={{
-                  x: Math.max(-52, Math.min(52, marbleBaseX - dragOffset * 0.1))
+                  x: (offset === 0 ? 0 : offset === -1 ? -165 : 165) + dragOffset * (isCenter ? 0.35 : 0.25),
+                  scale: offset === 0 ? 1.0 : 0.8,
+                  opacity: offset === 0 ? 1.0 : 0.45,
+                  filter: offset === 0 ? "blur(0px)" : "blur(2.5px)",
+                  zIndex: offset === 0 ? 10 : 5
                 }}
                 transition={{ type: "spring", stiffness: 260, damping: 26, mass: 0.7 }}
                 style={{
-                  width: "16px",
-                  height: "16px",
-                  borderRadius: "50%",
-                  background: "radial-gradient(circle at 35% 35%, #ffffff 0%, #d4d4d8 60%, #71717a 100%)",
-                  boxShadow: "0 0 12px rgba(255, 255, 255, 0.75), 0 2px 6px rgba(0, 0, 0, 0.8)",
-                  border: "1px solid rgba(255, 255, 255, 0.9)",
-                  zIndex: 2
+                  position: "absolute",
+                  width: "min(76vw, 280px)",
+                  height: "min(76vw, 280px)",
+                  borderRadius: "28px",
+                  overflow: "hidden",
+                  cursor: isCenter ? "grab" : "pointer",
+                  boxShadow: isCenter
+                    ? "0 28px 70px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)"
+                    : "0 15px 35px rgba(0, 0, 0, 0.8)",
+                  border: slot.isReal
+                    ? "1px solid rgba(255, 255, 255, 0.3)"
+                    : "1.5px solid rgba(255, 255, 255, 0.22)",
+                  background: slot.isReal
+                    ? "#18181b"
+                    : "linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%)",
+                  backdropFilter: slot.isReal ? "none" : "blur(20px)",
+                  WebkitBackdropFilter: slot.isReal ? "none" : "blur(20px)"
                 }}
-              />
-            </div>
+              >
+                {/* REAL ALBUM (HVL) */}
+                {slot.isReal ? (
+                  <img
+                    src={slot.coverUrl}
+                    alt={slot.title}
+                    loading="eager"
+                    decoding="async"
+                    fetchPriority="high"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      pointerEvents: "none",
+                      display: "block"
+                    }}
+                  />
+                ) : (
+                  /* 4 FROSTED GLASS CARDS (BÌA 2, 3, 4, 5) */
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "12px",
+                      padding: "20px",
+                      position: "relative",
+                      color: "#ffffff"
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: "15%",
+                        borderRadius: "50%",
+                        border: "1px dashed rgba(255, 255, 255, 0.15)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center"
+                      }}
+                    >
+                      <Disc3 size={32} color="rgba(255, 255, 255, 0.3)" />
+                    </div>
+
+                    <div style={{ zIndex: 1, textAlign: "center", marginTop: "auto", marginBottom: "8px" }}>
+                      <div
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          padding: "4px 10px",
+                          borderRadius: "999px",
+                          background: "rgba(255, 255, 255, 0.08)",
+                          border: "1px solid rgba(255, 255, 255, 0.15)",
+                          fontSize: "0.72rem",
+                          fontWeight: 700,
+                          letterSpacing: "0.06em",
+                          color: "rgba(255, 255, 255, 0.8)",
+                          marginBottom: "4px"
+                        }}
+                      >
+                        <Sparkles size={12} />
+                        <span>{slot.title}</span>
+                      </div>
+                      <p style={{ fontSize: "0.7rem", color: "rgba(255, 255, 255, 0.45)" }}>
+                        {slot.artist}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
+
+          {/* ── 5-POINT MAGNETIC ROLLING MARBLE CAPSULE ───────────────────── */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: "-48px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "130px", // 5 nấc đều: -48px, -24px, 0px, +24px, +48px
+              height: "26px",
+              borderRadius: "13px",
+              background: "rgba(255, 255, 255, 0.08)",
+              border: "1px solid rgba(255, 255, 255, 0.18)",
+              backdropFilter: "blur(14px)",
+              WebkitBackdropFilter: "blur(14px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.2)",
+              zIndex: 20,
+              overflow: "hidden"
+            }}
+          >
+            <motion.div
+              animate={{
+                x: Math.max(-52, Math.min(52, marbleBaseX - dragOffset * 0.1))
+              }}
+              transition={{ type: "spring", stiffness: 260, damping: 26, mass: 0.7 }}
+              style={{
+                width: "16px",
+                height: "16px",
+                borderRadius: "50%",
+                background: "radial-gradient(circle at 35% 35%, #ffffff 0%, #d4d4d8 60%, #71717a 100%)",
+                boxShadow: "0 0 12px rgba(255, 255, 255, 0.75), 0 2px 6px rgba(0, 0, 0, 0.8)",
+                border: "1px solid rgba(255, 255, 255, 0.9)",
+                zIndex: 2
+              }}
+            />
           </div>
         </div>
-      )}
+      </motion.div>
 
       {/* ─────────────────────────────────────────────────────────────────────
           SECTION 3: LUXURY EXPLORE CALL-TO-ACTION
       ────────────────────────────────────────────────────────────────────── */}
-      {activeSection === 2 && (
-        <motion.div
-          key="mobile-section-3"
-          initial={{ opacity: 0, scale: 0.85, filter: "blur(8px)" }}
-          animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-          exit={{ opacity: 0, scale: 0.85, filter: "blur(8px)", transition: { duration: 0.35 } }}
-          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+      <motion.div
+        animate={{
+          opacity: activeSection === 2 ? 1 : 0,
+          pointerEvents: activeSection === 2 ? "auto" : "none",
+          scale: activeSection === 2 ? 1 : 0.88
+        }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "20px",
+          textAlign: "center",
+          padding: "0 20px",
+          zIndex: activeSection === 2 ? 10 : 1
+        }}
+      >
+        <motion.button
+          whileTap={{ scale: 0.94 }}
+          onClick={onExploreClick}
           style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            flexDirection: "column",
+            display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: "20px",
-            textAlign: "center",
-            padding: "0 20px"
+            gap: "12px",
+            width: "100%",
+            maxWidth: "320px",
+            padding: "18px 24px",
+            fontSize: "0.95rem",
+            fontWeight: 800,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            borderRadius: "999px",
+            background: "#ffffff",
+            color: "#000000",
+            border: "none",
+            boxShadow: "0 8px 30px rgba(255, 255, 255, 0.4)",
+            cursor: "pointer"
           }}
         >
-          <motion.button
-            whileTap={{ scale: 0.94 }}
-            onClick={onExploreClick}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "12px",
-              width: "100%",
-              maxWidth: "320px",
-              padding: "18px 24px",
-              fontSize: "0.95rem",
-              fontWeight: 800,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              borderRadius: "999px",
-              background: "#ffffff",
-              color: "#000000",
-              border: "none",
-              boxShadow: "0 8px 30px rgba(255, 255, 255, 0.4)",
-              cursor: "pointer"
-            }}
-          >
-            <span>CHUYỂN QUA EXPLORE</span>
-            <ArrowRight size={18} />
-          </motion.button>
+          <span>CHUYỂN QUA EXPLORE</span>
+          <ArrowRight size={18} />
+        </motion.button>
 
-          <p style={{ fontSize: "0.78rem", color: "rgba(255, 255, 255, 0.5)", lineHeight: 1.5 }}>
-            Khám phá không gian âm thanh lossless mở rộng
-          </p>
-        </motion.div>
-      )}
+        <p style={{ fontSize: "0.78rem", color: "rgba(255, 255, 255, 0.5)", lineHeight: 1.5 }}>
+          Khám phá không gian âm thanh lossless mở rộng
+        </p>
+      </motion.div>
 
       {/* ─────────────────────────────────────────────────────────────────────────
           MOBILE 3D PREVIEW MODAL
