@@ -19,17 +19,8 @@ export const FloatingPlayerDock: React.FC = () => {
     seek,
     setVolume,
     toggleMute,
-    setAudioElement,
     getFrequencyData
   } = useAudioStore();
-
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      setAudioElement(audioRef.current);
-    }
-  }, [setAudioElement]);
 
   const currentIndex = currentTrack ? queue.findIndex((t) => t.id === currentTrack.id) : 0;
   const nextTrackItem = queue.length > 0 ? queue[(currentIndex + 1) % queue.length] : null;
@@ -345,39 +336,6 @@ export const FloatingPlayerDock: React.FC = () => {
           </div>
         </div>
       </motion.div>
-
-      {/* Primary HTML5 Audio Element for Lossless Streaming */}
-      <audio
-        ref={audioRef}
-        src={currentTrack?.audioUrl}
-        preload="auto"
-        playsInline
-        crossOrigin="anonymous"
-        onPlay={() => useAudioStore.setState({ isPlaying: true })}
-        onPause={() => useAudioStore.setState({ isPlaying: false })}
-        onWaiting={() => useAudioStore.setState({ isBuffering: true })}
-        onPlaying={() => useAudioStore.setState({ isPlaying: true, isBuffering: false })}
-        onCanPlay={() => useAudioStore.setState({ isBuffering: false })}
-        onCanPlayThrough={() => useAudioStore.setState({ isBuffering: false })}
-        onTimeUpdate={(e) => {
-          const cur = e.currentTarget.currentTime;
-          useAudioStore.setState({
-            currentTime: cur,
-            isBuffering: false,
-            isPlaying: !e.currentTarget.paused
-          });
-        }}
-        onLoadedMetadata={(e) => {
-          if (e.currentTarget.duration && !isNaN(e.currentTarget.duration)) {
-            useAudioStore.setState({ duration: e.currentTarget.duration });
-          }
-        }}
-        onEnded={() => nextTrack()}
-        onError={() => {
-          useAudioStore.setState({ isBuffering: false });
-        }}
-        style={{ display: "none" }}
-      />
 
       {/* Background Silent Next-Track Preloader (Pre-buffers the next track for 0ms transition) */}
       {nextTrackItem && nextTrackItem.id !== currentTrack.id && (
