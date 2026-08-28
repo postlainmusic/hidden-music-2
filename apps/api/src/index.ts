@@ -21,7 +21,10 @@ app.use(
   })
 );
 
-// Full MCK Discography Library mapping with restored Vietnamese titles & lossless R2 links
+const R2_BASE = "https://hidden-music-api.postlain-music.workers.dev/api/stream";
+const HVL_COVER = `${R2_BASE}/covers/HVL_Album_Cover.jpg`;
+
+// Full MCK Discography Library mapping with REAL R2 audio, video, and cover streaming links
 const MCK_TRACKS = [
   {
     id: "mck-01",
@@ -29,9 +32,10 @@ const MCK_TRACKS = [
     artist: "MCK",
     album: "HVL",
     duration: 198,
-    coverUrl: "https://hidden-music-api.postlain-music.workers.dev/api/stream/covers/HVL_Album_Cover.jpg",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
-    r2Key: "1786880055560_01_Elegie.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/01.%20Elegie.flac`,
+    videoUrl: `${R2_BASE}/videos/01.%20Elegie%20-%20MCK.mkv`,
+    r2Key: "audio/01. Elegie.flac",
     palette: { primary: "#6366f1", secondary: "#ec4899", accent: "#8b5cf6", glow: "rgba(99, 102, 241, 0.45)" },
     genre: "Hip-Hop / Rap"
   },
@@ -39,11 +43,12 @@ const MCK_TRACKS = [
     id: "mck-02",
     title: "02. IDK",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 215,
-    coverUrl: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=ambient-piano-amp-strings-10711.mp3",
-    r2Key: "1786880057865_02_IDK.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/02.%20IDK.flac`,
+    videoUrl: `${R2_BASE}/videos/02.%20IDK%20-%20MCK%20(Official%20Music%20Video).mkv`,
+    r2Key: "audio/02. IDK.flac",
     palette: { primary: "#06b6d4", secondary: "#3b82f6", accent: "#10b981", glow: "rgba(6, 182, 212, 0.45)" },
     genre: "Melodic Rap"
   },
@@ -51,11 +56,12 @@ const MCK_TRACKS = [
     id: "mck-03",
     title: "03. Wtf Bby I'm Lit",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 180,
-    coverUrl: "https://images.unsplash.com/photo-1508739773434-c26b3d09e071?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8bbf7b5b5.mp3?filename=electronic-future-beats-117997.mp3",
-    r2Key: "1786880060663_03_Wtf_Bby_I_m_Lit.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/03.%20Wtf%20Bby%20I_m%20Lit.flac`,
+    videoUrl: `${R2_BASE}/videos/03.%20Wtf%20Bby%20I'm%20Lit%20-%20MCK.mkv`,
+    r2Key: "audio/03. Wtf Bby I_m Lit.flac",
     palette: { primary: "#f43f5e", secondary: "#fb923c", accent: "#d946ef", glow: "rgba(244, 63, 94, 0.45)" },
     genre: "Trap"
   },
@@ -63,11 +69,12 @@ const MCK_TRACKS = [
     id: "mck-04",
     title: "04. Anh Không Muốn Nó Dễ Dàng",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 224,
-    coverUrl: "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=chill-abstract-intention-12099.mp3",
-    r2Key: "1786880065341_04_Anh_Kh_ng_Mu_n_N_D__D_ng.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/04.%20Anh%20Kh%C3%B4ng%20Mu%E1%BB%91n%20N%C3%B3%20D%E1%BB%85%20D%C3%A0ng.flac`,
+    videoUrl: `${R2_BASE}/videos/04.%20Anh%20Kh%C3%B4ng%20Mu%E1%BB%91n%20N%C3%B3%20D%E1%BB%85%20D%C3%A0ng%20-%20MCK.mkv`,
+    r2Key: "audio/04. Anh Không Muốn Nó Dễ Dàng.flac",
     palette: { primary: "#14b8a6", secondary: "#0284c7", accent: "#a855f7", glow: "rgba(20, 184, 166, 0.45)" },
     genre: "R&B / Soul"
   },
@@ -75,11 +82,12 @@ const MCK_TRACKS = [
     id: "mck-05",
     title: "05. Baby",
     artist: "MCK ft. marzuz",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 230,
-    coverUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
-    r2Key: "1786880068330_05_Baby_feat_marzuz_flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/05.%20Baby%20(feat.%20marzuz).flac`,
+    videoUrl: `${R2_BASE}/videos/05.%20Baby%20-%20MCK%20ft.%20marzuz.mkv`,
+    r2Key: "audio/05. Baby (feat. marzuz).flac",
     palette: { primary: "#ec4899", secondary: "#8b5cf6", accent: "#f43f5e", glow: "rgba(236, 72, 153, 0.45)" },
     genre: "Alternative R&B"
   },
@@ -87,11 +95,12 @@ const MCK_TRACKS = [
     id: "mck-06",
     title: "06. Yêu Anh Giết Anh",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 210,
-    coverUrl: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=ambient-piano-amp-strings-10711.mp3",
-    r2Key: "1786880074066_06_Y_u_Anh_Gi_t_Anh.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/06.%20Y%C3%AAu%20Anh%20Gi%E1%BA%BFt%20Anh.flac`,
+    videoUrl: `${R2_BASE}/videos/06.%20Y%C3%AAu%20Anh%20Gi%E1%BA%BFt%20Anh%20-%20MCK.mkv`,
+    r2Key: "audio/06. Yêu Anh Giết Anh.flac",
     palette: { primary: "#ef4444", secondary: "#7c3aed", accent: "#f97316", glow: "rgba(239, 68, 68, 0.45)" },
     genre: "Emo Rap"
   },
@@ -99,11 +108,12 @@ const MCK_TRACKS = [
     id: "mck-07",
     title: "07. Mắt Môi Tay Chân",
     artist: "MCK ft. Tage",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 240,
-    coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8bbf7b5b5.mp3?filename=electronic-future-beats-117997.mp3",
-    r2Key: "1786880076560_07_M_t_M_i_Tay_Ch_n_feat_Tage_flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/07.%20M%E1%BA%AFt%20M%C3%B4i%20Tay%20Ch%C3%A2n%20(feat.%20Tage).flac`,
+    videoUrl: `${R2_BASE}/videos/07.%20M%E1%BA%AFt%20M%C3%B4i%20Tay%20Ch%C3%A2n%20-%20MCK%20ft.%20Tage%20(Official%20Music%20Video).mkv`,
+    r2Key: "audio/07. Mắt Môi Tay Chân (feat. Tage).flac",
     palette: { primary: "#8b5cf6", secondary: "#06b6d4", accent: "#3b82f6", glow: "rgba(139, 92, 246, 0.45)" },
     genre: "Hip-Hop"
   },
@@ -111,11 +121,12 @@ const MCK_TRACKS = [
     id: "mck-08",
     title: "08. Đạo Của Anh Vừa",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 195,
-    coverUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=chill-abstract-intention-12099.mp3",
-    r2Key: "1786880079453_08__ao_C_a_Anh_V_a.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/08.%20%C4%90%E1%BA%A1o%20C%E1%BB%A7a%20Anh%20V%E1%BB%ABa.flac`,
+    videoUrl: `${R2_BASE}/videos/08.%20%C4%90%E1%BA%A1o%20C%E1%BB%A7a%20Anh%20V%E1%BB%ABa%20-%20MCK.mkv`,
+    r2Key: "audio/08. Đạo Của Anh Vừa.flac",
     palette: { primary: "#eab308", secondary: "#ef4444", accent: "#f97316", glow: "rgba(234, 179, 8, 0.45)" },
     genre: "Trap"
   },
@@ -123,11 +134,12 @@ const MCK_TRACKS = [
     id: "mck-09",
     title: "09. Là Gì Của Nhau",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 205,
-    coverUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
-    r2Key: "1786880081820_09_L__G__C_a_Nhau.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/09.%20L%C3%A0%20G%C3%AC%20C%E1%BB%A7a%20Nhau.flac`,
+    videoUrl: `${R2_BASE}/videos/09.%20L%C3%A0%20G%C3%AC%20C%E1%BB%A7a%20Nhau%20-%20MCK.mkv`,
+    r2Key: "audio/09. Là Gì Của Nhau.flac",
     palette: { primary: "#3b82f6", secondary: "#ec4899", accent: "#6366f1", glow: "rgba(59, 130, 246, 0.45)" },
     genre: "R&B"
   },
@@ -135,11 +147,12 @@ const MCK_TRACKS = [
     id: "mck-10",
     title: "10. Night In Prague",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 250,
-    coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=ambient-piano-amp-strings-10711.mp3",
-    r2Key: "1786880084194_10_Night_In_Prague.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/10.%20Night%20In%20Prague.flac`,
+    videoUrl: `${R2_BASE}/videos/10.%20Night%20In%20Prague%20-%20MCK.mkv`,
+    r2Key: "audio/10. Night In Prague.flac",
     palette: { primary: "#6366f1", secondary: "#14b8a6", accent: "#a855f7", glow: "rgba(99, 102, 241, 0.45)" },
     genre: "Chillhop / Jazzhop"
   },
@@ -147,11 +160,12 @@ const MCK_TRACKS = [
     id: "mck-11",
     title: "11. Một Cái Ôm",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 218,
-    coverUrl: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8bbf7b5b5.mp3?filename=electronic-future-beats-117997.mp3",
-    r2Key: "1786880087645_11_M_t_C_i_m.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/11.%20M%E1%BB%99t%20C%C3%A1i%20%C3%94m.flac`,
+    videoUrl: `${R2_BASE}/videos/11.%20M%E1%BB%99t%20C%C3%A1i%20%C3%94m%20-%20MCK.mkv`,
+    r2Key: "audio/11. Một Cái Ôm.flac",
     palette: { primary: "#f43f5e", secondary: "#8b5cf6", accent: "#06b6d4", glow: "rgba(244, 63, 94, 0.45)" },
     genre: "Acoustic / Rap"
   },
@@ -159,11 +173,12 @@ const MCK_TRACKS = [
     id: "mck-12",
     title: "12. Liệm",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 235,
-    coverUrl: "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=chill-abstract-intention-12099.mp3",
-    r2Key: "1786880090200_12_Li_m.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/12.%20Li%E1%BB%87m.flac`,
+    videoUrl: `${R2_BASE}/videos/12.%20Li%E1%BB%87m%20-%20MCK.mkv`,
+    r2Key: "audio/12. Liệm.flac",
     palette: { primary: "#7c3aed", secondary: "#000000", accent: "#dc2626", glow: "rgba(124, 58, 237, 0.45)" },
     genre: "Dark Trap"
   },
@@ -171,11 +186,12 @@ const MCK_TRACKS = [
     id: "mck-13",
     title: "13. Nếu Như Ta Chẳng Còn",
     artist: "MCK ft. AAP Ướt Mi",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 242,
-    coverUrl: "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
-    r2Key: "1786880093056_13_N_u_Nh_Ta_Ch_ng_C_n_feat_AAP___t_Mi_flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/13.%20N%E1%BA%BFu%20Nh%C6%B0%20Ta%20Ch%E1%BA%B3ng%20C%C3%B2n%20(feat.%20AAP%20%C6%AF%E1%BB%9Bt%20Mi).flac`,
+    videoUrl: `${R2_BASE}/videos/13.%20N%E1%BA%BFu%20Nh%C6%B0%20Ta%20Ch%E1%BA%B3ng%20C%C3%B2n%20-%20MCK%20ft.%20AAP%20%C6%AF%E1%BB%9Bt%20Mi.mkv`,
+    r2Key: "audio/13. Nếu Như Ta Chẳng Còn (feat. AAP Ướt Mi).flac",
     palette: { primary: "#0ea5e9", secondary: "#6366f1", accent: "#ec4899", glow: "rgba(14, 165, 233, 0.45)" },
     genre: "R&B / Soul"
   },
@@ -183,11 +199,12 @@ const MCK_TRACKS = [
     id: "mck-14",
     title: "14. Ai Mới Là Kẻ Xấu Xa",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 212,
-    coverUrl: "https://images.unsplash.com/photo-1511735111819-9a3f7709049c?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=ambient-piano-amp-strings-10711.mp3",
-    r2Key: "1786880097921_14_Ai_M_i_L__K__X_u_Xa.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/14.%20Ai%20M%E1%BB%9Bi%20L%C3%A0%20K%E1%BA%BB%20X%E1%BA%A5u%20Xa.flac`,
+    videoUrl: `${R2_BASE}/videos/14.%20Ai%20M%E1%BB%9Bi%20L%C3%A0%20K%E1%BA%BB%20X%E1%BA%A5u%20Xa%20-%20MCK.mkv`,
+    r2Key: "audio/14. Ai Mới Là Kẻ Xấu Xa.flac",
     palette: { primary: "#e11d48", secondary: "#f59e0b", accent: "#8b5cf6", glow: "rgba(225, 29, 72, 0.45)" },
     genre: "Hip-Hop"
   },
@@ -195,11 +212,12 @@ const MCK_TRACKS = [
     id: "mck-15",
     title: "15. Slippery",
     artist: "MCK ft. Tùng Dương",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 260,
-    coverUrl: "https://images.unsplash.com/photo-1506157786151-b8491531f063?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8bbf7b5b5.mp3?filename=electronic-future-beats-117997.mp3",
-    r2Key: "1786880101298_15_Slippery_feat_T_ng_D_ng_flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/15.%20Slippery%20(feat.%20T%C3%B9ng%20D%C6%B0%C6%A1ng).flac`,
+    videoUrl: `${R2_BASE}/videos/15.%20Slippery%20-%20MCK%20ft.%20T%C3%B9ng%20D%C6%B0%C6%A1ng%20(Official%20Music%20Video).mkv`,
+    r2Key: "audio/15. Slippery (feat. Tùng Dương).flac",
     palette: { primary: "#d946ef", secondary: "#06b6d4", accent: "#f43f5e", glow: "rgba(217, 70, 239, 0.45)" },
     genre: "Art Pop / Rap"
   },
@@ -207,11 +225,12 @@ const MCK_TRACKS = [
     id: "mck-16",
     title: "16. Interpol",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 185,
-    coverUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=chill-abstract-intention-12099.mp3",
-    r2Key: "1786880105245_16_Intenpol.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/16.%20Intenpol.flac`,
+    videoUrl: `${R2_BASE}/videos/16.%20Intenpol%20-%20MCK.mkv`,
+    r2Key: "audio/16. Intenpol.flac",
     palette: { primary: "#10b981", secondary: "#3b82f6", accent: "#6366f1", glow: "rgba(16, 185, 129, 0.45)" },
     genre: "Trap"
   },
@@ -219,11 +238,12 @@ const MCK_TRACKS = [
     id: "mck-17",
     title: "17. Tây Thi",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 210,
-    coverUrl: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
-    r2Key: "1786880107004_17_T_y_Thi.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/17.%20T%C3%A2y%20Thi.flac`,
+    videoUrl: `${R2_BASE}/videos/17.%20T%C3%A2y%20Thi%20-%20MCK.mkv`,
+    r2Key: "audio/17. Tây Thi.flac",
     palette: { primary: "#f43f5e", secondary: "#ec4899", accent: "#fbbf24", glow: "rgba(244, 63, 94, 0.45)" },
     genre: "Oriental Trap"
   },
@@ -231,11 +251,12 @@ const MCK_TRACKS = [
     id: "mck-18",
     title: "18. Hút và Hút",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 198,
-    coverUrl: "https://images.unsplash.com/photo-1508739773434-c26b3d09e071?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=ambient-piano-amp-strings-10711.mp3",
-    r2Key: "1786880109312_18_H_t_v__H_t.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/18.%20H%C3%BAt%20v%C3%A0%20H%C3%BAt.flac`,
+    videoUrl: `${R2_BASE}/videos/18.%20H%C3%BAt%20v%C3%A0%20H%C3%BAt%20-%20MCK.mkv`,
+    r2Key: "audio/18. Hút và Hút.flac",
     palette: { primary: "#84cc16", secondary: "#06b6d4", accent: "#10b981", glow: "rgba(132, 204, 22, 0.45)" },
     genre: "Chillhop"
   },
@@ -243,11 +264,12 @@ const MCK_TRACKS = [
     id: "mck-19",
     title: "19. Dưa Chua",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 204,
-    coverUrl: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8bbf7b5b5.mp3?filename=electronic-future-beats-117997.mp3",
-    r2Key: "1786880112035_19_D_a_Chua.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/19.%20D%C6%B0a%20Chua.flac`,
+    videoUrl: `${R2_BASE}/videos/19.%20D%C6%B0a%20Chua%20-%20MCK.mkv`,
+    r2Key: "audio/19. Dưa Chua.flac",
     palette: { primary: "#eab308", secondary: "#84cc16", accent: "#f97316", glow: "rgba(234, 179, 8, 0.45)" },
     genre: "Hip-Hop"
   },
@@ -255,11 +277,12 @@ const MCK_TRACKS = [
     id: "mck-20",
     title: "20. Xa Xôi",
     artist: "MCK ft. Obito",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 232,
-    coverUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=chill-abstract-intention-12099.mp3",
-    r2Key: "1786880117977_20_Xa_X_i_feat_Obito_flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/20.%20Xa%20X%C3%B4i%20(feat.%20Obito).flac`,
+    videoUrl: `${R2_BASE}/videos/20.%20Xa%20X%C3%B4i%20-%20MCK%20ft.%20Obito%20(Official%20Music%20Video).mkv`,
+    r2Key: "audio/20. Xa Xôi (feat. Obito).flac",
     palette: { primary: "#6366f1", secondary: "#ec4899", accent: "#06b6d4", glow: "rgba(99, 102, 241, 0.45)" },
     genre: "Melodic Rap"
   },
@@ -267,11 +290,12 @@ const MCK_TRACKS = [
     id: "mck-21",
     title: "21. Che Phù",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 190,
-    coverUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
-    r2Key: "1786880122552_21_Che_Ph_flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/21.%20Che%20Ph%C3%B9.flac`,
+    videoUrl: `${R2_BASE}/videos/21.%20Che%20Ph%C3%B9%20-%20MCK.mkv`,
+    r2Key: "audio/21. Che Phù.flac",
     palette: { primary: "#a855f7", secondary: "#f43f5e", accent: "#3b82f6", glow: "rgba(168, 85, 247, 0.45)" },
     genre: "Hip-Hop"
   },
@@ -279,11 +303,12 @@ const MCK_TRACKS = [
     id: "mck-22",
     title: "22. Oanh M - Thuoc",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 215,
-    coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=ambient-piano-amp-strings-10711.mp3",
-    r2Key: "1786880127035_22_Oanh_M___Thuoc.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/22.%20Oanh%20M%20-%20Thuoc.flac`,
+    videoUrl: `${R2_BASE}/videos/22.%20Oanh%20M%20-%20Thuoc%20-%20MCK.mkv`,
+    r2Key: "audio/22. Oanh M - Thuoc.flac",
     palette: { primary: "#06b6d4", secondary: "#6366f1", accent: "#10b981", glow: "rgba(6, 182, 212, 0.45)" },
     genre: "Trap"
   },
@@ -291,11 +316,12 @@ const MCK_TRACKS = [
     id: "mck-23",
     title: "23. Ghét Xog Lại Thik",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 188,
-    coverUrl: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8bbf7b5b5.mp3?filename=electronic-future-beats-117997.mp3",
-    r2Key: "1786880131063_23_Ghet_Xog_Lai_Thik.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/23.%20Gh%C3%A9t%20Xog%20L%E1%BA%A1i%20Thik.flac`,
+    videoUrl: `${R2_BASE}/videos/23.%20Gh%C3%A9t%20Xog%20L%E1%BA%A1i%20Thik%20-%20MCK.mkv`,
+    r2Key: "audio/23. Ghét Xog Lại Thik.flac",
     palette: { primary: "#ec4899", secondary: "#f43f5e", accent: "#fb923c", glow: "rgba(236, 72, 153, 0.45)" },
     genre: "Pop Rap"
   },
@@ -303,11 +329,12 @@ const MCK_TRACKS = [
     id: "mck-24",
     title: "24. Nhìn Kẻ Thù Của Tao",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 220,
-    coverUrl: "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=chill-abstract-intention-12099.mp3",
-    r2Key: "1786880134224_24_Nh_n_K__Th__C_a_Tao.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/24.%20Nh%C3%ACn%20K%E1%BA%BB%20Th%C3%B9%20C%E1%BB%A7a%20Tao.flac`,
+    videoUrl: `${R2_BASE}/videos/24.%20Nh%C3%ACn%20K%E1%BA%BB%20Th%C3%B9%20C%E1%BB%A7a%20Tao%20-%20MCK%20(Official%20Music%20Video).mkv`,
+    r2Key: "audio/24. Nhìn Kẻ Thù Của Tao.flac",
     palette: { primary: "#dc2626", secondary: "#7c3aed", accent: "#000000", glow: "rgba(220, 38, 38, 0.45)" },
     genre: "Hardcore Trap"
   },
@@ -315,11 +342,12 @@ const MCK_TRACKS = [
     id: "mck-25",
     title: "25. Envy",
     artist: "MCK ft. THANHDRAW",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 230,
-    coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
-    r2Key: "1786880140915_25_Envy_feat_THANHDRAW_flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/25.%20Envy%20(feat.%20THANHDRAW).flac`,
+    videoUrl: `${R2_BASE}/videos/25.%20Envy%20-%20MCK%20ft.%20THANHDRAW.mkv`,
+    r2Key: "audio/25. Envy (feat. THANHDRAW).flac",
     palette: { primary: "#10b981", secondary: "#f59e0b", accent: "#ef4444", glow: "rgba(16, 185, 129, 0.45)" },
     genre: "Trap"
   },
@@ -327,11 +355,12 @@ const MCK_TRACKS = [
     id: "mck-26",
     title: "26. Cảm Ơn",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 245,
-    coverUrl: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=ambient-piano-amp-strings-10711.mp3",
-    r2Key: "1786880146670_26_C_m__n.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/26.%20C%E1%BA%A3m%20%C6%A0n.flac`,
+    videoUrl: `${R2_BASE}/videos/26.%20C%E1%BA%A3m%20%C6%A0n%20-%20MCK.mkv`,
+    r2Key: "audio/26. Cảm Ơn.flac",
     palette: { primary: "#3b82f6", secondary: "#8b5cf6", accent: "#ec4899", glow: "rgba(59, 130, 246, 0.45)" },
     genre: "Melodic Rap"
   },
@@ -339,11 +368,12 @@ const MCK_TRACKS = [
     id: "mck-27",
     title: "27. Không Cần Lo Cho Tao",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 215,
-    coverUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8bbf7b5b5.mp3?filename=electronic-future-beats-117997.mp3",
-    r2Key: "1786880150787_27_Kh_ng_C_n_Lo_Cho_Tao.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/27.%20Kh%C3%B4ng%20C%E1%BA%A7n%20Lo%20Cho%20Tao.flac`,
+    videoUrl: `${R2_BASE}/videos/27.%20Kh%C3%B4ng%20C%E1%BA%A7n%20Lo%20Cho%20Tao%20-%20MCK.mkv`,
+    r2Key: "audio/27. Không Cần Lo Cho Tao.flac",
     palette: { primary: "#f97316", secondary: "#6366f1", accent: "#06b6d4", glow: "rgba(249, 115, 22, 0.45)" },
     genre: "Hip-Hop"
   },
@@ -351,11 +381,12 @@ const MCK_TRACKS = [
     id: "mck-28",
     title: "28. Huh",
     artist: "MCK ft. RPT Orijinn & THANHDRAW",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 255,
-    coverUrl: "https://images.unsplash.com/photo-1511735111819-9a3f7709049c?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=chill-abstract-intention-12099.mp3",
-    r2Key: "1786880154564_28_Huh_feat_RPT_Orijinn___THANHDRAW_flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/28.%20Huh%20(feat.%20RPT%20Orijinn%20%26%20THANHDRAW).flac`,
+    videoUrl: `${R2_BASE}/videos/28.%20Huh%20-%20MCK%20ft.%20RPT%20ORIJINN%20%26%20THANHDRAW.mkv`,
+    r2Key: "audio/28. Huh (feat. RPT Orijinn & THANHDRAW).flac",
     palette: { primary: "#8b5cf6", secondary: "#ef4444", accent: "#eab308", glow: "rgba(139, 92, 246, 0.45)" },
     genre: "Drill / Trap"
   },
@@ -363,11 +394,12 @@ const MCK_TRACKS = [
     id: "mck-29",
     title: "29. Nguyễn Văn Mười",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 220,
-    coverUrl: "https://images.unsplash.com/photo-1506157786151-b8491531f063?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
-    r2Key: "1786880162370_29_Nguy_n_V_n_M__i.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/29.%20Nguy%E1%BB%85n%20V%C4%83n%20M%C6%B0%E1%BB%9Di.flac`,
+    videoUrl: `${R2_BASE}/videos/29.%20Nguy%E1%BB%85n%20V%C4%83n%20M%C6%B0%E1%BB%9Di%20-%20MCK.mkv`,
+    r2Key: "audio/29. Nguyễn Văn Mười.flac",
     palette: { primary: "#14b8a6", secondary: "#f43f5e", accent: "#6366f1", glow: "rgba(20, 184, 166, 0.45)" },
     genre: "Hip-Hop"
   },
@@ -375,11 +407,12 @@ const MCK_TRACKS = [
     id: "mck-30",
     title: "30. Thịt Lợn",
     artist: "MCK",
-    album: "99% & Archives",
+    album: "HVL",
     duration: 210,
-    coverUrl: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=800&auto=format&fit=crop",
-    audioUrl: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=ambient-piano-amp-strings-10711.mp3",
-    r2Key: "1786880166997_30_Th_t_L_n.flac",
+    coverUrl: HVL_COVER,
+    audioUrl: `${R2_BASE}/audio/30.%20Th%E1%BB%8Bt%20L%E1%BB%A3n.flac`,
+    videoUrl: `${R2_BASE}/videos/30.%20Th%E1%BB%8Bt%20L%E1%BB%A3n%20-%20MCK.mkv`,
+    r2Key: "audio/30. Thịt Lợn.flac",
     palette: { primary: "#ec4899", secondary: "#f97316", accent: "#8b5cf6", glow: "rgba(236, 72, 153, 0.45)" },
     genre: "Trap"
   }
@@ -390,7 +423,7 @@ const MCK_TRACKS = [
 app.get("/api/health", (c) => {
   return c.json({
     status: "online",
-    service: "MCK Vault Audio Engine",
+    service: "MCK HVL Audio Engine",
     edge: "Cloudflare Workers",
     timestamp: new Date().toISOString()
   });
@@ -400,7 +433,7 @@ app.get("/api/health", (c) => {
 app.get("/api/tracks", async (c) => {
   if (c.env.DB) {
     try {
-      const { results } = await c.env.DB.prepare("SELECT * FROM tracks ORDER BY created_at DESC LIMIT 50").all();
+      const { results } = await c.env.DB.prepare("SELECT * FROM tracks ORDER BY track_number ASC LIMIT 50").all();
       if (results && results.length > 0) {
         return c.json({ tracks: results });
       }
@@ -429,22 +462,36 @@ app.post("/api/auth/login", async (c) => {
   });
 });
 
-// Stream asset directly from R2 Storage (hidden-music-vault)
-app.get("/api/stream/:key", async (c) => {
-  const key = c.req.param("key");
+// Stream asset directly from R2 Storage (hidden-music-vault) - Supports wildcard subfolders & audio/video/cover streaming
+app.get("/api/stream/*", async (c) => {
+  const rawKey = c.req.path.replace("/api/stream/", "");
+  const key = decodeURIComponent(rawKey);
+
   if (!c.env.MUSIC_ASSETS) {
     return c.text("R2 Bucket not configured", 503);
   }
 
   const object = await c.env.MUSIC_ASSETS.get(key);
   if (!object) {
-    return c.text("Asset not found", 404);
+    return c.text(`Asset not found for key: ${key}`, 404);
   }
 
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set("etag", object.httpEtag);
+  headers.set("Access-Control-Allow-Origin", "*");
+  headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
   headers.set("Cache-Control", "public, max-age=31536000, immutable");
+
+  if (key.endsWith(".jpg") || key.endsWith(".jpeg")) {
+    headers.set("Content-Type", "image/jpeg");
+  } else if (key.endsWith(".flac")) {
+    headers.set("Content-Type", "audio/flac");
+  } else if (key.endsWith(".mkv")) {
+    headers.set("Content-Type", "video/x-matroska");
+  } else if (key.endsWith(".mp4")) {
+    headers.set("Content-Type", "video/mp4");
+  }
 
   return new Response(object.body, { headers });
 });
