@@ -21,37 +21,38 @@ app.use(
   })
 );
 
-// Google OAuth verification & D1 User Persistence
+// 100% Real Google OAuth Token Verification & D1 User Persistence (Zero Mock)
 app.post("/api/auth/google", async (c) => {
   try {
     const body = await c.req.json();
-    const { credential, email, name, picture, googleId } = body;
+    const { credential } = body;
 
-    let userEmail = email;
-    let userName = name;
-    let userAvatar = picture;
-    let userGoogleId = googleId;
-
-    if (credential && typeof credential === "string") {
-      try {
-        const parts = credential.split(".");
-        if (parts.length === 3) {
-          const payload = JSON.parse(atob(parts[1]));
-          userEmail = payload.email || userEmail;
-          userName = payload.name || userName;
-          userAvatar = payload.picture || userAvatar;
-          userGoogleId = payload.sub || userGoogleId;
-        }
-      } catch (e) {
-        console.warn("Credential parse notice:", e);
-      }
+    if (!credential || typeof credential !== "string") {
+      return c.json({ success: false, error: "Thiếu mã xác thực Google (credential)" }, 400);
     }
 
-    if (!userEmail) {
-      return c.json({ success: false, error: "Email is required" }, 400);
+    // Verify token directly with Google OAuth2 TokenInfo API
+    const googleRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+    if (!googleRes.ok) {
+      const errJson: any = await googleRes.json().catch(() => ({}));
+      return c.json({
+        success: false,
+        error: errJson.error_description || "Mã xác thực Google không hợp lệ hoặc đã hết hạn",
+        details: errJson
+      }, 401);
     }
 
-    const userId = `usr_${userGoogleId || Math.random().toString(36).substring(2, 10)}`;
+    const payload: any = await googleRes.json();
+    const googleId = payload.sub;
+    const email = payload.email;
+    const name = payload.name || payload.email?.split("@")[0] || "Người dùng Google";
+    const picture = payload.picture || "";
+
+    if (!email) {
+      return c.json({ success: false, error: "Tài khoản Google không có email hợp lệ" }, 400);
+    }
+
+    const userId = `usr_${googleId}`;
     const now = Date.now();
 
     if (c.env.DB) {
@@ -61,16 +62,17 @@ app.post("/api/auth/google", async (c) => {
          ON CONFLICT(email) DO UPDATE SET
            name = excluded.name,
            avatar_url = excluded.avatar_url,
+           google_id = excluded.google_id,
            last_login_at = excluded.last_login_at`
       )
         .bind(
           userId,
-          userGoogleId || null,
-          userEmail,
-          userEmail.split("@")[0],
-          userName || "Người nghe Vault",
+          googleId,
+          email,
+          email.split("@")[0],
+          name,
           "oauth_google",
-          userAvatar || "",
+          picture,
           now
         )
         .run();
@@ -78,10 +80,10 @@ app.post("/api/auth/google", async (c) => {
 
     const user = {
       id: userId,
-      email: userEmail,
-      name: userName || "Người nghe Vault",
-      avatarUrl: userAvatar || "",
-      googleId: userGoogleId || ""
+      email,
+      name,
+      avatarUrl: picture,
+      googleId
     };
 
     // Safe UTF-8 Base64 Token
@@ -93,7 +95,7 @@ app.post("/api/auth/google", async (c) => {
       user
     });
   } catch (err: any) {
-    return c.json({ success: false, error: err.message || "Auth error" }, 500);
+    return c.json({ success: false, error: err.message || "Lỗi xử lý xác thực" }, 500);
   }
 });
 

@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, ShieldCheck, Disc3, ArrowRight, Loader2 } from "lucide-react";
+import { Sparkles, ShieldCheck, Disc3, AlertCircle, Loader2 } from "lucide-react";
 import { useAudioStore } from "../store/audioStore";
+
+const GOOGLE_CLIENT_ID = "269738854318-95pab6qb8fmjv4q676s3jeu643e7291p.apps.googleusercontent.com";
 
 declare global {
   interface Window {
@@ -12,87 +14,89 @@ declare global {
 export const VaultGate: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const googleBtnContainerRef = useRef<HTMLDivElement>(null);
   const loginUser = useAudioStore((s) => s.loginUser);
 
-  // Initialize Google One Tap / GIS button if script is available
+  // 100% Real Google Identity Services (GIS) integration (Zero Mock)
   useEffect(() => {
     const handleCredentialResponse = async (response: any) => {
+      if (!response.credential) {
+        setError("Không nhận được mã xác thực từ Google");
+        return;
+      }
+
       setLoading(true);
       setError(null);
+
       try {
         const res = await fetch("https://hidden-music-api.postlain-music.workers.dev/api/auth/google", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ credential: response.credential })
         });
+
         const data = await res.json();
         if (data.success && data.user) {
           localStorage.setItem("vault_token", data.token);
           localStorage.setItem("vault_user", JSON.stringify(data.user));
           loginUser(data.user);
         } else {
-          setError(data.error || "Đăng nhập Google thất bại");
+          setError(data.error || "Xác thực Google thất bại trên máy chủ");
         }
       } catch (err: any) {
-        setError(err.message || "Lỗi kết nối máy chủ");
+        setError(err.message || "Lỗi kết nối máy chủ xác thực Cloudflare Worker");
       } finally {
         setLoading(false);
       }
     };
 
-    if (typeof window !== "undefined" && window.google?.accounts?.id) {
-      window.google.accounts.id.initialize({
-        client_id: "928374928374-placeholder.apps.googleusercontent.com", // Generic fallback
-        callback: handleCredentialResponse
-      });
+    const initGoogleGSI = () => {
+      if (typeof window !== "undefined" && window.google?.accounts?.id) {
+        try {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleCredentialResponse,
+            auto_select: false,
+            cancel_on_tap_outside: true
+          });
+
+          if (googleBtnContainerRef.current) {
+            googleBtnContainerRef.current.innerHTML = "";
+            window.google.accounts.id.renderButton(googleBtnContainerRef.current, {
+              type: "standard",
+              theme: "filled_blue",
+              size: "large",
+              text: "signin_with",
+              shape: "pill",
+              logo_alignment: "left",
+              width: 320
+            });
+          }
+
+          // Optional Google One Tap Prompt
+          window.google.accounts.id.prompt((notification: any) => {
+            if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+              // Gracefully handle dismissed prompt
+            }
+          });
+        } catch (e: any) {
+          console.warn("Google GSI initialize notice:", e);
+        }
+      }
+    };
+
+    if (window.google?.accounts?.id) {
+      initGoogleGSI();
+    } else {
+      const interval = setInterval(() => {
+        if (window.google?.accounts?.id) {
+          clearInterval(interval);
+          initGoogleGSI();
+        }
+      }, 200);
+      return () => clearInterval(interval);
     }
   }, [loginUser]);
-
-  // Direct Fast-Track Google Authentication Handler
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Send verified login request to Worker API (persisting directly to Cloudflare D1)
-      const testEmail = "listener@hiddenmusic.vault";
-      const testName = "Khách nghe nhạc Vault";
-      const testAvatar = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80";
-
-      const res = await fetch("https://hidden-music-api.postlain-music.workers.dev/api/auth/google", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: testEmail,
-          name: testName,
-          picture: testAvatar,
-          googleId: "google_" + Date.now().toString(36)
-        })
-      });
-
-      const data = await res.json();
-      if (data.success && data.user) {
-        localStorage.setItem("vault_token", data.token);
-        localStorage.setItem("vault_user", JSON.stringify(data.user));
-        loginUser(data.user);
-      } else {
-        setError(data.error || "Không thể đăng nhập");
-      }
-    } catch (err: any) {
-      // Fallback local persistence if network glitch
-      const fallbackUser = {
-        id: "usr_" + Date.now().toString(36),
-        name: "Người nghe Vault",
-        email: "user@gmail.com",
-        avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-        membershipTier: "Standard"
-      };
-      localStorage.setItem("vault_user", JSON.stringify(fallbackUser));
-      loginUser(fallbackUser);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div
@@ -181,7 +185,7 @@ export const VaultGate: React.FC = () => {
         </h1>
 
         <p style={{ fontSize: "0.95rem", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: "32px" }}>
-          Không gian âm nhạc nghệ thuật độc quyền. Vui lòng đăng nhập bằng tài khoản Google để mở khóa toàn bộ trải nghiệm.
+          Không gian âm nhạc nghệ thuật độc quyền. Đăng nhập bằng tài khoản Google chính thức để tiếp tục.
         </p>
 
         {/* Error Alert */}
@@ -196,70 +200,42 @@ export const VaultGate: React.FC = () => {
                 border: "1px solid rgba(239, 68, 68, 0.3)",
                 color: "#fca5a5",
                 fontSize: "0.85rem",
-                padding: "10px 14px",
+                padding: "12px 14px",
                 borderRadius: "14px",
-                marginBottom: "20px"
+                marginBottom: "24px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                textAlign: "left"
               }}
             >
-              {error}
+              <AlertCircle size={18} color="#ef4444" style={{ flexShrink: 0 }} />
+              <span>{error}</span>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Single Mandatory Google Login Button */}
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={handleGoogleLogin}
-          disabled={loading}
+        {/* Loading Spinner */}
+        {loading && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", margin: "20px 0", color: "#818cf8" }}>
+            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+              <Loader2 size={24} />
+            </motion.div>
+            <span style={{ fontSize: "0.92rem", fontWeight: 600 }}>Đang xác thực với máy chủ Google...</span>
+          </div>
+        )}
+
+        {/* Official Real Google Sign-In Button Container */}
+        <div
           style={{
-            width: "100%",
             display: "flex",
-            alignItems: "center",
             justifyContent: "center",
-            gap: "14px",
-            padding: "16px 24px",
-            borderRadius: "18px",
-            background: "#ffffff",
-            color: "#0f172a",
-            fontSize: "1.05rem",
-            fontWeight: 700,
-            border: "none",
-            cursor: loading ? "not-allowed" : "pointer",
-            boxShadow: "0 10px 25px rgba(0, 0, 0, 0.3)",
-            transition: "all 0.2s ease"
+            minHeight: "44px",
+            margin: "8px 0 16px"
           }}
         >
-          {loading ? (
-            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-              <Loader2 size={22} color="#0f172a" />
-            </motion.div>
-          ) : (
-            <>
-              {/* Google G Logo SVG */}
-              <svg width="22" height="22" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                />
-              </svg>
-              <span>Đăng nhập với Google</span>
-              <ArrowRight size={18} color="#0f172a" />
-            </>
-          )}
-        </motion.button>
+          <div ref={googleBtnContainerRef} id="google-signin-btn" />
+        </div>
 
         {/* Security Badge Footer */}
         <div
@@ -268,13 +244,13 @@ export const VaultGate: React.FC = () => {
             alignItems: "center",
             justifyContent: "center",
             gap: "8px",
-            marginTop: "28px",
+            marginTop: "24px",
             color: "var(--text-muted)",
             fontSize: "0.78rem"
           }}
         >
           <ShieldCheck size={15} color="#10b981" />
-          <span>Bảo mật chuẩn mã hóa Cloudflare D1</span>
+          <span>Xác thực chuẩn Google OAuth 2.0 • Lưu trữ Cloudflare D1</span>
         </div>
       </motion.div>
     </div>
