@@ -3,6 +3,11 @@ main = "src/index.ts"
 compatibility_date = "2025-02-24"
 compatibility_flags = ["nodejs_compat"]
 
+[vars]
+ENVIRONMENT = "production"
+JWT_SECRET = "hidden-music-jwt-secret-vault-2026"
+CORS_ORIGIN = "https://hidden-music-web.pages.dev"
+
 # Cloudflare D1 Database Binding
 [[d1_databases]]
 binding = "DB"
