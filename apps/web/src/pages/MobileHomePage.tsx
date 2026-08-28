@@ -27,8 +27,26 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
   const [selectedAlbumModal, setSelectedAlbumModal] = useState<string | null>(null);
   const [carouselIndex, setCarouselIndex] = useState<number>(0);
 
+  // Burst animation state: 'bursting' (0s-0.7s at center) ➔ 'settled' (slid up to top + tracks unfolded)
+  const [hasBurstPlayed, setHasBurstPlayed] = useState<boolean>(false);
+  const [burstStage, setBurstStage] = useState<"bursting" | "settled">("bursting");
+
   const touchStartY = useRef<number>(0);
   const isSwiping = useRef<boolean>(false);
+
+  // Trigger burst sequence on initial mount
+  useEffect(() => {
+    if (!hasBurstPlayed) {
+      setBurstStage("bursting");
+      const timer = setTimeout(() => {
+        setBurstStage("settled");
+        setHasBurstPlayed(true);
+      }, 750);
+      return () => clearTimeout(timer);
+    } else {
+      setBurstStage("settled");
+    }
+  }, [hasBurstPlayed]);
 
   // Vertical Touch Swipe Gesture Handling (100dvh Snapping)
   useEffect(() => {
@@ -46,14 +64,14 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
         setActiveSection((prev) => Math.min(prev + 1, 2));
         setTimeout(() => {
           isSwiping.current = false;
-        }, 550);
+        }, 500);
       } else if (deltaY < -38) {
         // Swipe down ➔ Prev section
         isSwiping.current = true;
         setActiveSection((prev) => Math.max(prev - 1, 0));
         setTimeout(() => {
           isSwiping.current = false;
-        }, 550);
+        }, 500);
       }
     };
 
@@ -84,7 +102,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
         justifyContent: "center",
         color: "#ffffff",
         zIndex: 1,
-        paddingTop: "max(64px, env(safe-area-inset-top, 64px))",
+        paddingTop: "max(62px, env(safe-area-inset-top, 62px))",
         paddingBottom: "max(72px, env(safe-area-inset-bottom, 72px))",
         paddingLeft: "16px",
         paddingRight: "16px"
@@ -92,236 +110,326 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     >
       <AnimatePresence mode="wait">
         {/* ─────────────────────────────────────────────────────────────────────
-            SECTION 1: SLIDE-UP ALBUM & CASCADING 5 BEST-PLAY TRACKS
+            SECTION 1: RADIANT BURST ➔ SLIDE UP ➔ CASCADING TOP TRACKS
         ────────────────────────────────────────────────────────────────────── */}
         {activeSection === 0 && (
           <motion.div
             key="mobile-section-1"
-            initial={{ opacity: 0, scale: 0.94, y: 30, filter: "blur(6px)" }}
-            animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{
               opacity: 0,
-              scale: 0.92,
-              y: -30,
+              y: -20,
               filter: "blur(6px)",
-              transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] }
+              transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] }
             }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.5 }}
             style={{
               width: "100%",
               maxWidth: "430px",
               height: "100%",
               display: "flex",
               flexDirection: "column",
-              justifyContent: "space-between",
+              justifyContent: burstStage === "bursting" ? "center" : "space-between",
+              alignItems: "center",
               gap: "12px",
-              padding: "4px 0"
+              padding: "4px 0",
+              position: "relative"
             }}
           >
-            {/* Top: Album Art Sliding Up */}
-            <motion.div
-              initial={{ y: 30, opacity: 0, scale: 0.92 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "14px",
-                background: "linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)",
-                border: "1px solid rgba(255, 255, 255, 0.12)",
-                borderRadius: "22px",
-                padding: "12px",
-                boxShadow: "0 12px 30px rgba(0, 0, 0, 0.8)"
-              }}
-              onClick={() => setSelectedAlbumModal("HVL (99%)")}
-            >
-              <div
+            {/* GIAI ĐOẠN 1: BỪNG SÁNG TẠI TRUNG TÂM MÀN HÌNH (~0.7s) */}
+            {burstStage === "bursting" && (
+              <motion.div
+                initial={{ scale: 0.6, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
                 style={{
-                  width: "74px",
-                  height: "74px",
-                  borderRadius: "16px",
-                  overflow: "hidden",
-                  flexShrink: 0,
-                  boxShadow: "0 8px 20px rgba(0, 0, 0, 0.7)",
-                  border: "1px solid rgba(255, 255, 255, 0.2)"
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "18px",
+                  position: "relative"
                 }}
               >
-                <img
-                  src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
-                  alt="HVL (99%)"
-                  loading="eager"
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                />
-              </div>
-
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "2px" }}>
-                  <span
-                    style={{
-                      fontSize: "0.68rem",
-                      fontWeight: 700,
-                      padding: "2px 6px",
-                      borderRadius: "999px",
-                      background: "#ffffff",
-                      color: "#000000"
-                    }}
-                  >
-                    FEATURED
-                  </span>
-                  <span style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.5)" }}>2023 • 30 Tracks</span>
-                </div>
-                <h3
+                {/* 360 Aurora Burst Halo Glowing Ring */}
+                <div
+                  className="aurora-burst-halo"
                   style={{
-                    fontSize: "1.1rem",
-                    fontWeight: 800,
-                    color: "#ffffff",
-                    whiteSpace: "nowrap",
+                    position: "absolute",
+                    inset: "-16px",
+                    borderRadius: "38px",
+                    pointerEvents: "none",
+                    zIndex: 0
+                  }}
+                />
+
+                <motion.div
+                  layoutId="album-cover-hero"
+                  style={{
+                    width: "min(68vw, 250px)",
+                    height: "min(68vw, 250px)",
+                    borderRadius: "32px",
                     overflow: "hidden",
-                    textOverflow: "ellipsis"
+                    boxShadow: "0 25px 70px rgba(0, 0, 0, 0.95), 0 0 40px rgba(255, 255, 255, 0.4)",
+                    border: "2px solid rgba(255, 255, 255, 0.4)",
+                    position: "relative",
+                    zIndex: 1,
+                    background: "#18181b"
                   }}
                 >
-                  HVL (99%)
-                </h3>
-                <p style={{ fontSize: "0.82rem", color: "rgba(255, 255, 255, 0.65)" }}>MCK</p>
-              </div>
+                  <img
+                    src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
+                    alt="HVL (99%) Top Album"
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                </motion.div>
 
-              <div style={{ padding: "6px", color: "rgba(255, 255, 255, 0.4)" }}>
-                <Sparkles size={18} />
-              </div>
-            </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "6px 14px",
+                    borderRadius: "999px",
+                    background: "rgba(255, 255, 255, 0.12)",
+                    border: "1px solid rgba(255, 255, 255, 0.3)",
+                    backdropFilter: "blur(12px)",
+                    boxShadow: "0 4px 16px rgba(255, 255, 255, 0.2)"
+                  }}
+                >
+                  <Sparkles size={14} color="#ffffff" />
+                  <span style={{ fontSize: "0.82rem", fontWeight: 800, letterSpacing: "0.08em", color: "#ffffff" }}>
+                    TOP ALBUM • HVL (99%)
+                  </span>
+                </motion.div>
+              </motion.div>
+            )}
 
-            {/* Bottom: 5 Best-Play Tracks Cascading Down with Stagger */}
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "8px",
-                flex: 1,
-                justifyContent: "center"
-              }}
-            >
-              {BEST_PLAY_TRACKS.map((track, idx) => {
-                const isFav = favoritedTrackIds.includes(track.id);
-                const isCurrent = currentTrack?.id === track.id;
-
-                return (
+            {/* GIAI ĐOẠN 2: TRƯỢT LÊN ĐỈNH VÀ SỔ 5 TRACKS XUỐNG DƯỚI */}
+            {burstStage === "settled" && (
+              <>
+                {/* Top: Album Art Header Card */}
+                <motion.div
+                  layoutId="album-cover-hero-container"
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "14px",
+                    background: "linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)",
+                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    borderRadius: "22px",
+                    padding: "12px",
+                    boxShadow: "0 12px 30px rgba(0, 0, 0, 0.8)"
+                  }}
+                  onClick={() => setSelectedAlbumModal("HVL (99%)")}
+                >
                   <motion.div
-                    key={track.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.45, delay: 0.08 * idx + 0.2, ease: [0.16, 1, 0.3, 1] }}
-                    onClick={() => handleTrackSelect(track)}
+                    layoutId="album-cover-hero"
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "10px 14px",
+                      width: "74px",
+                      height: "74px",
                       borderRadius: "16px",
-                      background: isCurrent
-                        ? "rgba(255, 255, 255, 0.12)"
-                        : "rgba(255, 255, 255, 0.04)",
-                      border: isCurrent
-                        ? "1px solid rgba(255, 255, 255, 0.3)"
-                        : "1px solid rgba(255, 255, 255, 0.07)",
-                      boxShadow: isCurrent ? "0 4px 16px rgba(255, 255, 255, 0.15)" : "none",
-                      cursor: "pointer",
-                      transition: "all 0.2s ease"
+                      overflow: "hidden",
+                      flexShrink: 0,
+                      boxShadow: "0 8px 20px rgba(0, 0, 0, 0.7)",
+                      border: "1px solid rgba(255, 255, 255, 0.25)"
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0, flex: 1 }}>
+                    <img
+                      src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
+                      alt="HVL (99%)"
+                      loading="eager"
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  </motion.div>
+
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "2px" }}>
                       <span
                         style={{
-                          fontSize: "0.8rem",
+                          fontSize: "0.68rem",
                           fontWeight: 700,
-                          color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.4)",
-                          width: "18px",
-                          textAlign: "center"
+                          padding: "2px 6px",
+                          borderRadius: "999px",
+                          background: "#ffffff",
+                          color: "#000000"
                         }}
                       >
-                        {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
+                        TOP ALBUM
                       </span>
-
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <p
-                          style={{
-                            fontSize: "0.88rem",
-                            fontWeight: isCurrent ? 700 : 600,
-                            color: "#ffffff",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis"
-                          }}
-                        >
-                          {track.title}
-                        </p>
-                        <p
-                          style={{
-                            fontSize: "0.72rem",
-                            color: "rgba(255, 255, 255, 0.5)",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis"
-                          }}
-                        >
-                          {track.artist}
-                        </p>
-                      </div>
+                      <span style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.55)" }}>2023 • 30 Tracks</span>
                     </div>
+                    <h3
+                      style={{
+                        fontSize: "1.1rem",
+                        fontWeight: 800,
+                        color: "#ffffff",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis"
+                      }}
+                    >
+                      HVL (99%)
+                    </h3>
+                    <p style={{ fontSize: "0.82rem", color: "rgba(255, 255, 255, 0.65)" }}>MCK</p>
+                  </div>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
-                      <span style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.4)" }}>
-                        {formatDuration(track.duration)}
-                      </span>
+                  <div style={{ padding: "6px", color: "rgba(255, 255, 255, 0.5)" }}>
+                    <Sparkles size={18} />
+                  </div>
+                </motion.div>
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavoriteTrack(track.id);
+                {/* Bottom: Cascading 5 Best-Play Tracks */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, y: -20, transition: { duration: 0.18 } }}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                    flex: 1,
+                    width: "100%",
+                    justifyContent: "center"
+                  }}
+                >
+                  {BEST_PLAY_TRACKS.map((track, idx) => {
+                    const isFav = favoritedTrackIds.includes(track.id);
+                    const isCurrent = currentTrack?.id === track.id;
+
+                    return (
+                      <motion.div
+                        key={track.id}
+                        initial={{ opacity: 0, y: 24 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          duration: 0.45,
+                          delay: 0.07 * idx + 0.1,
+                          ease: [0.16, 1, 0.3, 1]
                         }}
+                        onClick={() => handleTrackSelect(track)}
                         style={{
-                          background: "transparent",
-                          border: "none",
-                          cursor: "pointer",
-                          padding: "6px",
                           display: "flex",
-                          alignItems: "center"
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "10px 14px",
+                          borderRadius: "16px",
+                          background: isCurrent
+                            ? "rgba(255, 255, 255, 0.12)"
+                            : "rgba(255, 255, 255, 0.04)",
+                          border: isCurrent
+                            ? "1px solid rgba(255, 255, 255, 0.3)"
+                            : "1px solid rgba(255, 255, 255, 0.07)",
+                          boxShadow: isCurrent ? "0 4px 16px rgba(255, 255, 255, 0.15)" : "none",
+                          cursor: "pointer",
+                          transition: "all 0.2s ease"
                         }}
                       >
-                        <Heart
-                          size={15}
-                          color={isFav ? "#ffffff" : "rgba(255, 255, 255, 0.35)"}
-                          fill={isFav ? "#ffffff" : "none"}
-                        />
-                      </button>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0, flex: 1 }}>
+                          <span
+                            style={{
+                              fontSize: "0.8rem",
+                              fontWeight: 700,
+                              color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.4)",
+                              width: "18px",
+                              textAlign: "center"
+                            }}
+                          >
+                            {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
+                          </span>
 
-            {/* Swipe hint */}
-            <div style={{ textAlign: "center", opacity: 0.35, fontSize: "0.7rem", letterSpacing: "0.08em" }}>
-              VUỐT LÊN ĐỂ TIẾP TỤC
-            </div>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <p
+                              style={{
+                                fontSize: "0.88rem",
+                                fontWeight: isCurrent ? 700 : 600,
+                                color: "#ffffff",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis"
+                              }}
+                            >
+                              {track.title}
+                            </p>
+                            <p
+                              style={{
+                                fontSize: "0.72rem",
+                                color: "rgba(255, 255, 255, 0.5)",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis"
+                              }}
+                            >
+                              {track.artist}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+                          <span style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.4)" }}>
+                            {formatDuration(track.duration)}
+                          </span>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavoriteTrack(track.id);
+                            }}
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              cursor: "pointer",
+                              padding: "6px",
+                              display: "flex",
+                              alignItems: "center"
+                            }}
+                          >
+                            <Heart
+                              size={15}
+                              color={isFav ? "#ffffff" : "rgba(255, 255, 255, 0.35)"}
+                              fill={isFav ? "#ffffff" : "none"}
+                            />
+                          </button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </motion.div>
+
+                {/* Swipe hint */}
+                <div style={{ textAlign: "center", opacity: 0.35, fontSize: "0.7rem", letterSpacing: "0.08em" }}>
+                  VUỐT LÊN ĐỂ TIẾP TỤC
+                </div>
+              </>
+            )}
           </motion.div>
         )}
 
         {/* ─────────────────────────────────────────────────────────────────────
-            SECTION 2: TOUCH 3D COVER FLOW & ELASTIC DRAG
+            SECTION 2: SEAMLESS MORPHED 3D COVER FLOW & ELASTIC DRAG
         ────────────────────────────────────────────────────────────────────── */}
         {activeSection === 1 && (
           <motion.div
             key="mobile-section-2"
-            initial={{ opacity: 0, scale: 0.88, y: 35, filter: "blur(8px)" }}
-            animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
             exit={{
               opacity: 0,
               scale: 1.1,
               y: -35,
               filter: "blur(8px)",
-              transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] }
+              transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] }
             }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
             style={{
               width: "100%",
               maxWidth: "380px",
@@ -333,7 +441,9 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
               gap: "24px"
             }}
           >
+            {/* Morphing Album Card with shared layoutId */}
             <motion.div
+              layoutId="album-cover-hero"
               drag="x"
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.45}
@@ -424,8 +534,8 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
             key="mobile-section-3"
             initial={{ opacity: 0, scale: 0.85, filter: "blur(8px)" }}
             animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-            exit={{ opacity: 0, scale: 0.85, filter: "blur(8px)", transition: { duration: 0.45 } }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            exit={{ opacity: 0, scale: 0.85, filter: "blur(8px)", transition: { duration: 0.35 } }}
+            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
             style={{
               width: "100%",
               maxWidth: "360px",
