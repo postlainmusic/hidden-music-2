@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useAudioStore } from "../store/audioStore";
 import { TrackCard } from "../components/TrackCard";
-import { Play, Sparkles, Flame, Cloud, Server, Zap } from "lucide-react";
+import { Play, Pause, Sparkles, Flame, Cloud, Server, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 
 export const HomePage: React.FC = () => {
