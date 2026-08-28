@@ -11,7 +11,6 @@ const BEST_PLAY_TRACKS = [
   DEFAULT_TRACKS[19], // 20. Xa Xôi (feat. Obito)
 ];
 
-// Thứ tự 5 Bìa: Bìa 1 ở giữa, trượt phải sang trái lần lượt: 1, 2, 3, 4, 5, 1, 2, 3, 4, 5... vô cực
 interface RevolverSlot {
   id: string;
   slotNumber: number;
@@ -29,7 +28,6 @@ const REVOLVER_SLOTS: RevolverSlot[] = [
   { id: "slot-5", slotNumber: 5, title: "VAULT SLOT 05", artist: "Lossless Ready", isReal: false }, // Index 4 (Bìa 5)
 ];
 
-// Vị trí con bi theo từng bìa:
 const MARBLE_STEPS = [0, 1, 2, -2, -1];
 
 const formatDuration = (seconds: number) => {
@@ -49,7 +47,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
   const [activeSection, setActiveSection] = useState<number>(0);
   const [selectedAlbumModal, setSelectedAlbumModal] = useState<string | null>(null);
   
-  // Section 2 Revolver Index (0..4) - Luôn khởi tạo là 0 (Bìa 1 HVL)
+  // Section 2 Revolver Index (0..4)
   const [revolverIndex, setRevolverIndex] = useState<number>(0);
   const [dragOffset, setDragOffset] = useState<number>(0);
 
@@ -61,7 +59,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
   const touchStartX = useRef<number>(0);
   const isTouchInsideCarousel = useRef<boolean>(false);
 
-  // Initial Section 1 Sequence on Page Load:
+  // Flow nhịp chuẩn: Vào trang -> Bìa Fade In ở giữa (0.4s) -> Nghỉ 1.5s -> Trượt lên và 5 bài hát Fade In
   useEffect(() => {
     setSec1State("initial_center");
 
@@ -74,7 +72,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     };
   }, []);
 
-  // Chuyển cảnh 1 -> 2 mượt mà, không chớp tắt
+  // Chuyển cảnh 1 -> 2 mượt mà
   const handleTransition1To2 = () => {
     if (isTransitioning || sec1State !== "settled") return;
     setIsTransitioning(true);
@@ -82,11 +80,11 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     // Bước 1: 5 tracks Fade out và bìa trở về tâm êm ái trong 2.0s
     setSec1State("closing_center");
 
-    // Bước 2: Sau 2.0s, bìa dừng tại tâm 0.5s
+    // Bước 2: Bìa dừng tại tâm 0.5s
     setTimeout(() => {
       setSec1State("resting_handover");
 
-      // Bước 3: Chuyển Section 2 - vì cả 2 section đều giữ DOM đã render sẵn nên 0ms flash
+      // Bước 3: Chuyển Section 2
       setTimeout(() => {
         setRevolverIndex(0);
         setActiveSection(1);
@@ -95,7 +93,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     }, 2000);
   };
 
-  // Chuyển cảnh ngược lại 2 -> 1:
+  // Chuyển cảnh ngược lại 2 -> 1
   const handleTransition2To1 = () => {
     if (isTransitioning) return;
     setIsTransitioning(true);
@@ -111,7 +109,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     }, 50);
   };
 
-  // Touch Swipe Gesture Handler
+  // Touch Gesture Handling
   useEffect(() => {
     const handleTouchStart = (e: TouchEvent) => {
       touchStartY.current = e.touches[0].clientY;
@@ -134,7 +132,6 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
       const deltaY = touchStartY.current - e.changedTouches[0].clientY;
       const deltaX = touchStartX.current - e.changedTouches[0].clientX;
 
-      // Trong Section 2: Vùng Carousel chỉ nhận vuốt ngang, bỏ qua vuốt dọc
       if (activeSection === 1 && isTouchInsideCarousel.current) {
         if (Math.abs(deltaX) > 15 || Math.abs(deltaY) < 90 || Math.abs(deltaY) < Math.abs(deltaX) * 2.5) {
           return;
@@ -169,7 +166,6 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     };
   }, [activeSection, sec1State, isTransitioning]);
 
-  // Section 2 5-Slot Helper Functions
   const totalSlots = 5;
   const getSlot = (offset: number) => {
     const idx = (revolverIndex + offset + totalSlots * 10) % totalSlots;
@@ -180,7 +176,6 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     playTrack(track);
   };
 
-  // Vị trí con bi
   const currentMarbleStep = MARBLE_STEPS[revolverIndex] ?? 0;
   const marbleBaseX = currentMarbleStep * 24;
 
@@ -202,8 +197,9 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
         background: "#000000"
       }}
     >
-      {/* Persistent Metallic Sheen Glow Background across both sections (No flash) */}
+      {/* Background Metallic Sheen Ambient Glow */}
       <motion.div
+        initial={{ opacity: 0 }}
         animate={{ opacity: activeSection === 1 ? 1 : 0.2 }}
         transition={{ duration: 1.2, ease: "easeInOut" }}
         className="metallic-sheen-glow"
@@ -211,29 +207,28 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
       />
 
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 1: PERSISTENT IN DOM (ZERO UNMOUNT FLASH)
+          SECTION 1: KHỞI TẠO CHUẨN XÁC (CHỈ HIỆN BÌA TẠI TÂM LÚC ĐẦU)
       ────────────────────────────────────────────────────────────────────── */}
-      <motion.div
-        animate={{
-          opacity: activeSection === 0 ? 1 : 0,
-          pointerEvents: activeSection === 0 ? "auto" : "none"
-        }}
-        transition={{ duration: 0.4, ease: "easeInOut" }}
+      <div
         style={{
           position: "absolute",
           inset: 0,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          opacity: activeSection === 0 ? 1 : 0,
+          pointerEvents: activeSection === 0 ? "auto" : "none",
+          transition: "opacity 0.4s ease-in-out",
           zIndex: activeSection === 0 ? 10 : 1
         }}
       >
-        {/* Top Album Artwork (Exact coordinate alignment with Section 2 center card) */}
+        {/* Top Album Artwork (Mở màn ở tâm, chỉ lướt lên khi settled) */}
         <motion.div
+          initial={{ opacity: 0, y: 0, scale: 1 }}
           animate={{
+            opacity: 1,
             y: isSettled ? -135 : 0,
-            scale: isSettled ? 0.58 : 1,
-            opacity: 1
+            scale: isSettled ? 0.58 : 1
           }}
           transition={{ duration: 2.0, ease: [0.16, 1, 0.3, 1] }}
           onClick={() => {
@@ -264,13 +259,8 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
           />
         </motion.div>
 
-        {/* Bottom 5 Tracks List */}
-        <motion.div
-          animate={{
-            opacity: isSettled ? 1 : 0,
-            pointerEvents: isSettled ? "auto" : "none"
-          }}
-          transition={{ duration: 1.6, ease: "easeInOut" }}
+        {/* Bottom 5 Tracks List (BẮT BUỘC ẨN LÚC ĐẦU, CHỈ HIỆN KHI SETTLED) */}
+        <div
           style={{
             position: "absolute",
             top: "calc(50% - 35px)",
@@ -280,6 +270,9 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
             display: "flex",
             flexDirection: "column",
             gap: "6px",
+            opacity: isSettled ? 1 : 0,
+            pointerEvents: isSettled ? "auto" : "none",
+            transition: "opacity 1.6s ease-in-out",
             zIndex: 5
           }}
         >
@@ -381,18 +374,13 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
           <div style={{ textAlign: "center", opacity: 0.35, fontSize: "0.68rem", letterSpacing: "0.08em", marginTop: "4px" }}>
             VUỐT LÊN ĐỂ TIẾP TỤC
           </div>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 2: PERSISTENT IN DOM (ZERO UNMOUNT FLASH)
+          SECTION 2: BẮT BUỘC ẨN LÚC ĐẦU (OPACITY 0 IN CSS)
       ────────────────────────────────────────────────────────────────────── */}
-      <motion.div
-        animate={{
-          opacity: activeSection === 1 ? 1 : 0,
-          pointerEvents: activeSection === 1 ? "auto" : "none"
-        }}
-        transition={{ duration: 0.4, ease: "easeInOut" }}
+      <div
         style={{
           position: "absolute",
           inset: 0,
@@ -400,6 +388,9 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
           alignItems: "center",
           justifyContent: "center",
           overflow: "hidden",
+          opacity: activeSection === 1 ? 1 : 0,
+          pointerEvents: activeSection === 1 ? "auto" : "none",
+          transition: "opacity 0.4s ease-in-out",
           zIndex: activeSection === 1 ? 10 : 1
         }}
       >
@@ -436,7 +427,6 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                   const offsetVal = info.offset.x;
                   const velocity = info.velocity.x;
 
-                  // Chuẩn hóa: Cứ vuốt là qua đúng 1 track tuần tự
                   if (offsetVal < -30 || velocity < -120) {
                     setRevolverIndex((prev) => (prev + 1) % totalSlots);
                   } else if (offsetVal > 30 || velocity > 120) {
@@ -596,18 +586,12 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
             />
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 3: LUXURY EXPLORE CALL-TO-ACTION
+          SECTION 3: BẮT BUỘC ẨN LÚC ĐẦU
       ────────────────────────────────────────────────────────────────────── */}
-      <motion.div
-        animate={{
-          opacity: activeSection === 2 ? 1 : 0,
-          pointerEvents: activeSection === 2 ? "auto" : "none",
-          scale: activeSection === 2 ? 1 : 0.88
-        }}
-        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+      <div
         style={{
           position: "absolute",
           inset: 0,
@@ -618,6 +602,9 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
           gap: "20px",
           textAlign: "center",
           padding: "0 20px",
+          opacity: activeSection === 2 ? 1 : 0,
+          pointerEvents: activeSection === 2 ? "auto" : "none",
+          transition: "opacity 0.45s ease-in-out",
           zIndex: activeSection === 2 ? 10 : 1
         }}
       >
@@ -651,7 +638,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
         <p style={{ fontSize: "0.78rem", color: "rgba(255, 255, 255, 0.5)", lineHeight: 1.5 }}>
           Khám phá không gian âm thanh lossless mở rộng
         </p>
-      </motion.div>
+      </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────
           MOBILE 3D PREVIEW MODAL

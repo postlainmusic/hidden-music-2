@@ -12,7 +12,6 @@ const BEST_PLAY_TRACKS = [
   DEFAULT_TRACKS[19], // 20. Xa Xôi (feat. Obito)
 ];
 
-// Thứ tự 5 Bìa: Bìa 1 ở giữa, trượt phải sang trái lần lượt: 1, 2, 3, 4, 5, 1, 2, 3, 4, 5... vô cực
 interface RevolverSlot {
   id: string;
   slotNumber: number;
@@ -30,7 +29,6 @@ const REVOLVER_SLOTS: RevolverSlot[] = [
   { id: "slot-5", slotNumber: 5, title: "VAULT SLOT 05", artist: "Lossless Ready", isReal: false }, // Index 4 (Bìa 5)
 ];
 
-// Vị trí con bi theo từng bìa:
 const MARBLE_STEPS = [0, 1, 2, -2, -1];
 
 const formatDuration = (seconds: number) => {
@@ -63,7 +61,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
   const touchStartXRef = useRef(0);
   const isTouchInsideCarousel = useRef<boolean>(false);
 
-  // Initial Section 1 Sequence on Page Load (+1.5s initial rest ➔ Settled & Persistent)
+  // Flow nhịp chuẩn: Vào trang -> Bìa Fade In ở giữa (0.4s) -> Nghỉ 1.5s -> Trượt sang trái và 5 bài hát Fade In
   useEffect(() => {
     setSec1State("initial_center");
 
@@ -101,7 +99,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
     setTimeout(() => {
       setSec1State("resting_handover");
 
-      // Bước 3: Sau khoảng nghỉ 0.5s, đổi sang Section 2 và ĐẢM BẢO revolverIndex = 0 (Bìa 1 HVL)
+      // Bước 3: Sau khoảng nghỉ 0.5s, đổi sang Section 2
       setTimeout(() => {
         setRevolverIndex(0);
         setActiveSection(1);
@@ -269,14 +267,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
     };
   }, [activeSection, sec1State, isTransitioning]);
 
-  // Section 2 5-Slot Helper Functions
   const totalSlots = 5;
   const getSlot = (offset: number) => {
     const idx = (revolverIndex + offset + totalSlots * 10) % totalSlots;
     return { slot: REVOLVER_SLOTS[idx] };
   };
 
-  // Tính toán vị trí con bi: bước nhảy 28px (-56px, -28px, 0px, +28px, +56px)
   const currentMarbleStep = MARBLE_STEPS[revolverIndex] ?? 0;
   const marbleBaseX = currentMarbleStep * 28;
 
@@ -298,8 +294,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
         background: "#000000"
       }}
     >
-      {/* Persistent Metallic Sheen Glow Background across both sections (No flash) */}
+      {/* Background Metallic Sheen Glow */}
       <motion.div
+        initial={{ opacity: 0 }}
         animate={{ opacity: activeSection === 1 ? 1 : 0.2 }}
         transition={{ duration: 1.2, ease: "easeInOut" }}
         className="metallic-sheen-glow"
@@ -307,29 +304,28 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
       />
 
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 1: PERSISTENT IN DOM (ZERO UNMOUNT FLASH)
+          SECTION 1: KHỞI TẠO CHUẨN XÁC (CHỈ HIỆN BÌA TẠI TÂM LÚC ĐẦU)
       ────────────────────────────────────────────────────────────────────── */}
-      <motion.div
-        animate={{
-          opacity: activeSection === 0 ? 1 : 0,
-          pointerEvents: activeSection === 0 ? "auto" : "none"
-        }}
-        transition={{ duration: 0.4, ease: "easeInOut" }}
+      <div
         style={{
           position: "absolute",
           inset: 0,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          opacity: activeSection === 0 ? 1 : 0,
+          pointerEvents: activeSection === 0 ? "auto" : "none",
+          transition: "opacity 0.4s ease-in-out",
           zIndex: activeSection === 0 ? 10 : 1
         }}
       >
-        {/* Left Album Artwork (Exact coordinate alignment with Section 2 center card) */}
+        {/* Left Album Artwork (Mở màn ở tâm, chỉ lướt sang trái khi settled) */}
         <motion.div
+          initial={{ opacity: 0, x: 0, scale: 1 }}
           animate={{
+            opacity: 1,
             x: isSettled ? -230 : 0,
-            scale: 1,
-            opacity: 1
+            scale: 1
           }}
           transition={{ duration: 2.0, ease: [0.16, 1, 0.3, 1] }}
           whileHover={isSettled ? { scale: 1.02 } : {}}
@@ -361,13 +357,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
           />
         </motion.div>
 
-        {/* Right 5 Tracks List */}
-        <motion.div
-          animate={{
-            opacity: isSettled ? 1 : 0,
-            pointerEvents: isSettled ? "auto" : "none"
-          }}
-          transition={{ duration: 1.6, ease: "easeInOut" }}
+        {/* Right 5 Tracks List (BẮT BUỘC ẨN LÚC ĐẦU, CHỈ HIỆN KHI SETTLED) */}
+        <div
           style={{
             position: "absolute",
             left: "calc(50% + 20px)",
@@ -376,6 +367,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
             display: "flex",
             flexDirection: "column",
             gap: "12px",
+            opacity: isSettled ? 1 : 0,
+            pointerEvents: isSettled ? "auto" : "none",
+            transition: "opacity 1.6s ease-in-out",
             zIndex: 5
           }}
         >
@@ -462,18 +456,13 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
               </div>
             );
           })}
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 2: PERSISTENT IN DOM (ZERO UNMOUNT FLASH)
+          SECTION 2: BẮT BUỘC ẨN LÚC ĐẦU (OPACITY 0 IN CSS)
       ────────────────────────────────────────────────────────────────────── */}
-      <motion.div
-        animate={{
-          opacity: activeSection === 1 ? 1 : 0,
-          pointerEvents: activeSection === 1 ? "auto" : "none"
-        }}
-        transition={{ duration: 0.4, ease: "easeInOut" }}
+      <div
         style={{
           position: "absolute",
           inset: 0,
@@ -481,6 +470,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
           alignItems: "center",
           justifyContent: "center",
           overflow: "hidden",
+          opacity: activeSection === 1 ? 1 : 0,
+          pointerEvents: activeSection === 1 ? "auto" : "none",
+          transition: "opacity 0.4s ease-in-out",
           zIndex: activeSection === 1 ? 10 : 1
         }}
       >
@@ -516,7 +508,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                   const offsetVal = info.offset.x;
                   const velocity = info.velocity.x;
 
-                  // Chuẩn hóa: Cứ vuốt là qua đúng 1 track tuần tự theo thứ tự
                   if (offsetVal < -30 || velocity < -120) {
                     setRevolverIndex((prev) => (prev + 1) % totalSlots);
                   } else if (offsetVal > 30 || velocity > 120) {
@@ -676,18 +667,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
             />
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 3 (ACTIVE === 2)
+          SECTION 3: BẮT BUỘC ẨN LÚC ĐẦU
       ────────────────────────────────────────────────────────────────────── */}
-      <motion.div
-        animate={{
-          opacity: activeSection === 2 ? 1 : 0,
-          pointerEvents: activeSection === 2 ? "auto" : "none",
-          scale: activeSection === 2 ? 1 : 0.88
-        }}
-        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+      <div
         style={{
           position: "absolute",
           inset: 0,
@@ -695,6 +680,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
           alignItems: "center",
           justifyContent: "center",
           padding: "0 24px",
+          opacity: activeSection === 2 ? 1 : 0,
+          pointerEvents: activeSection === 2 ? "auto" : "none",
+          transition: "opacity 0.45s ease-in-out",
           zIndex: activeSection === 2 ? 10 : 1
         }}
       >
@@ -730,7 +718,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
           <span>CHUYỂN QUA EXPLORE</span>
           <ArrowRight size={20} />
         </motion.button>
-      </motion.div>
+      </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────
           ALBUM 3D PREVIEW TRANSITION MODAL (NO MUSIC AUTOPLAY)
