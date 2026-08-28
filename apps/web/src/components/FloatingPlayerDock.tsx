@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 export const FloatingPlayerDock: React.FC = () => {
   const {
     currentTrack,
+    queue,
     isPlaying,
     isBuffering,
     currentTime,
@@ -20,6 +21,9 @@ export const FloatingPlayerDock: React.FC = () => {
     toggleMute,
     getFrequencyData
   } = useAudioStore();
+
+  const currentIndex = currentTrack ? queue.findIndex((t) => t.id === currentTrack.id) : 0;
+  const nextTrackItem = queue.length > 0 ? queue[(currentIndex + 1) % queue.length] : null;
 
   const visualizerRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -332,6 +336,11 @@ export const FloatingPlayerDock: React.FC = () => {
           </div>
         </div>
       </motion.div>
+
+      {/* Background Silent Next-Track Preloader (Pre-buffers the next track for 0ms transition) */}
+      {nextTrackItem && nextTrackItem.id !== currentTrack.id && (
+        <audio src={nextTrackItem.audioUrl} preload="auto" style={{ display: "none" }} />
+      )}
     </div>
   );
 };
