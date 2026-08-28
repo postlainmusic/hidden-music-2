@@ -45,9 +45,13 @@
 
 ## 3. 🤖 AGENT ORCHESTRATION & AUTO-PUSH POLICY
 
-- **Orchestration**: Read [PROJECT_MANAGER.md](file:///c:/Users/Admin/Documents/github/hidden-music-2/PROJECT_MANAGER.md) and dispatch domain skills (`graphify`, `ui-ux-pro-max`, `performance-optimization`, `debugging-and-error-recovery`).
+- **Mandatory Root Evaluation**: Every agent turn MUST first read [PROJECT_MANAGER.md](file:///c:/Users/Admin/Documents/GitHub/hidden-music-2/PROJECT_MANAGER.md) and [AGENTS.md](file:///c:/Users/Admin/Documents/GitHub/hidden-music-2/AGENTS.md) at repository root to evaluate overall health, review Graphify knowledge flows, and dispatch specialized domain skills (`ui-ux-pro-max`, `performance-optimization`, `debugging-and-error-recovery`).
+- **Interactive Question & Planning Protocol**:
+  - **Major Architectural & High-Risk Changes**: Solicit user confirmation via interactive modal questions and formal `implementation_plan.md`.
+  - **Minor, Detailed, or Direct Feature Tweaks**: Execute directly without blocking modal plans; optionally confirm lightweight intent directly in text response.
 - **Autonomous Delivery (Auto-Push)**:
   1. Build Web: `npm run build:web`
   2. Deploy Pages: `npx wrangler pages deploy apps/web/dist --project-name=hidden-music-web`
   3. Deploy Worker API: `cd apps/api; npx wrangler deploy` (when API changes)
   4. Git Sync: `git add . && git commit -m "..." && git push origin main`
+

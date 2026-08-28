@@ -286,3 +286,27 @@ input[type="range"]:hover::-webkit-slider-thumb {
   animation: halo-pulse 3s ease-in-out infinite;
 }
 
+/* --- Section 2 Metallic Sheen Breathing Ambient Glow --- */
+@keyframes metallic-breath {
+  0%, 100% {
+    opacity: 0.18;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.42;
+    transform: scale(1.06);
+  }
+}
+
+.metallic-sheen-glow {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(226, 232, 240, 0.22) 0%, rgba(148, 163, 184, 0.08) 45%, transparent 70%);
+  pointer-events: none;
+  animation: metallic-breath 4.5s ease-in-out infinite;
+  z-index: 0;
+}
+
+

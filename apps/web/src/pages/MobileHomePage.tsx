@@ -21,32 +21,76 @@ interface MobileHomePageProps {
   onExploreClick?: () => void;
 }
 
+type Section1Stage = "fadeIn" | "bursting" | "settled" | "returning_center" | "resting_center";
+
 export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }) => {
   const { currentTrack, playTrack, favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
   const [activeSection, setActiveSection] = useState<number>(0);
   const [selectedAlbumModal, setSelectedAlbumModal] = useState<string | null>(null);
   const [carouselIndex, setCarouselIndex] = useState<number>(0);
 
-  // Burst animation state: 'bursting' (center ~0.7s) ➔ 'settled' (slid up + tracks unfolded)
-  const [hasBurstPlayed, setHasBurstPlayed] = useState<boolean>(false);
-  const [burstStage, setBurstStage] = useState<"bursting" | "settled">("bursting");
+  // Section 1 Timing State Machine
+  // 1. fadeIn (0.4s) ➔ 2. bursting (0.7s) ➔ 3. settled (slide up 0.7s + tracks down 0.7s)
+  // Khi swipe: 4. returning_center (tracks suck in 0.7s + album to center 0.7s) ➔ 5. resting_center (0.5s) ➔ activeSection = 1
+  const [sec1Stage, setSec1Stage] = useState<Section1Stage>("fadeIn");
+  const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
 
   const touchStartY = useRef<number>(0);
   const isSwiping = useRef<boolean>(false);
 
-  // Trigger burst sequence on initial mount
+  // Initial Section 1 Entrance Choreography
   useEffect(() => {
-    if (!hasBurstPlayed) {
-      setBurstStage("bursting");
-      const timer = setTimeout(() => {
-        setBurstStage("settled");
-        setHasBurstPlayed(true);
-      }, 700);
-      return () => clearTimeout(timer);
-    } else {
-      setBurstStage("settled");
-    }
-  }, [hasBurstPlayed]);
+    // 0s - 0.4s: Fade in
+    setSec1Stage("fadeIn");
+    
+    // 0.4s: Start burst
+    const burstTimer = setTimeout(() => {
+      setSec1Stage("bursting");
+    }, 400);
+
+    // 0.4s + 0.7s = 1.1s: Slide up + tracks slide down
+    const settleTimer = setTimeout(() => {
+      setSec1Stage("settled");
+    }, 1100);
+
+    return () => {
+      clearTimeout(burstTimer);
+      clearTimeout(settleTimer);
+    };
+  }, []);
+
+  // Trigger transition from Section 1 to Section 2 with exact user timings
+  const triggerTransitionToSection2 = () => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+
+    // Bước 1: Track thu vào bìa đĩa (0.7s) + Bìa trượt về tâm (0.7s)
+    setSec1Stage("returning_center");
+
+    // Bước 2: Sau 0.7s, bước vào khoảng nghỉ cố định tâm 0.5s
+    setTimeout(() => {
+      setSec1Stage("resting_center");
+
+      // Bước 3: Sau khoảng nghỉ 0.5s (tổng 1.2s), chính thức đổi sang Section 2
+      setTimeout(() => {
+        setActiveSection(1);
+        setIsTransitioning(false);
+      }, 500);
+    }, 700);
+  };
+
+  // Trigger transition from Section 2 back to Section 1
+  const triggerTransitionToSection1 = () => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setActiveSection(0);
+    setSec1Stage("returning_center");
+
+    setTimeout(() => {
+      setSec1Stage("settled");
+      setIsTransitioning(false);
+    }, 700);
+  };
 
   // Vertical Touch Swipe Gesture Handling (100dvh Snapping)
   useEffect(() => {
@@ -55,23 +99,31 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      if (isSwiping.current) return;
+      if (isSwiping.current || isTransitioning) return;
       const deltaY = touchStartY.current - e.changedTouches[0].clientY;
 
       if (deltaY > 38) {
         // Swipe up ➔ Next section
-        isSwiping.current = true;
-        setActiveSection((prev) => Math.min(prev + 1, 2));
-        setTimeout(() => {
-          isSwiping.current = false;
-        }, 550);
+        if (activeSection === 0) {
+          triggerTransitionToSection2();
+        } else if (activeSection === 1) {
+          isSwiping.current = true;
+          setActiveSection(2);
+          setTimeout(() => {
+            isSwiping.current = false;
+          }, 500);
+        }
       } else if (deltaY < -38) {
         // Swipe down ➔ Prev section
-        isSwiping.current = true;
-        setActiveSection((prev) => Math.max(prev - 1, 0));
-        setTimeout(() => {
-          isSwiping.current = false;
-        }, 550);
+        if (activeSection === 1) {
+          triggerTransitionToSection1();
+        } else if (activeSection === 2) {
+          isSwiping.current = true;
+          setActiveSection(1);
+          setTimeout(() => {
+            isSwiping.current = false;
+          }, 500);
+        }
       }
     };
 
@@ -82,7 +134,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
       window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("touchend", handleTouchEnd);
     };
-  }, []);
+  }, [activeSection, isTransitioning]);
 
   const handleTrackSelect = (track: Track) => {
     playTrack(track);
@@ -110,40 +162,39 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     >
       <AnimatePresence mode="wait">
         {/* ─────────────────────────────────────────────────────────────────────
-            SECTION 1: PURE ARTWORK BURST ➔ SLIDE UP ➔ TRACKS SLIDE DOWN
+            SECTION 1: TIMED CHOREOGRAPHY (FADE IN 0.4s ➔ BURST 0.7s ➔ SLIDE UP 0.7s)
         ────────────────────────────────────────────────────────────────────── */}
         {activeSection === 0 && (
           <motion.div
             key="mobile-section-1"
-            initial={{ opacity: 0 }}
+            initial={{ opacity: 1 }}
             animate={{ opacity: 1 }}
-            exit={{
-              opacity: 0,
-              y: -20,
-              filter: "blur(6px)",
-              transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] }
-            }}
-            transition={{ duration: 0.5 }}
+            exit={{ opacity: 1 }}
             style={{
               width: "100%",
               maxWidth: "430px",
               height: "100%",
               display: "flex",
               flexDirection: "column",
-              justifyContent: burstStage === "bursting" ? "center" : "space-between",
+              justifyContent: sec1Stage === "settled" ? "space-between" : "center",
               alignItems: "center",
               gap: "14px",
               padding: "8px 0",
               position: "relative"
             }}
           >
-            {/* GIAI ĐOẠN 1: BÌA THUẦN TÚY BỪNG SÁNG TẠI TRUNG TÂM (~0.7s) */}
-            {burstStage === "bursting" && (
+            {/* TRẠNG THÁI Ở TÂM: fadeIn (0.4s) | bursting (0.7s) | returning_center (0.7s) | resting_center (0.5s) */}
+            {(sec1Stage === "fadeIn" || sec1Stage === "bursting" || sec1Stage === "returning_center" || sec1Stage === "resting_center") && (
               <motion.div
-                initial={{ scale: 0.7, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-                transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+                initial={{ opacity: 0, scale: 0.88 }}
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                  transition: {
+                    duration: sec1Stage === "fadeIn" ? 0.4 : 0.7,
+                    ease: [0.16, 1, 0.3, 1]
+                  }
+                }}
                 style={{
                   position: "relative",
                   display: "flex",
@@ -151,17 +202,19 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                   justifyContent: "center"
                 }}
               >
-                {/* 360 Aurora Burst Halo Glowing Ring */}
-                <div
-                  className="aurora-burst-halo"
-                  style={{
-                    position: "absolute",
-                    inset: "-16px",
-                    borderRadius: "36px",
-                    pointerEvents: "none",
-                    zIndex: 0
-                  }}
-                />
+                {/* 360 Aurora Burst Halo Glowing Ring (hiện trong giai đoạn burst) */}
+                {sec1Stage === "bursting" && (
+                  <div
+                    className="aurora-burst-halo"
+                    style={{
+                      position: "absolute",
+                      inset: "-16px",
+                      borderRadius: "36px",
+                      pointerEvents: "none",
+                      zIndex: 0
+                    }}
+                  />
+                )}
 
                 <motion.div
                   layoutId="mobile-album-cover"
@@ -170,7 +223,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                     height: "min(76vw, 290px)",
                     borderRadius: "28px",
                     overflow: "hidden",
-                    boxShadow: "0 25px 70px rgba(0, 0, 0, 0.95), 0 0 50px rgba(255, 255, 255, 0.4)",
+                    boxShadow: "0 25px 70px rgba(0, 0, 0, 0.95), 0 0 45px rgba(255, 255, 255, 0.35)",
                     border: "1px solid rgba(255, 255, 255, 0.25)",
                     position: "relative",
                     zIndex: 1,
@@ -186,15 +239,15 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
               </motion.div>
             )}
 
-            {/* GIAI ĐOẠN 2: BÌA TRƯỢT LÊN TRÊN & 5 TRACKS TRƯỢT XUỐNG DƯỚI */}
-            {burstStage === "settled" && (
+            {/* TRẠNG THÁI ĐÃ TRƯỢT LÊN ĐỈNH (settled): Bìa ở trên (0.7s) + 5 tracks ở dưới (0.7s) */}
+            {sec1Stage === "settled" && (
               <>
-                {/* Top: Pure Album Artwork (No Box/Card container, No text) */}
+                {/* Top: Pure Album Artwork */}
                 <motion.div
                   layoutId="mobile-album-cover"
-                  initial={{ y: 30, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                  initial={{ y: 80, scale: 1.25, opacity: 0.9 }}
+                  animate={{ y: 0, scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
                   onClick={() => setSelectedAlbumModal("HVL (99%)")}
                   style={{
                     width: "140px",
@@ -217,11 +270,12 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                   />
                 </motion.div>
 
-                {/* Bottom: 5 Best-Play Tracks Cascading Down */}
+                {/* Bottom: 5 Tracks trượt xuống dưới bìa (0.7s) */}
                 <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, y: 20, transition: { duration: 0.18 } }}
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -60, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } }}
+                  transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
                   style={{
                     display: "flex",
                     flexDirection: "column",
@@ -238,11 +292,11 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                     return (
                       <motion.div
                         key={track.id}
-                        initial={{ opacity: 0, y: 24 }}
+                        initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{
-                          duration: 0.45,
-                          delay: 0.06 * idx + 0.1,
+                          duration: 0.7,
+                          delay: 0.05 * idx,
                           ease: [0.16, 1, 0.3, 1]
                         }}
                         onClick={() => handleTrackSelect(track)}
@@ -344,7 +398,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
         )}
 
         {/* ─────────────────────────────────────────────────────────────────────
-            SECTION 2: SEAMLESS CONTINUOUS 3D COVER FLOW (MATCHES SECTION 1 EXACTLY)
+            SECTION 2: METALLIC BREATH BACKGROUND & 3D COVER FLOW
         ────────────────────────────────────────────────────────────────────── */}
         {activeSection === 1 && (
           <motion.div
@@ -358,7 +412,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
               filter: "blur(8px)",
               transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] }
             }}
-            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             style={{
               width: "100%",
               maxWidth: "380px",
@@ -367,10 +421,14 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              gap: "24px"
+              gap: "24px",
+              position: "relative"
             }}
           >
-            {/* Pure Album Artwork with shared layoutId matching Section 1 center exactly */}
+            {/* Metallic Sheen Breathing Ambient Glow Background */}
+            <div className="metallic-sheen-glow" />
+
+            {/* Pure Album Artwork with shared layoutId at exact center position */}
             <motion.div
               layoutId="mobile-album-cover"
               drag="x"
@@ -390,10 +448,11 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                 height: "min(76vw, 290px)",
                 borderRadius: "28px",
                 overflow: "hidden",
-                boxShadow: "0 24px 60px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.25)",
+                boxShadow: "0 28px 70px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)",
                 background: "#18181b",
                 position: "relative",
-                cursor: "grab"
+                cursor: "grab",
+                zIndex: 1
               }}
             >
               <img
@@ -411,7 +470,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
             </motion.div>
 
             {/* Pagination Indicator */}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", zIndex: 1 }}>
               <motion.div
                 onClick={() => setCarouselIndex(0)}
                 animate={{

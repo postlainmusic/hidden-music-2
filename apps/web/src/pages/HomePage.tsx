@@ -22,32 +22,43 @@ interface HomePageProps {
   onExploreClick?: () => void;
 }
 
+type Section1Stage = "fadeIn" | "bursting" | "settled" | "returning_center" | "resting_center";
+
 export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
   const { currentTrack, playTrack, favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
   const [selectedAlbumModal, setSelectedAlbumModal] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState(0); // 0: Section 1, 1: Section 2, 2: Section 3
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
 
-  // Burst animation state on Desktop Section 1: 'bursting' ➔ 'settled'
-  const [hasBurstPlayed, setHasBurstPlayed] = useState<boolean>(false);
-  const [burstStage, setBurstStage] = useState<"bursting" | "settled">("bursting");
+  // Section 1 Timing State Machine (Desktop)
+  // 1. fadeIn (0.4s) ➔ 2. bursting (0.7s) ➔ 3. settled (slide left 0.7s + tracks slide right 0.7s)
+  // Khi scroll: 4. returning_center (tracks suck in 0.7s + album to center 0.7s) ➔ 5. resting_center (0.5s) ➔ activeSection = 1
+  const [sec1Stage, setSec1Stage] = useState<Section1Stage>("fadeIn");
+  const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
 
   const isScrollingRef = useRef(false);
   const touchStartYRef = useRef(0);
 
-  // Trigger burst sequence on initial mount
+  // Initial Section 1 Entrance Choreography
   useEffect(() => {
-    if (!hasBurstPlayed) {
-      setBurstStage("bursting");
-      const timer = setTimeout(() => {
-        setBurstStage("settled");
-        setHasBurstPlayed(true);
-      }, 700);
-      return () => clearTimeout(timer);
-    } else {
-      setBurstStage("settled");
-    }
-  }, [hasBurstPlayed]);
+    // 0s - 0.4s: Fade in
+    setSec1Stage("fadeIn");
+
+    // 0.4s: Start burst
+    const burstTimer = setTimeout(() => {
+      setSec1Stage("bursting");
+    }, 400);
+
+    // 0.4s + 0.7s = 1.1s: Slide left + tracks slide right
+    const settleTimer = setTimeout(() => {
+      setSec1Stage("settled");
+    }, 1100);
+
+    return () => {
+      clearTimeout(burstTimer);
+      clearTimeout(settleTimer);
+    };
+  }, []);
 
   const toggleFavorite = (e: React.MouseEvent, trackId: string) => {
     e.stopPropagation();
@@ -62,43 +73,92 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
     playTrack(track);
   };
 
+  // Trigger transition from Section 1 to Section 2 with exact user timings
+  const triggerTransitionToSection2 = () => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+
+    // Bước 1: Track thu vào bìa đĩa (0.7s) + Bìa trượt từ trái về tâm (0.7s)
+    setSec1Stage("returning_center");
+
+    // Bước 2: Sau 0.7s, bước vào khoảng nghỉ cố định tâm 0.5s
+    setTimeout(() => {
+      setSec1Stage("resting_center");
+
+      // Bước 3: Sau khoảng nghỉ 0.5s (tổng 1.2s), chính thức đổi sang Section 2
+      setTimeout(() => {
+        setActiveSection(1);
+        setIsTransitioning(false);
+      }, 500);
+    }, 700);
+  };
+
+  // Trigger transition from Section 2 back to Section 1
+  const triggerTransitionToSection1 = () => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setActiveSection(0);
+    setSec1Stage("returning_center");
+
+    setTimeout(() => {
+      setSec1Stage("settled");
+      setIsTransitioning(false);
+    }, 700);
+  };
+
   // Fixed Viewport Screen Switching on Wheel, Keydown, and Touch (Zero Scrollbar)
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      if (isScrollingRef.current) return;
+      if (isScrollingRef.current || isTransitioning) return;
 
       if (e.deltaY > 25) {
         // Scroll down ➔ Next Section
-        isScrollingRef.current = true;
-        setActiveSection((prev) => Math.min(prev + 1, 2));
-        setTimeout(() => {
-          isScrollingRef.current = false;
-        }, 600);
+        if (activeSection === 0) {
+          triggerTransitionToSection2();
+        } else if (activeSection === 1) {
+          isScrollingRef.current = true;
+          setActiveSection(2);
+          setTimeout(() => {
+            isScrollingRef.current = false;
+          }, 600);
+        }
       } else if (e.deltaY < -25) {
         // Scroll up ➔ Prev Section
-        isScrollingRef.current = true;
-        setActiveSection((prev) => Math.max(prev - 1, 0));
-        setTimeout(() => {
-          isScrollingRef.current = false;
-        }, 600);
+        if (activeSection === 1) {
+          triggerTransitionToSection1();
+        } else if (activeSection === 2) {
+          isScrollingRef.current = true;
+          setActiveSection(1);
+          setTimeout(() => {
+            isScrollingRef.current = false;
+          }, 600);
+        }
       }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isScrollingRef.current) return;
+      if (isScrollingRef.current || isTransitioning) return;
       if (e.key === "ArrowDown" || e.key === "PageDown") {
-        isScrollingRef.current = true;
-        setActiveSection((prev) => Math.min(prev + 1, 2));
-        setTimeout(() => {
-          isScrollingRef.current = false;
-        }, 600);
+        if (activeSection === 0) {
+          triggerTransitionToSection2();
+        } else if (activeSection === 1) {
+          isScrollingRef.current = true;
+          setActiveSection(2);
+          setTimeout(() => {
+            isScrollingRef.current = false;
+          }, 600);
+        }
       } else if (e.key === "ArrowUp" || e.key === "PageUp") {
-        isScrollingRef.current = true;
-        setActiveSection((prev) => Math.max(prev - 1, 0));
-        setTimeout(() => {
-          isScrollingRef.current = false;
-        }, 600);
+        if (activeSection === 1) {
+          triggerTransitionToSection1();
+        } else if (activeSection === 2) {
+          isScrollingRef.current = true;
+          setActiveSection(1);
+          setTimeout(() => {
+            isScrollingRef.current = false;
+          }, 600);
+        }
       }
     };
 
@@ -107,20 +167,28 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      if (isScrollingRef.current) return;
+      if (isScrollingRef.current || isTransitioning) return;
       const deltaY = touchStartYRef.current - e.changedTouches[0].clientY;
       if (deltaY > 40) {
-        isScrollingRef.current = true;
-        setActiveSection((prev) => Math.min(prev + 1, 2));
-        setTimeout(() => {
-          isScrollingRef.current = false;
-        }, 600);
+        if (activeSection === 0) {
+          triggerTransitionToSection2();
+        } else if (activeSection === 1) {
+          isScrollingRef.current = true;
+          setActiveSection(2);
+          setTimeout(() => {
+            isScrollingRef.current = false;
+          }, 600);
+        }
       } else if (deltaY < -40) {
-        isScrollingRef.current = true;
-        setActiveSection((prev) => Math.max(prev - 1, 0));
-        setTimeout(() => {
-          isScrollingRef.current = false;
-        }, 600);
+        if (activeSection === 1) {
+          triggerTransitionToSection1();
+        } else if (activeSection === 2) {
+          isScrollingRef.current = true;
+          setActiveSection(1);
+          setTimeout(() => {
+            isScrollingRef.current = false;
+          }, 600);
+        }
       }
     };
 
@@ -135,7 +203,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
       window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("touchend", handleTouchEnd);
     };
-  }, []);
+  }, [activeSection, isTransitioning]);
 
   return (
     <main
@@ -154,20 +222,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
     >
       <AnimatePresence mode="wait">
         {/* ─────────────────────────────────────────────────────────────────────
-            SECTION 1: PURE ARTWORK BURST ➔ SLIDE LEFT ➔ TRACKS SLIDE RIGHT
+            SECTION 1: TIMED CHOREOGRAPHY (FADE IN 0.4s ➔ BURST 0.7s ➔ SLIDE LEFT 0.7s)
         ────────────────────────────────────────────────────────────────────── */}
         {activeSection === 0 && (
           <motion.div
             key="section-1"
-            initial={{ opacity: 0 }}
+            initial={{ opacity: 1 }}
             animate={{ opacity: 1 }}
-            exit={{
-              opacity: 0,
-              y: -25,
-              filter: "blur(8px)",
-              transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] }
-            }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            exit={{ opacity: 1 }}
             style={{
               width: "100%",
               maxWidth: "1120px",
@@ -178,13 +240,18 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
               position: "relative"
             }}
           >
-            {/* GIAI ĐOẠN 1: BÌA THUẦN TÚY BỪNG SÁNG TẠI TÂM MÀN HÌNH (~0.7s) */}
-            {burstStage === "bursting" && (
+            {/* TRẠNG THÁI Ở TÂM: fadeIn (0.4s) | bursting (0.7s) | returning_center (0.7s) | resting_center (0.5s) */}
+            {(sec1Stage === "fadeIn" || sec1Stage === "bursting" || sec1Stage === "returning_center" || sec1Stage === "resting_center") && (
               <motion.div
-                initial={{ scale: 0.7, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-                transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+                initial={{ opacity: 0, scale: 0.88 }}
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                  transition: {
+                    duration: sec1Stage === "fadeIn" ? 0.4 : 0.7,
+                    ease: [0.16, 1, 0.3, 1]
+                  }
+                }}
                 style={{
                   position: "relative",
                   display: "flex",
@@ -193,16 +260,18 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                 }}
               >
                 {/* 360 Aurora Burst Halo Glowing Ring */}
-                <div
-                  className="aurora-burst-halo"
-                  style={{
-                    position: "absolute",
-                    inset: "-24px",
-                    borderRadius: "44px",
-                    pointerEvents: "none",
-                    zIndex: 0
-                  }}
-                />
+                {sec1Stage === "bursting" && (
+                  <div
+                    className="aurora-burst-halo"
+                    style={{
+                      position: "absolute",
+                      inset: "-24px",
+                      borderRadius: "44px",
+                      pointerEvents: "none",
+                      zIndex: 0
+                    }}
+                  />
+                )}
 
                 <motion.div
                   layoutId="desktop-album-cover"
@@ -211,8 +280,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                     height: "360px",
                     borderRadius: "32px",
                     overflow: "hidden",
-                    boxShadow: "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 60px rgba(255, 255, 255, 0.4)",
-                    border: "1px solid rgba(255, 255, 255, 0.3)",
+                    boxShadow: "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 50px rgba(255, 255, 255, 0.35)",
+                    border: "1px solid rgba(255, 255, 255, 0.25)",
                     position: "relative",
                     zIndex: 1,
                     background: "#18181b"
@@ -220,15 +289,15 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                 >
                   <img
                     src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
-                    alt="HVL (99%) Top Album"
+                    alt="HVL (99%)"
                     style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                   />
                 </motion.div>
               </motion.div>
             )}
 
-            {/* GIAI ĐOẠN 2: BÌA TRƯỢT SANG TRÁI & 5 TRACKS TRƯỢT SANG PHẢI (NO CONTAINER CARD) */}
-            {burstStage === "settled" && (
+            {/* TRẠNG THÁI ĐÃ TRƯỢT SANG TRÁI (settled): Bìa bên trái (0.7s) + 5 tracks bên phải (0.7s) */}
+            {sec1Stage === "settled" && (
               <div
                 style={{
                   width: "100%",
@@ -238,12 +307,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                   gap: "54px"
                 }}
               >
-                {/* Left: Pure Album Artwork (No outer box/card, No text clutters) */}
+                {/* Left: Pure Album Artwork */}
                 <motion.div
                   layoutId="desktop-album-cover"
-                  initial={{ x: 60, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+                  initial={{ x: 140, scale: 1.08, opacity: 0.9 }}
+                  animate={{ x: 0, scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
                   whileHover={{ scale: 1.02 }}
                   onClick={() => handleAlbumClick("HVL (99%)")}
                   style={{
@@ -267,12 +336,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                   />
                 </motion.div>
 
-                {/* Right: Minimalist Tracklist sliding in from right */}
+                {/* Right: Minimalist Tracklist sliding in from right (0.7s) */}
                 <motion.div
-                  initial={{ opacity: 0, x: 40 }}
+                  initial={{ opacity: 0, x: -40 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 30, transition: { duration: 0.18 } }}
-                  transition={{ duration: 0.6, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
+                  exit={{ opacity: 0, x: -80, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } }}
+                  transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
                   style={{
                     display: "flex",
                     flexDirection: "column",
@@ -288,9 +357,13 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                     return (
                       <motion.div
                         key={track.id}
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4, delay: 0.07 * idx + 0.15 }}
+                        initial={{ opacity: 0, x: 30 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{
+                          duration: 0.7,
+                          delay: 0.05 * idx,
+                          ease: [0.16, 1, 0.3, 1]
+                        }}
                         onClick={() => handleTrackSelect(track)}
                         style={{
                           display: "flex",
@@ -374,7 +447,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
         )}
 
         {/* ─────────────────────────────────────────────────────────────────────
-            SECTION 2 (ACTIVE === 1): CONTINUOUS MORPHED 3D COVER FLOW
+            SECTION 2: METALLIC BREATH BACKGROUND & 3D COVER FLOW
         ────────────────────────────────────────────────────────────────────── */}
         {activeSection === 1 && (
           <motion.div
@@ -388,7 +461,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
               filter: "blur(10px)",
               transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] }
             }}
-            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             style={{
               width: "100%",
               maxWidth: "600px",
@@ -396,10 +469,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              justifyContent: "center"
+              justifyContent: "center",
+              position: "relative"
             }}
           >
-            {/* Seamless Shared Layout Morphing Album Card (Matches Section 1 Center Exactly) */}
+            {/* Metallic Sheen Breathing Ambient Glow Background */}
+            <div className="metallic-sheen-glow" />
+
+            {/* Seamless Shared Layout Morphing Album Card */}
             <motion.div
               layoutId="desktop-album-cover"
               drag="x"
@@ -419,11 +496,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                 height: "360px",
                 borderRadius: "32px",
                 overflow: "hidden",
-                boxShadow: "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 1px 1px rgba(255, 255, 255, 0.25)",
+                boxShadow: "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 1px 1px rgba(255, 255, 255, 0.3)",
                 cursor: "grab",
                 marginBottom: "36px",
                 background: "#18181b",
-                position: "relative"
+                position: "relative",
+                zIndex: 1
               }}
             >
               <img
@@ -443,7 +521,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
             </motion.div>
 
             {/* Synchronized Pagination Dots */}
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", zIndex: 1 }}>
               <motion.div
                 onClick={() => setActiveCarouselIndex(0)}
                 animate={{
