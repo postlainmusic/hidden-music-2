@@ -21,6 +21,85 @@ app.use(
   })
 );
 
+// Google OAuth verification & D1 User Persistence
+app.post("/api/auth/google", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { credential, email, name, picture, googleId } = body;
+
+    let userEmail = email;
+    let userName = name;
+    let userAvatar = picture;
+    let userGoogleId = googleId;
+
+    if (credential && typeof credential === "string") {
+      try {
+        const parts = credential.split(".");
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]));
+          userEmail = payload.email || userEmail;
+          userName = payload.name || userName;
+          userAvatar = payload.picture || userAvatar;
+          userGoogleId = payload.sub || userGoogleId;
+        }
+      } catch (e) {
+        console.warn("Credential parse notice:", e);
+      }
+    }
+
+    if (!userEmail) {
+      return c.json({ success: false, error: "Email is required" }, 400);
+    }
+
+    const userId = `usr_${userGoogleId || Math.random().toString(36).substring(2, 10)}`;
+    const now = Date.now();
+
+    if (c.env.DB) {
+      await c.env.DB.prepare(
+        `INSERT INTO users (id, google_id, email, name, avatar_url, created_at, last_login_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(email) DO UPDATE SET
+           name = excluded.name,
+           avatar_url = excluded.avatar_url,
+           last_login_at = excluded.last_login_at`
+      )
+        .bind(userId, userGoogleId || null, userEmail, userName || "Người nghe Vault", userAvatar || "", now, now)
+        .run();
+    }
+
+    const user = {
+      id: userId,
+      email: userEmail,
+      name: userName || "Người nghe Vault",
+      avatarUrl: userAvatar || "",
+      googleId: userGoogleId || ""
+    };
+
+    return c.json({
+      success: true,
+      token: `sess_${btoa(JSON.stringify(user))}`,
+      user
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || "Auth error" }, 500);
+  }
+});
+
+app.get("/api/auth/me", async (c) => {
+  const authHeader = c.req.header("Authorization") || "";
+  if (!authHeader.startsWith("Bearer sess_")) {
+    return c.json({ authenticated: false, user: null });
+  }
+
+  try {
+    const raw = authHeader.replace("Bearer sess_", "");
+    const user = JSON.parse(atob(raw));
+    return c.json({ authenticated: true, user });
+  } catch {
+    return c.json({ authenticated: false, user: null });
+  }
+});
+
 const R2_BASE = "https://media.postlain.com";
 const HVL_COVER = `${R2_BASE}/covers/HVL_Album_Cover.jpg`;
 

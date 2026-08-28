@@ -2,13 +2,13 @@ import React, { useEffect, useRef } from "react";
 import { MeshGradientBackground } from "./components/MeshGradientBackground";
 import { GlassNavbar } from "./components/GlassNavbar";
 import { FloatingPlayerDock } from "./components/FloatingPlayerDock";
-import { LoginModal } from "./components/LoginModal";
+import { VaultGate } from "./components/VaultGate";
 import { HomePage } from "./pages/HomePage";
 import { useAudioStore } from "./store/audioStore";
 
 export const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const { currentTrack, isPlaying, volume, isMuted, setAudioElement, nextTrack, initAudioEngine } = useAudioStore();
+  const { currentTrack, isPlaying, volume, isMuted, currentUser, setAudioElement, nextTrack, initAudioEngine } = useAudioStore();
 
   useEffect(() => {
     initAudioEngine();
@@ -50,17 +50,21 @@ export const App: React.FC = () => {
       {/* 1. Apple Dynamic Mesh Gradient Background */}
       <MeshGradientBackground />
 
-      {/* 2. Frosted Glass Top Navigation */}
-      <GlassNavbar />
+      {/* 2. Mandatory Google Login Vault Gate (Single Entrypoint) */}
+      {!currentUser ? (
+        <VaultGate />
+      ) : (
+        <>
+          {/* Frosted Glass Top Navigation */}
+          <GlassNavbar />
 
-      {/* 3. Main Discovery Experience */}
-      <HomePage />
+          {/* 3-Section Visual Showcase Discovery Experience */}
+          <HomePage />
 
-      {/* 4. Apple Dynamic Island / Floating Music Dock */}
-      <FloatingPlayerDock />
-
-      {/* 5. Liquid Glass Login Modal */}
-      <LoginModal />
+          {/* Floating Player Dock (Only shows when playing or inside 3D space) */}
+          {isPlaying && <FloatingPlayerDock />}
+        </>
+      )}
 
       {/* 6. Primary Global HTML5 Lossless Audio Engine (Proven Byte-Range Seeking Lifecycle) */}
       <audio

@@ -436,6 +436,16 @@ const updateCssTheme = (palette: TrackPalette) => {
   root.style.setProperty("--glow-color", palette.glow);
 };
 
+const getInitialUser = (): UserSession | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const saved = localStorage.getItem("vault_user");
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+};
+
 export const useAudioStore = create<AudioState>((set, get) => ({
   currentTrack: DEFAULT_TRACKS[0],
   queue: DEFAULT_TRACKS,
@@ -446,7 +456,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   volume: 0.85,
   isMuted: false,
   isLoginModalOpen: false,
-  currentUser: null,
+  currentUser: getInitialUser(),
   analyserNode: null,
 
   setAudioElement: (el: HTMLAudioElement | null) => {
@@ -530,9 +540,20 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
   setLoginModalOpen: (open: boolean) => set({ isLoginModalOpen: open }),
 
-  loginUser: (user: UserSession) => set({ currentUser: user, isLoginModalOpen: false }),
+  loginUser: (user: UserSession) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("vault_user", JSON.stringify(user));
+    }
+    set({ currentUser: user, isLoginModalOpen: false });
+  },
 
-  logoutUser: () => set({ currentUser: null }),
+  logoutUser: () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("vault_user");
+      localStorage.removeItem("vault_token");
+    }
+    set({ currentUser: null });
+  },
 
   getFrequencyData: () => {
     const data = new Uint8Array(32);
