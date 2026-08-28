@@ -22,7 +22,7 @@ interface HomePageProps {
   onExploreClick?: () => void;
 }
 
-type Section1Stage = "fadeIn" | "bursting" | "settled" | "returning_center" | "resting_center";
+type Section1Stage = "fadeIn" | "bursting" | "resting_initial" | "settled" | "returning_center" | "resting_center";
 
 export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
   const { currentTrack, playTrack, favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
@@ -31,8 +31,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
 
   // Section 1 Timing State Machine (Desktop)
-  // 1. fadeIn (0.4s) ➔ 2. bursting (0.7s) ➔ 3. settled (slide left 0.7s + tracks slide right 0.7s)
-  // Khi scroll: 4. returning_center (tracks suck in 0.7s + album to center 0.7s) ➔ 5. resting_center (0.5s) ➔ activeSection = 1
+  // 1. fadeIn (0.4s) ➔ 2. bursting (0.7s) ➔ 3. resting_initial (1.0s) ➔ 4. settled (slide left 1.0s + tracks slide right 1.0s)
+  // Khi scroll: 5. returning_center (tracks suck in 0.7s + album to center 0.7s) ➔ 6. resting_center (0.5s) ➔ activeSection = 1
   const [sec1Stage, setSec1Stage] = useState<Section1Stage>("fadeIn");
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
 
@@ -44,18 +44,24 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
     // 0s - 0.4s: Fade in
     setSec1Stage("fadeIn");
 
-    // 0.4s: Start burst
+    // 0.4s: Start burst (0.7s)
     const burstTimer = setTimeout(() => {
       setSec1Stage("bursting");
     }, 400);
 
-    // 0.4s + 0.7s = 1.1s: Slide left + tracks slide right
+    // 0.4s + 0.7s = 1.1s: Khoảng nghỉ 1.0s tại tâm
+    const restTimer = setTimeout(() => {
+      setSec1Stage("resting_initial");
+    }, 1100);
+
+    // 1.1s + 1.0s = 2.1s: Trượt chậm rãi sang trái (1.0s) + tracks trượt sang phải (1.0s)
     const settleTimer = setTimeout(() => {
       setSec1Stage("settled");
-    }, 1100);
+    }, 2100);
 
     return () => {
       clearTimeout(burstTimer);
+      clearTimeout(restTimer);
       clearTimeout(settleTimer);
     };
   }, []);
@@ -222,7 +228,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
     >
       <AnimatePresence mode="wait">
         {/* ─────────────────────────────────────────────────────────────────────
-            SECTION 1: TIMED CHOREOGRAPHY (FADE IN 0.4s ➔ BURST 0.7s ➔ SLIDE LEFT 0.7s)
+            SECTION 1: TIMED CHOREOGRAPHY (FADE IN 0.4s ➔ BURST 0.7s ➔ REST 1.0s ➔ SLIDE LEFT 1.0s)
         ────────────────────────────────────────────────────────────────────── */}
         {activeSection === 0 && (
           <motion.div
@@ -240,8 +246,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
               position: "relative"
             }}
           >
-            {/* TRẠNG THÁI Ở TÂM: fadeIn (0.4s) | bursting (0.7s) | returning_center (0.7s) | resting_center (0.5s) */}
-            {(sec1Stage === "fadeIn" || sec1Stage === "bursting" || sec1Stage === "returning_center" || sec1Stage === "resting_center") && (
+            {/* TRẠNG THÁI Ở TÂM: fadeIn | bursting | resting_initial | returning_center | resting_center */}
+            {(sec1Stage === "fadeIn" || sec1Stage === "bursting" || sec1Stage === "resting_initial" || sec1Stage === "returning_center" || sec1Stage === "resting_center") && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.88 }}
                 animate={{
@@ -296,7 +302,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
               </motion.div>
             )}
 
-            {/* TRẠNG THÁI ĐÃ TRƯỢT SANG TRÁI (settled): Bìa bên trái (0.7s) + 5 tracks bên phải (0.7s) */}
+            {/* TRẠNG THÁI ĐÃ TRƯỢT SANG TRÁI (settled): Bìa bên trái (1.0s) + 5 tracks bên phải (1.0s) */}
             {sec1Stage === "settled" && (
               <div
                 style={{
@@ -312,7 +318,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                   layoutId="desktop-album-cover"
                   initial={{ x: 140, scale: 1.08, opacity: 0.9 }}
                   animate={{ x: 0, scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 1.0, ease: [0.16, 1, 0.3, 1] }}
                   whileHover={{ scale: 1.02 }}
                   onClick={() => handleAlbumClick("HVL (99%)")}
                   style={{
@@ -336,12 +342,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                   />
                 </motion.div>
 
-                {/* Right: Minimalist Tracklist sliding in from right (0.7s) */}
+                {/* Right: Minimalist Tracklist sliding in from right (1.0s) */}
                 <motion.div
                   initial={{ opacity: 0, x: -40 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -80, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } }}
-                  transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 1.0, ease: [0.16, 1, 0.3, 1] }}
                   style={{
                     display: "flex",
                     flexDirection: "column",
@@ -360,7 +366,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                         initial={{ opacity: 0, x: 30 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{
-                          duration: 0.7,
+                          duration: 0.9,
                           delay: 0.05 * idx,
                           ease: [0.16, 1, 0.3, 1]
                         }}
@@ -447,7 +453,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
         )}
 
         {/* ─────────────────────────────────────────────────────────────────────
-            SECTION 2: METALLIC BREATH BACKGROUND & 3D COVER FLOW
+            SECTION 2: DEAD-CENTERED COVER FLOW & ABSOLUTE PAGINATION DOTS
         ────────────────────────────────────────────────────────────────────── */}
         {activeSection === 1 && (
           <motion.div
@@ -463,91 +469,110 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
             }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             style={{
-              width: "100%",
-              maxWidth: "600px",
-              padding: "0 24px",
+              position: "relative",
               display: "flex",
-              flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              position: "relative"
+              width: "100%",
+              height: "100%"
             }}
           >
             {/* Metallic Sheen Breathing Ambient Glow Background */}
             <div className="metallic-sheen-glow" />
 
-            {/* Seamless Shared Layout Morphing Album Card */}
-            <motion.div
-              layoutId="desktop-album-cover"
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.35}
-              onDragEnd={(_, info) => {
-                if (info.offset.x < -40) {
-                  setActiveCarouselIndex(1);
-                } else if (info.offset.x > 40) {
-                  setActiveCarouselIndex(0);
-                }
-              }}
-              whileHover={{ scale: 1.03 }}
-              onClick={() => handleAlbumClick("HVL (99%)")}
+            {/* Container for Album + Absolute Positioned Dots (Never shifts album center) */}
+            <div
               style={{
-                width: "360px",
-                height: "360px",
-                borderRadius: "32px",
-                overflow: "hidden",
-                boxShadow: "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 1px 1px rgba(255, 255, 255, 0.3)",
-                cursor: "grab",
-                marginBottom: "36px",
-                background: "#18181b",
                 position: "relative",
-                zIndex: 1
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
               }}
             >
-              <img
-                src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
-                alt="HVL (99%)"
-                loading="eager"
-                decoding="async"
-                fetchPriority="high"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  display: "block",
-                  pointerEvents: "none"
+              {/* Seamless Shared Layout Morphing Album Card (Exact Dead-Center) */}
+              <motion.div
+                layoutId="desktop-album-cover"
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.35}
+                onDragEnd={(_, info) => {
+                  if (info.offset.x < -40) {
+                    setActiveCarouselIndex(1);
+                  } else if (info.offset.x > 40) {
+                    setActiveCarouselIndex(0);
+                  }
                 }}
-              />
-            </motion.div>
+                whileHover={{ scale: 1.03 }}
+                onClick={() => handleAlbumClick("HVL (99%)")}
+                style={{
+                  width: "360px",
+                  height: "360px",
+                  borderRadius: "32px",
+                  overflow: "hidden",
+                  boxShadow: "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 1px 1px rgba(255, 255, 255, 0.3)",
+                  cursor: "grab",
+                  background: "#18181b",
+                  position: "relative",
+                  zIndex: 1
+                }}
+              >
+                <img
+                  src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
+                  alt="HVL (99%)"
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
+                    pointerEvents: "none"
+                  }}
+                />
+              </motion.div>
 
-            {/* Synchronized Pagination Dots */}
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", zIndex: 1 }}>
-              <motion.div
-                onClick={() => setActiveCarouselIndex(0)}
-                animate={{
-                  width: activeCarouselIndex === 0 ? "28px" : "10px",
-                  background: activeCarouselIndex === 0 ? "#ffffff" : "rgba(255, 255, 255, 0.25)"
-                }}
-                transition={{ duration: 0.3 }}
+              {/* Absolute Positioned Pagination Dots (Does NOT affect center vertical coordinates) */}
+              <div
                 style={{
-                  height: "10px",
-                  borderRadius: "999px",
-                  cursor: "pointer"
+                  position: "absolute",
+                  bottom: "-48px",
+                  left: 0,
+                  right: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "12px",
+                  zIndex: 1
                 }}
-              />
-              <motion.div
-                onClick={() => setActiveCarouselIndex(1)}
-                animate={{
-                  width: activeCarouselIndex === 1 ? "28px" : "10px",
-                  background: activeCarouselIndex === 1 ? "#ffffff" : "rgba(255, 255, 255, 0.25)"
-                }}
-                transition={{ duration: 0.3 }}
-                style={{
-                  height: "10px",
-                  borderRadius: "999px",
-                  cursor: "pointer"
-                }}
-              />
+              >
+                <motion.div
+                  onClick={() => setActiveCarouselIndex(0)}
+                  animate={{
+                    width: activeCarouselIndex === 0 ? "28px" : "10px",
+                    background: activeCarouselIndex === 0 ? "#ffffff" : "rgba(255, 255, 255, 0.25)"
+                  }}
+                  transition={{ duration: 0.3 }}
+                  style={{
+                    height: "10px",
+                    borderRadius: "999px",
+                    cursor: "pointer"
+                  }}
+                />
+                <motion.div
+                  onClick={() => setActiveCarouselIndex(1)}
+                  animate={{
+                    width: activeCarouselIndex === 1 ? "28px" : "10px",
+                    background: activeCarouselIndex === 1 ? "#ffffff" : "rgba(255, 255, 255, 0.25)"
+                  }}
+                  transition={{ duration: 0.3 }}
+                  style={{
+                    height: "10px",
+                    borderRadius: "999px",
+                    cursor: "pointer"
+                  }}
+                />
+              </div>
             </div>
           </motion.div>
         )}

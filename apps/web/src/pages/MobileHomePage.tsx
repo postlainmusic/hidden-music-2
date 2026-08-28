@@ -21,7 +21,7 @@ interface MobileHomePageProps {
   onExploreClick?: () => void;
 }
 
-type Section1Stage = "fadeIn" | "bursting" | "settled" | "returning_center" | "resting_center";
+type Section1Stage = "fadeIn" | "bursting" | "resting_initial" | "settled" | "returning_center" | "resting_center";
 
 export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }) => {
   const { currentTrack, playTrack, favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
@@ -30,8 +30,8 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
   const [carouselIndex, setCarouselIndex] = useState<number>(0);
 
   // Section 1 Timing State Machine
-  // 1. fadeIn (0.4s) ➔ 2. bursting (0.7s) ➔ 3. settled (slide up 0.7s + tracks down 0.7s)
-  // Khi swipe: 4. returning_center (tracks suck in 0.7s + album to center 0.7s) ➔ 5. resting_center (0.5s) ➔ activeSection = 1
+  // 1. fadeIn (0.4s) ➔ 2. bursting (0.7s) ➔ 3. resting_initial (1.0s) ➔ 4. settled (slide up 1.0s + tracks down 1.0s)
+  // Khi swipe: 5. returning_center (tracks suck in 0.7s + album to center 0.7s) ➔ 6. resting_center (0.5s) ➔ activeSection = 1
   const [sec1Stage, setSec1Stage] = useState<Section1Stage>("fadeIn");
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
 
@@ -43,18 +43,24 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     // 0s - 0.4s: Fade in
     setSec1Stage("fadeIn");
     
-    // 0.4s: Start burst
+    // 0.4s: Start burst (0.7s)
     const burstTimer = setTimeout(() => {
       setSec1Stage("bursting");
     }, 400);
 
-    // 0.4s + 0.7s = 1.1s: Slide up + tracks slide down
+    // 0.4s + 0.7s = 1.1s: Khoảng nghỉ 1.0s tại tâm
+    const restTimer = setTimeout(() => {
+      setSec1Stage("resting_initial");
+    }, 1100);
+
+    // 1.1s + 1.0s = 2.1s: Trượt chậm rãi lên trên (1.0s) + tracks trượt xuống (1.0s)
     const settleTimer = setTimeout(() => {
       setSec1Stage("settled");
-    }, 1100);
+    }, 2100);
 
     return () => {
       clearTimeout(burstTimer);
+      clearTimeout(restTimer);
       clearTimeout(settleTimer);
     };
   }, []);
@@ -162,7 +168,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     >
       <AnimatePresence mode="wait">
         {/* ─────────────────────────────────────────────────────────────────────
-            SECTION 1: TIMED CHOREOGRAPHY (FADE IN 0.4s ➔ BURST 0.7s ➔ SLIDE UP 0.7s)
+            SECTION 1: TIMED CHOREOGRAPHY (FADE IN 0.4s ➔ BURST 0.7s ➔ REST 1.0s ➔ SLIDE UP 1.0s)
         ────────────────────────────────────────────────────────────────────── */}
         {activeSection === 0 && (
           <motion.div
@@ -172,19 +178,19 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
             exit={{ opacity: 1 }}
             style={{
               width: "100%",
-              maxWidth: "430px",
+              maxWidth: "340px",
               height: "100%",
               display: "flex",
               flexDirection: "column",
               justifyContent: sec1Stage === "settled" ? "space-between" : "center",
               alignItems: "center",
-              gap: "14px",
-              padding: "8px 0",
+              gap: "12px",
+              padding: "6px 0",
               position: "relative"
             }}
           >
-            {/* TRẠNG THÁI Ở TÂM: fadeIn (0.4s) | bursting (0.7s) | returning_center (0.7s) | resting_center (0.5s) */}
-            {(sec1Stage === "fadeIn" || sec1Stage === "bursting" || sec1Stage === "returning_center" || sec1Stage === "resting_center") && (
+            {/* TRẠNG THÁI Ở TÂM: fadeIn | bursting | resting_initial | returning_center | resting_center */}
+            {(sec1Stage === "fadeIn" || sec1Stage === "bursting" || sec1Stage === "resting_initial" || sec1Stage === "returning_center" || sec1Stage === "resting_center") && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.88 }}
                 animate={{
@@ -219,8 +225,8 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                 <motion.div
                   layoutId="mobile-album-cover"
                   style={{
-                    width: "min(76vw, 290px)",
-                    height: "min(76vw, 290px)",
+                    width: "min(84vw, 290px)",
+                    height: "min(84vw, 290px)",
                     borderRadius: "28px",
                     overflow: "hidden",
                     boxShadow: "0 25px 70px rgba(0, 0, 0, 0.95), 0 0 45px rgba(255, 255, 255, 0.35)",
@@ -239,27 +245,27 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
               </motion.div>
             )}
 
-            {/* TRẠNG THÁI ĐÃ TRƯỢT LÊN ĐỈNH (settled): Bìa ở trên (0.7s) + 5 tracks ở dưới (0.7s) */}
+            {/* TRẠNG THÁI ĐÃ TRƯỢT LÊN ĐỈNH (settled): Bìa ở trên cùng chiều rộng với track (1.0s) */}
             {sec1Stage === "settled" && (
               <>
-                {/* Top: Pure Album Artwork */}
+                {/* Top: Pure Album Artwork (Độ rộng đồng bộ thẳng hàng với các track) */}
                 <motion.div
                   layoutId="mobile-album-cover"
                   initial={{ y: 80, scale: 1.25, opacity: 0.9 }}
                   animate={{ y: 0, scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 1.0, ease: [0.16, 1, 0.3, 1] }}
                   onClick={() => setSelectedAlbumModal("HVL (99%)")}
                   style={{
-                    width: "140px",
-                    height: "140px",
-                    borderRadius: "22px",
+                    width: "160px",
+                    height: "160px",
+                    borderRadius: "24px",
                     overflow: "hidden",
                     flexShrink: 0,
                     boxShadow: "0 14px 35px rgba(0, 0, 0, 0.85), 0 0 25px rgba(255, 255, 255, 0.2)",
                     border: "1px solid rgba(255, 255, 255, 0.2)",
                     cursor: "pointer",
                     background: "#18181b",
-                    marginTop: "4px"
+                    marginTop: "2px"
                   }}
                 >
                   <img
@@ -270,16 +276,16 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                   />
                 </motion.div>
 
-                {/* Bottom: 5 Tracks trượt xuống dưới bìa (0.7s) */}
+                {/* Bottom: 5 Tracks trượt xuống dưới bìa (1.0s) */}
                 <motion.div
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -60, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } }}
-                  transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 1.0, ease: [0.16, 1, 0.3, 1] }}
                   style={{
                     display: "flex",
                     flexDirection: "column",
-                    gap: "8px",
+                    gap: "7px",
                     flex: 1,
                     width: "100%",
                     justifyContent: "center"
@@ -295,7 +301,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{
-                          duration: 0.7,
+                          duration: 0.9,
                           delay: 0.05 * idx,
                           ease: [0.16, 1, 0.3, 1]
                         }}
@@ -398,7 +404,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
         )}
 
         {/* ─────────────────────────────────────────────────────────────────────
-            SECTION 2: METALLIC BREATH BACKGROUND & 3D COVER FLOW
+            SECTION 2: DEAD-CENTERED COVER FLOW & ABSOLUTE PAGINATION DOTS
         ────────────────────────────────────────────────────────────────────── */}
         {activeSection === 1 && (
           <motion.div
@@ -414,81 +420,100 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
             }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             style={{
-              width: "100%",
-              maxWidth: "380px",
-              height: "100%",
+              position: "relative",
               display: "flex",
-              flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              gap: "24px",
-              position: "relative"
+              width: "100%",
+              height: "100%"
             }}
           >
             {/* Metallic Sheen Breathing Ambient Glow Background */}
             <div className="metallic-sheen-glow" />
 
-            {/* Pure Album Artwork with shared layoutId at exact center position */}
-            <motion.div
-              layoutId="mobile-album-cover"
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.45}
-              onDragEnd={(_, info) => {
-                if (info.offset.x < -35) {
-                  setCarouselIndex(1);
-                } else if (info.offset.x > 35) {
-                  setCarouselIndex(0);
-                }
-              }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => setSelectedAlbumModal("HVL (99%)")}
+            {/* Container for Album + Absolute Positioned Dots (Never shifts album center) */}
+            <div
               style={{
-                width: "min(76vw, 290px)",
-                height: "min(76vw, 290px)",
-                borderRadius: "28px",
-                overflow: "hidden",
-                boxShadow: "0 28px 70px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)",
-                background: "#18181b",
                 position: "relative",
-                cursor: "grab",
-                zIndex: 1
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
               }}
             >
-              <img
-                src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
-                alt="HVL (99%)"
-                loading="eager"
+              {/* Pure Album Artwork with shared layoutId at exact DEAD CENTER of screen */}
+              <motion.div
+                layoutId="mobile-album-cover"
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.45}
+                onDragEnd={(_, info) => {
+                  if (info.offset.x < -35) {
+                    setCarouselIndex(1);
+                  } else if (info.offset.x > 35) {
+                    setCarouselIndex(0);
+                  }
+                }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setSelectedAlbumModal("HVL (99%)")}
                 style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  pointerEvents: "none",
-                  display: "block"
+                  width: "min(84vw, 290px)",
+                  height: "min(84vw, 290px)",
+                  borderRadius: "28px",
+                  overflow: "hidden",
+                  boxShadow: "0 28px 70px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)",
+                  background: "#18181b",
+                  position: "relative",
+                  cursor: "grab",
+                  zIndex: 1
                 }}
-              />
-            </motion.div>
+              >
+                <img
+                  src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
+                  alt="HVL (99%)"
+                  loading="eager"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    pointerEvents: "none",
+                    display: "block"
+                  }}
+                />
+              </motion.div>
 
-            {/* Pagination Indicator */}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", zIndex: 1 }}>
-              <motion.div
-                onClick={() => setCarouselIndex(0)}
-                animate={{
-                  width: carouselIndex === 0 ? "24px" : "8px",
-                  background: carouselIndex === 0 ? "#ffffff" : "rgba(255, 255, 255, 0.25)"
+              {/* Absolute Positioned Pagination Dots (Does NOT affect center vertical coordinates) */}
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "-42px",
+                  left: 0,
+                  right: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  zIndex: 1
                 }}
-                transition={{ duration: 0.3 }}
-                style={{ height: "8px", borderRadius: "999px", cursor: "pointer" }}
-              />
-              <motion.div
-                onClick={() => setCarouselIndex(1)}
-                animate={{
-                  width: carouselIndex === 1 ? "24px" : "8px",
-                  background: carouselIndex === 1 ? "#ffffff" : "rgba(255, 255, 255, 0.25)"
-                }}
-                transition={{ duration: 0.3 }}
-                style={{ height: "8px", borderRadius: "999px", cursor: "pointer" }}
-              />
+              >
+                <motion.div
+                  onClick={() => setCarouselIndex(0)}
+                  animate={{
+                    width: carouselIndex === 0 ? "24px" : "8px",
+                    background: carouselIndex === 0 ? "#ffffff" : "rgba(255, 255, 255, 0.25)"
+                  }}
+                  transition={{ duration: 0.3 }}
+                  style={{ height: "8px", borderRadius: "999px", cursor: "pointer" }}
+                />
+                <motion.div
+                  onClick={() => setCarouselIndex(1)}
+                  animate={{
+                    width: carouselIndex === 1 ? "24px" : "8px",
+                    background: carouselIndex === 1 ? "#ffffff" : "rgba(255, 255, 255, 0.25)"
+                  }}
+                  transition={{ duration: 0.3 }}
+                  style={{ height: "8px", borderRadius: "999px", cursor: "pointer" }}
+                />
+              </div>
             </div>
           </motion.div>
         )}
