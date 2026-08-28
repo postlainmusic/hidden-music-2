@@ -59,29 +59,28 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
   const [revolverIndex, setRevolverIndex] = useState<number>(0);
   const [dragOffset, setDragOffset] = useState<number>(0);
 
-  // Section 1 Internal States (Desktop)
-  const [sec1State, setSec1State] = useState<"fadeIn" | "resting_initial" | "settled" | "returning_center" | "resting_center">("fadeIn");
-  const [isAnimating, setIsAnimating] = useState<boolean>(false);
+  // Section 1 Internal States:
+  // "initial_center": Bìa xuất hiện ở giữa màn hình (Fade in + Nghỉ 1.5s)
+  // "settled": Bìa trượt sang trái, 5 tracks hiện ra bên phải và GIỮ CỐ ĐỊNH
+  // "closing_center": Khi người dùng cuộn chuyển section, 5 tracks mờ đi và bìa trở về giữa (2.0s)
+  // "resting_handover": Bìa dừng tĩnh tại tâm 0.5s rồi đổi sang Section 2 mượt mà
+  const [sec1State, setSec1State] = useState<"initial_center" | "settled" | "closing_center" | "resting_handover">("initial_center");
+  const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
 
   const isScrollingRef = useRef(false);
   const touchStartYRef = useRef(0);
   const touchStartXRef = useRef(0);
   const isTouchInsideCarousel = useRef<boolean>(false);
 
-  // Initial Section 1 Sequence on Page Load (+1.5s initial rest)
+  // Initial Section 1 Sequence on Page Load (+1.5s initial rest ➔ Settled & Persistent)
   useEffect(() => {
-    setSec1State("fadeIn");
-
-    const restTimer = setTimeout(() => {
-      setSec1State("resting_initial");
-    }, 500);
+    setSec1State("initial_center");
 
     const settleTimer = setTimeout(() => {
       setSec1State("settled");
-    }, 2000);
+    }, 1500);
 
     return () => {
-      clearTimeout(restTimer);
       clearTimeout(settleTimer);
     };
   }, []);
@@ -101,37 +100,37 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
 
   // Forward Transition: Section 1 ➔ Section 2 (2.0s slow graceful collapse ➔ 0.5s rest ➔ Section 2 Bìa 1)
   const handleTransition1To2 = () => {
-    if (isAnimating) return;
-    setIsAnimating(true);
+    if (isTransitioning || sec1State !== "settled") return;
+    setIsTransitioning(true);
 
     // Bước 1: 5 tracks Fade Out hoàn toàn và đưa bìa về tâm êm đềm trong 2.0s
-    setSec1State("returning_center");
+    setSec1State("closing_center");
 
     // Bước 2: Sau 2.0s, bước vào khoảng nghỉ tĩnh tại tâm 0.5s
     setTimeout(() => {
-      setSec1State("resting_center");
+      setSec1State("resting_handover");
 
       // Bước 3: Sau khoảng nghỉ 0.5s, đổi sang Section 2 và ĐẢM BẢO revolverIndex = 0 (Bìa 1 HVL)
       setTimeout(() => {
         setRevolverIndex(0);
         setActiveSection(1);
-        setIsAnimating(false);
+        setIsTransitioning(false);
       }, 500);
     }, 2000);
   };
 
   // Reverse Transition: Section 2 ➔ Section 1 (2.0s simultaneous slide out)
   const handleTransition2To1 = () => {
-    if (isAnimating) return;
-    setIsAnimating(true);
+    if (isTransitioning) return;
+    setIsTransitioning(true);
 
     setActiveSection(0);
-    setSec1State("returning_center");
+    setSec1State("closing_center");
 
     setTimeout(() => {
       setSec1State("settled");
       setTimeout(() => {
-        setIsAnimating(false);
+        setIsTransitioning(false);
       }, 2000);
     }, 50);
   };
@@ -140,12 +139,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      if (isScrollingRef.current || isAnimating) return;
+      if (isScrollingRef.current || isTransitioning) return;
 
       if (activeSection === 1) {
         const target = e.target as HTMLElement | null;
         if (target && target.closest(".carousel-interactive-zone")) {
-          // Lăn chuột ngang hoặc lăn chuột dọc nhẹ trong khu vực đĩa -> xoay đĩa theo logic mới
+          // Lăn chuột ngang hoặc lăn chuột dọc nhẹ trong khu vực đĩa -> xoay đúng 1 track tuần tự
           if (Math.abs(e.deltaX) > 10 || Math.abs(e.deltaY) < 60) {
             if (e.deltaX > 20 || e.deltaY > 30) {
               setRevolverIndex((prev) => (prev + 1) % 5);
@@ -181,7 +180,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isScrollingRef.current || isAnimating) return;
+      if (isScrollingRef.current || isTransitioning) return;
 
       if (activeSection === 1) {
         if (e.key === "ArrowLeft") {
@@ -233,7 +232,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      if (isScrollingRef.current || isAnimating) return;
+      if (isScrollingRef.current || isTransitioning) return;
       const deltaY = touchStartYRef.current - e.changedTouches[0].clientY;
       const deltaX = touchStartXRef.current - e.changedTouches[0].clientX;
 
@@ -277,7 +276,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
       window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("touchend", handleTouchEnd);
     };
-  }, [activeSection, sec1State, isAnimating]);
+  }, [activeSection, sec1State, isTransitioning]);
 
   // Section 2 5-Slot Helper Functions
   const totalSlots = 5;
@@ -308,27 +307,26 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
       }}
     >
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 1: ZERO-JITTER GPU TRANSFORM ARCHITECTURE (FIXED CENTER)
+          SECTION 1: ỔN ĐỊNH TUYỆT ĐỐI (HIỆN RA LÀ GIỮ NGUYÊN)
       ────────────────────────────────────────────────────────────────────── */}
       {activeSection === 0 && (
         <div
           style={{
-            position: "relative",
-            width: "100%",
-            maxWidth: "1080px",
-            height: "100%",
+            position: "absolute",
+            inset: 0,
             display: "flex",
             alignItems: "center",
-            justifyContent: "center"
+            justifyContent: "center",
+            pointerEvents: "auto"
           }}
         >
-          {/* Left Album Artwork (Fixed screen center, transforms left -230px when settled) */}
+          {/* Left Album Artwork (Transforms left -230px when settled) */}
           <motion.div
-            layoutId="desktop-album-hero"
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{
+              opacity: 1,
               x: isSettled ? -230 : 0,
-              scale: 1,
-              opacity: 1
+              scale: 1
             }}
             transition={{ duration: 2.0, ease: [0.16, 1, 0.3, 1] }}
             whileHover={isSettled ? { scale: 1.02 } : {}}
@@ -360,8 +358,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
             />
           </motion.div>
 
-          {/* Right 5 Tracks List (Positioned right of center, pure fade in / out) */}
+          {/* Right 5 Tracks List: HIỆN RA LÀ GIỮ CỐ ĐỊNH */}
           <motion.div
+            initial={{ opacity: 0 }}
             animate={{
               opacity: isSettled ? 1 : 0,
               pointerEvents: isSettled ? "auto" : "none"
@@ -466,17 +465,16 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
       )}
 
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 2: TRƯỢT TỪ PHẢI SANG TRÁI (1 ➔ 2 ➔ 3 ➔ 4 ➔ 5 ➔ 1 VÔ CỰC)
+          SECTION 2: VUỐT QUA TỪNG TRACK TUẦN TỰ (BỎ VẬT LÝ NHẢY CÓC)
       ────────────────────────────────────────────────────────────────────── */}
       {activeSection === 1 && (
         <div
           style={{
-            position: "relative",
+            position: "absolute",
+            inset: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            width: "100%",
-            height: "100%",
             overflow: "hidden"
           }}
         >
@@ -506,27 +504,22 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                   key={`${slot.id}-${offset}`}
                   drag={isCenter ? "x" : false}
                   dragConstraints={{ left: 0, right: 0 }}
-                  dragElastic={0.45}
+                  dragElastic={0.4}
                   onDrag={(_, info) => {
                     if (isCenter) setDragOffset(info.offset.x);
                   }}
                   onDragEnd={(_, info) => {
                     setDragOffset(0);
-                    const velocity = info.velocity.x;
                     const offsetVal = info.offset.x;
+                    const velocity = info.velocity.x;
 
-                    // Chuẩn hóa logic vuốt:
-                    // Trượt từ PHẢI sang TRÁI (Kéo tay sang trái: offsetVal < 0 hoặc velocity < 0) -> NEXT: 1 ➔ 2 ➔ 3 ➔ 4 ➔ 5 ➔ 1
-                    // Trượt từ TRÁI sang PHẢI (Kéo tay sang phải: offsetVal > 0 hoặc velocity > 0) -> PREV: 1 ➔ 5 ➔ 4 ➔ 3 ➔ 2 ➔ 1
-                    let steps = 0;
-                    if (Math.abs(velocity) > 650 || Math.abs(offsetVal) > 130) {
-                      steps = velocity < 0 || offsetVal < -110 ? 2 : -2;
-                    } else if (Math.abs(velocity) > 180 || Math.abs(offsetVal) > 28) {
-                      steps = velocity < 0 || offsetVal < 0 ? 1 : -1;
-                    }
-
-                    if (steps !== 0) {
-                      setRevolverIndex((prev) => (prev + steps + 50) % totalSlots);
+                    // Chuẩn hóa: Cứ vuốt là qua đúng 1 track tuần tự theo thứ tự
+                    // Kéo sang trái (offsetVal < 0 hoặc velocity < 0) -> Qua bài tiếp theo: 1 ➔ 2 ➔ 3 ➔ 4 ➔ 5 ➔ 1
+                    // Kéo sang phải (offsetVal > 0 hoặc velocity > 0) -> Quay lại bài trước: 1 ➔ 5 ➔ 4 ➔ 3 ➔ 2 ➔ 1
+                    if (offsetVal < -30 || velocity < -120) {
+                      setRevolverIndex((prev) => (prev + 1) % totalSlots);
+                    } else if (offsetVal > 30 || velocity > 120) {
+                      setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
                     }
                   }}
                   whileTap={isCenter ? { scale: 0.98 } : {}}
@@ -534,21 +527,21 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                     if (isCenter) {
                       setSelectedAlbumModal(slot.title);
                     } else if (offset === 1) {
-                      // Bấm vào đĩa bên phải để chuyển tiếp (Next)
+                      // Bấm vào đĩa bên phải để chuyển tiếp đúng 1 track
                       setRevolverIndex((prev) => (prev + 1) % totalSlots);
                     } else if (offset === -1) {
-                      // Bấm vào đĩa bên trái để quay lại (Prev)
+                      // Bấm vào đĩa bên trái để quay lại đúng 1 track
                       setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
                     }
                   }}
                   animate={{
-                    x: (offset === 0 ? 0 : offset === -1 ? -260 : 260) + dragOffset * (isCenter ? 0.45 : 0.35),
+                    x: (offset === 0 ? 0 : offset === -1 ? -260 : 260) + dragOffset * (isCenter ? 0.35 : 0.25),
                     scale: offset === 0 ? 1.0 : 0.82,
                     opacity: offset === 0 ? 1.0 : 0.45,
                     filter: offset === 0 ? "blur(0px)" : "blur(3px)",
                     zIndex: offset === 0 ? 10 : 5
                   }}
-                  transition={{ type: "spring", stiffness: 220, damping: 24, mass: 0.8 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 26, mass: 0.7 }}
                   style={{
                     position: "absolute",
                     width: "360px",
@@ -669,9 +662,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
             >
               <motion.div
                 animate={{
-                  x: Math.max(-60, Math.min(60, marbleBaseX - dragOffset * 0.12))
+                  x: Math.max(-60, Math.min(60, marbleBaseX - dragOffset * 0.1))
                 }}
-                transition={{ type: "spring", stiffness: 240, damping: 24, mass: 0.8 }}
+                transition={{ type: "spring", stiffness: 260, damping: 26, mass: 0.7 }}
                 style={{
                   width: "18px",
                   height: "18px",
@@ -698,6 +691,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
           exit={{ opacity: 0, scale: 0.88 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           style={{
+            position: "absolute",
+            inset: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",

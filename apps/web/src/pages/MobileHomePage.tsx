@@ -58,70 +58,70 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
   const [revolverIndex, setRevolverIndex] = useState<number>(0);
   const [dragOffset, setDragOffset] = useState<number>(0);
 
-  // Section 1 Internal States
-  const [sec1State, setSec1State] = useState<"fadeIn" | "resting_initial" | "settled" | "returning_center" | "resting_center">("fadeIn");
-  const [isAnimating, setIsAnimating] = useState<boolean>(false);
+  // Section 1 Internal States:
+  // "initial_center": Bìa xuất hiện ở giữa màn hình (Fade in + Nghỉ 1.5s)
+  // "settled": Bìa trượt lên, 5 tracks hiện ra và GIỮ NGUYÊN để người dùng thưởng thức
+  // "closing_center": Khi người dùng vuốt chuyển section, 5 tracks mờ đi và bìa trở về giữa (2.0s)
+  // "resting_handover": Bìa dừng tĩnh tại tâm 0.5s rồi đổi sang Section 2 mượt mà
+  const [sec1State, setSec1State] = useState<"initial_center" | "settled" | "closing_center" | "resting_handover">("initial_center");
+  const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
 
   const touchStartY = useRef<number>(0);
   const touchStartX = useRef<number>(0);
   const isTouchInsideCarousel = useRef<boolean>(false);
 
-  // Initial Section 1 Sequence on Page Load (+1.5s initial rest)
+  // Initial Section 1 Sequence on Page Load:
+  // Xuất hiện ở tâm -> Nghỉ 1.5s -> Mở rộng trượt lên và hiện 5 tracks (GIỮ CỐ ĐỊNH)
   useEffect(() => {
-    setSec1State("fadeIn");
-
-    const restTimer = setTimeout(() => {
-      setSec1State("resting_initial");
-    }, 500);
+    setSec1State("initial_center");
 
     const settleTimer = setTimeout(() => {
       setSec1State("settled");
-    }, 2000);
+    }, 1500);
 
     return () => {
-      clearTimeout(restTimer);
       clearTimeout(settleTimer);
     };
   }, []);
 
-  // Forward Transition: Section 1 ➔ Section 2 (2.0s slow graceful collapse ➔ 0.5s rest ➔ Section 2 Bìa 1)
+  // Chuyển cảnh 1 -> 2: Chỉ kích hoạt khi người dùng chủ động vuốt lên
   const handleTransition1To2 = () => {
-    if (isAnimating) return;
-    setIsAnimating(true);
+    if (isTransitioning || sec1State !== "settled") return;
+    setIsTransitioning(true);
 
-    // Bước 1: 5 tracks Fade Out hoàn toàn và đưa bìa về tâm êm đềm trong 2.0s
-    setSec1State("returning_center");
+    // Bước 1: 5 tracks Fade out và bìa trở về tâm êm ái trong 2.0s
+    setSec1State("closing_center");
 
-    // Bước 2: Sau 2.0s, bước vào khoảng nghỉ tĩnh tại tâm 0.5s
+    // Bước 2: Sau 2.0s, bìa nghỉ tĩnh tại tâm 0.5s
     setTimeout(() => {
-      setSec1State("resting_center");
+      setSec1State("resting_handover");
 
-      // Bước 3: Sau khoảng nghỉ 0.5s, đổi sang Section 2 và ĐẢM BẢO revolverIndex = 0 (Bìa 1 HVL)
+      // Bước 3: Đổi sang Section 2 không giật
       setTimeout(() => {
         setRevolverIndex(0);
         setActiveSection(1);
-        setIsAnimating(false);
+        setIsTransitioning(false);
       }, 500);
     }, 2000);
   };
 
-  // Reverse Transition: Section 2 ➔ Section 1 (2.0s simultaneous slide out)
+  // Chuyển cảnh ngược lại 2 -> 1:
   const handleTransition2To1 = () => {
-    if (isAnimating) return;
-    setIsAnimating(true);
+    if (isTransitioning) return;
+    setIsTransitioning(true);
 
     setActiveSection(0);
-    setSec1State("returning_center");
+    setSec1State("closing_center");
 
     setTimeout(() => {
       setSec1State("settled");
       setTimeout(() => {
-        setIsAnimating(false);
+        setIsTransitioning(false);
       }, 2000);
     }, 50);
   };
 
-  // Touch Swipe Gesture Handler for Section Snapping
+  // Touch Swipe Gesture Handler
   useEffect(() => {
     const handleTouchStart = (e: TouchEvent) => {
       touchStartY.current = e.touches[0].clientY;
@@ -140,32 +140,32 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      if (isAnimating) return;
+      if (isTransitioning) return;
       const deltaY = touchStartY.current - e.changedTouches[0].clientY;
       const deltaX = touchStartX.current - e.changedTouches[0].clientX;
 
-      // Trong Section 2: Nếu vuốt bắt đầu từ vùng Carousel, KHÔNG cho nhảy section
+      // Trong Section 2: Vùng Carousel chỉ nhận vuốt ngang, bỏ qua vuốt dọc
       if (activeSection === 1 && isTouchInsideCarousel.current) {
-        if (Math.abs(deltaX) > 10 || Math.abs(deltaY) < 80 || Math.abs(deltaY) < Math.abs(deltaX) * 2.5) {
+        if (Math.abs(deltaX) > 15 || Math.abs(deltaY) < 90 || Math.abs(deltaY) < Math.abs(deltaX) * 2.5) {
           return;
         }
       }
 
-      if (deltaY > 50) {
+      if (deltaY > 60) {
         if (activeSection === 0 && sec1State === "settled") {
           handleTransition1To2();
         } else if (activeSection === 1) {
-          setIsAnimating(true);
+          setIsTransitioning(true);
           setActiveSection(2);
-          setTimeout(() => setIsAnimating(false), 500);
+          setTimeout(() => setIsTransitioning(false), 500);
         }
-      } else if (deltaY < -50) {
+      } else if (deltaY < -60) {
         if (activeSection === 1) {
           handleTransition2To1();
         } else if (activeSection === 2) {
-          setIsAnimating(true);
+          setIsTransitioning(true);
           setActiveSection(1);
-          setTimeout(() => setIsAnimating(false), 500);
+          setTimeout(() => setIsTransitioning(false), 500);
         }
       }
     };
@@ -177,7 +177,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
       window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("touchend", handleTouchEnd);
     };
-  }, [activeSection, sec1State, isAnimating]);
+  }, [activeSection, sec1State, isTransitioning]);
 
   // Section 2 5-Slot Helper Functions
   const totalSlots = 5;
@@ -190,7 +190,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     playTrack(track);
   };
 
-  // Tính toán vị trí con bi: bước nhảy 24px (-48px, -24px, 0px, +24px, +48px)
+  // Vị trí con bi
   const currentMarbleStep = MARBLE_STEPS[revolverIndex] ?? 0;
   const marbleBaseX = currentMarbleStep * 24;
 
@@ -212,28 +212,26 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
       }}
     >
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 1: ZERO-JITTER GPU TRANSFORM ARCHITECTURE (FIXED CENTER)
+          SECTION 1: ỔN ĐỊNH TUYỆT ĐỐI (HIỆN RA LÀ GIỮ NGUYÊN)
       ────────────────────────────────────────────────────────────────────── */}
       {activeSection === 0 && (
         <div
           style={{
-            position: "relative",
-            width: "100%",
-            maxWidth: "340px",
-            height: "100%",
+            position: "absolute",
+            inset: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             pointerEvents: "auto"
           }}
         >
-          {/* Top Album Artwork (Fixed screen center, transforms up -135px when settled) */}
+          {/* Top Album Artwork */}
           <motion.div
-            layoutId="mobile-album-hero"
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{
+              opacity: 1,
               y: isSettled ? -135 : 0,
-              scale: isSettled ? 0.58 : 1,
-              opacity: 1
+              scale: isSettled ? 0.58 : 1
             }}
             transition={{ duration: 2.0, ease: [0.16, 1, 0.3, 1] }}
             onClick={() => {
@@ -241,8 +239,8 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
             }}
             style={{
               position: "absolute",
-              width: "270px",
-              height: "270px",
+              width: "min(76vw, 280px)",
+              height: "min(76vw, 280px)",
               borderRadius: "28px",
               overflow: "hidden",
               boxShadow: isSettled
@@ -261,8 +259,9 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
             />
           </motion.div>
 
-          {/* Bottom 5 Tracks List (Positioned below center, pure fade in / out) */}
+          {/* Bottom 5 Tracks List: HIỆN RA LÀ GIỮ CỐ ĐỊNH */}
           <motion.div
+            initial={{ opacity: 0 }}
             animate={{
               opacity: isSettled ? 1 : 0,
               pointerEvents: isSettled ? "auto" : "none"
@@ -272,6 +271,8 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
               position: "absolute",
               top: "calc(50% - 35px)",
               width: "100%",
+              maxWidth: "340px",
+              padding: "0 16px",
               display: "flex",
               flexDirection: "column",
               gap: "6px",
@@ -381,17 +382,16 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
       )}
 
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 2: TRƯỢT TỪ PHẢI SANG TRÁI (1 ➔ 2 ➔ 3 ➔ 4 ➔ 5 ➔ 1 VÔ CỰC)
+          SECTION 2: VUỐT QUA TỪNG TRACK TUẦN TỰ (BỎ VẬT LÝ NHẢY CÓC)
       ────────────────────────────────────────────────────────────────────── */}
       {activeSection === 1 && (
         <div
           style={{
-            position: "relative",
+            position: "absolute",
+            inset: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            width: "100%",
-            height: "100%",
             overflow: "hidden"
           }}
         >
@@ -405,7 +405,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
               position: "relative",
               width: "100%",
               maxWidth: "420px",
-              height: "min(80vw, 280px)",
+              height: "min(76vw, 280px)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -422,27 +422,22 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                   key={`${slot.id}-${offset}`}
                   drag={isCenter ? "x" : false}
                   dragConstraints={{ left: 0, right: 0 }}
-                  dragElastic={0.5}
+                  dragElastic={0.4}
                   onDrag={(_, info) => {
                     if (isCenter) setDragOffset(info.offset.x);
                   }}
                   onDragEnd={(_, info) => {
                     setDragOffset(0);
-                    const velocity = info.velocity.x;
                     const offsetVal = info.offset.x;
+                    const velocity = info.velocity.x;
 
-                    // Chuẩn hóa logic vuốt:
-                    // Trượt từ PHẢI sang TRÁI (Kéo tay sang trái: offsetVal < 0 hoặc velocity < 0) -> NEXT: 1 ➔ 2 ➔ 3 ➔ 4 ➔ 5 ➔ 1
-                    // Trượt từ TRÁI sang PHẢI (Kéo tay sang phải: offsetVal > 0 hoặc velocity > 0) -> PREV: 1 ➔ 5 ➔ 4 ➔ 3 ➔ 2 ➔ 1
-                    let steps = 0;
-                    if (Math.abs(velocity) > 600 || Math.abs(offsetVal) > 120) {
-                      steps = velocity < 0 || offsetVal < -100 ? 2 : -2;
-                    } else if (Math.abs(velocity) > 160 || Math.abs(offsetVal) > 24) {
-                      steps = velocity < 0 || offsetVal < 0 ? 1 : -1;
-                    }
-
-                    if (steps !== 0) {
-                      setRevolverIndex((prev) => (prev + steps + 50) % totalSlots);
+                    // Chuẩn hóa: Cứ vuốt là qua đúng 1 track tuần tự theo thứ tự
+                    // Kéo sang trái (offsetVal < 0 hoặc velocity < 0) -> Qua bài tiếp theo: 1 ➔ 2 ➔ 3 ➔ 4 ➔ 5 ➔ 1
+                    // Kéo sang phải (offsetVal > 0 hoặc velocity > 0) -> Quay lại bài trước: 1 ➔ 5 ➔ 4 ➔ 3 ➔ 2 ➔ 1
+                    if (offsetVal < -30 || velocity < -120) {
+                      setRevolverIndex((prev) => (prev + 1) % totalSlots);
+                    } else if (offsetVal > 30 || velocity > 120) {
+                      setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
                     }
                   }}
                   whileTap={isCenter ? { scale: 0.98 } : {}}
@@ -450,23 +445,25 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                     if (isCenter) {
                       setSelectedAlbumModal(slot.title);
                     } else if (offset === 1) {
+                      // Bấm vào đĩa bên phải để chuyển tiếp đúng 1 track
                       setRevolverIndex((prev) => (prev + 1) % totalSlots);
                     } else if (offset === -1) {
+                      // Bấm vào đĩa bên trái để quay lại đúng 1 track
                       setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
                     }
                   }}
                   animate={{
-                    x: (offset === 0 ? 0 : offset === -1 ? -165 : 165) + dragOffset * (isCenter ? 0.45 : 0.35),
+                    x: (offset === 0 ? 0 : offset === -1 ? -165 : 165) + dragOffset * (isCenter ? 0.35 : 0.25),
                     scale: offset === 0 ? 1.0 : 0.8,
                     opacity: offset === 0 ? 1.0 : 0.45,
                     filter: offset === 0 ? "blur(0px)" : "blur(2.5px)",
                     zIndex: offset === 0 ? 10 : 5
                   }}
-                  transition={{ type: "spring", stiffness: 220, damping: 24, mass: 0.8 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 26, mass: 0.7 }}
                   style={{
                     position: "absolute",
-                    width: "min(80vw, 280px)",
-                    height: "min(80vw, 280px)",
+                    width: "min(76vw, 280px)",
+                    height: "min(76vw, 280px)",
                     borderRadius: "28px",
                     overflow: "hidden",
                     cursor: isCenter ? "grab" : "pointer",
@@ -581,9 +578,9 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
             >
               <motion.div
                 animate={{
-                  x: Math.max(-52, Math.min(52, marbleBaseX - dragOffset * 0.12))
+                  x: Math.max(-52, Math.min(52, marbleBaseX - dragOffset * 0.1))
                 }}
-                transition={{ type: "spring", stiffness: 240, damping: 24, mass: 0.8 }}
+                transition={{ type: "spring", stiffness: 260, damping: 26, mass: 0.7 }}
                 style={{
                   width: "16px",
                   height: "16px",
@@ -610,15 +607,15 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
           exit={{ opacity: 0, scale: 0.85, filter: "blur(8px)", transition: { duration: 0.35 } }}
           transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
           style={{
-            width: "100%",
-            maxWidth: "360px",
-            height: "100%",
+            position: "absolute",
+            inset: 0,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
             gap: "20px",
-            textAlign: "center"
+            textAlign: "center",
+            padding: "0 20px"
           }}
         >
           <motion.button
