@@ -12,7 +12,7 @@ const BEST_PLAY_TRACKS = [
   DEFAULT_TRACKS[19], // 20. Xa Xôi (feat. Obito)
 ];
 
-// Thứ tự 5 Bìa: Bìa 1 ở giữa, vuốt phải lần lượt là Bìa 2, 3 (rìa phải), 4 (rìa trái), 5, quay về 1
+// Thứ tự 5 Bìa: Bìa 1 ở giữa, trượt phải sang trái lần lượt: 1, 2, 3, 4, 5, 1, 2, 3, 4, 5... vô cực
 interface RevolverSlot {
   id: string;
   slotNumber: number;
@@ -104,7 +104,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
     if (isAnimating) return;
     setIsAnimating(true);
 
-    // Bước 1: Thu 5 tracks và đưa bìa về tâm êm đềm trong 2.0s (Zero Halo, Zero Jerk)
+    // Bước 1: 5 tracks Fade Out hoàn toàn và đưa bìa về tâm êm đềm trong 2.0s
     setSec1State("returning_center");
 
     // Bước 2: Sau 2.0s, bước vào khoảng nghỉ tĩnh tại tâm 0.5s
@@ -308,7 +308,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
       }}
     >
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 1: PERFECT RESPONSIVE FLEX LAYOUT (ZERO JITTER)
+          SECTION 1: PURE FADE IN / FADE OUT FOR TRACKS (ZERO JITTER)
       ────────────────────────────────────────────────────────────────────── */}
       {activeSection === 0 && (
         <div
@@ -356,14 +356,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
             />
           </motion.div>
 
-          {/* Right 5 Tracks List (Sliding in / out smoothly) */}
+          {/* Right 5 Tracks List: THU VÀO = FADE OUT, HIỆN RA = FADE IN */}
           <AnimatePresence>
             {isSettled && (
               <motion.div
-                initial={{ opacity: 0, x: -40, width: 0 }}
-                animate={{ opacity: 1, x: 0, width: "100%" }}
-                exit={{ opacity: 0, x: -60, width: 0 }}
-                transition={{ duration: 1.8, ease: [0.16, 1, 0.3, 1] }}
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: "100%" }}
+                exit={{ opacity: 0, width: 0 }}
+                transition={{ duration: 1.6, ease: "easeInOut" }}
                 style={{
                   display: "flex",
                   flexDirection: "column",
@@ -378,15 +378,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                   const isCurrent = currentTrack?.id === track.id;
 
                   return (
-                    <motion.div
+                    <div
                       key={track.id}
-                      initial={{ opacity: 0, x: 30 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{
-                        duration: 1.4,
-                        delay: 0.05 * idx,
-                        ease: [0.16, 1, 0.3, 1]
-                      }}
                       onClick={() => handleTrackSelect(track)}
                       style={{
                         display: "flex",
@@ -460,7 +453,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                           />
                         </button>
                       </div>
-                    </motion.div>
+                    </div>
                   );
                 })}
               </motion.div>
@@ -470,7 +463,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
       )}
 
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 2: 5-SLOT INFINITE REVOLVER (INERTIA SWIPE & CLEAN CAPSULE)
+          SECTION 2: TRƯỢT TỪ PHẢI SANG TRÁI (1 ➔ 2 ➔ 3 ➔ 4 ➔ 5 ➔ 1 VÔ CỰC)
       ────────────────────────────────────────────────────────────────────── */}
       {activeSection === 1 && (
         <div
@@ -520,13 +513,13 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                     const offsetVal = info.offset.x;
 
                     // Chuẩn hóa logic vuốt:
-                    // Vuốt sang phải (offsetVal > 0 hoặc velocity > 0) -> NEXT: Bìa 1 ➔ 2 ➔ 3 ➔ 4 ➔ 5 ➔ 1
-                    // Vuốt sang trái (offsetVal < 0 hoặc velocity < 0) -> PREV: Bìa 1 ➔ 5 ➔ 4 ➔ 3 ➔ 2 ➔ 1
+                    // Trượt từ PHẢI sang TRÁI (Kéo tay sang trái: offsetVal < 0 hoặc velocity < 0) -> NEXT: 1 ➔ 2 ➔ 3 ➔ 4 ➔ 5 ➔ 1
+                    // Trượt từ TRÁI sang PHẢI (Kéo tay sang phải: offsetVal > 0 hoặc velocity > 0) -> PREV: 1 ➔ 5 ➔ 4 ➔ 3 ➔ 2 ➔ 1
                     let steps = 0;
                     if (Math.abs(velocity) > 650 || Math.abs(offsetVal) > 130) {
-                      steps = velocity > 0 || offsetVal > 110 ? 2 : -2;
+                      steps = velocity < 0 || offsetVal < -110 ? 2 : -2;
                     } else if (Math.abs(velocity) > 180 || Math.abs(offsetVal) > 28) {
-                      steps = velocity > 0 || offsetVal > 0 ? 1 : -1;
+                      steps = velocity < 0 || offsetVal < 0 ? 1 : -1;
                     }
 
                     if (steps !== 0) {
@@ -538,8 +531,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                     if (isCenter) {
                       setSelectedAlbumModal(slot.title);
                     } else if (offset === 1) {
+                      // Bấm vào đĩa bên phải để chuyển tiếp (Next)
                       setRevolverIndex((prev) => (prev + 1) % totalSlots);
                     } else if (offset === -1) {
+                      // Bấm vào đĩa bên trái để quay lại (Prev)
                       setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
                     }
                   }}
@@ -647,7 +642,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
               );
             })}
 
-            {/* ── 5-POINT MAGNETIC ROLLING MARBLE CAPSULE (KHÔNG HIỆN MỐC) ─── */}
+            {/* ── 5-POINT MAGNETIC ROLLING MARBLE CAPSULE ───────────────────── */}
             <div
               style={{
                 position: "absolute",
@@ -671,7 +666,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
             >
               <motion.div
                 animate={{
-                  x: Math.max(-60, Math.min(60, marbleBaseX + dragOffset * 0.12))
+                  x: Math.max(-60, Math.min(60, marbleBaseX - dragOffset * 0.12))
                 }}
                 transition={{ type: "spring", stiffness: 240, damping: 24, mass: 0.8 }}
                 style={{
