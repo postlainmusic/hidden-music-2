@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { useAudioStore } from "../store/audioStore";
 import { TrackCard } from "../components/TrackCard";
-import { Play, Pause, Sparkles, Flame, Cloud, Server, Zap } from "lucide-react";
+import { Play, Pause, Loader2, Sparkles, Flame, Cloud, Server, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 
 export const HomePage: React.FC = () => {
-  const { queue, currentTrack, isPlaying, playTrack, togglePlay } = useAudioStore();
+  const { queue, currentTrack, isPlaying, isBuffering, playTrack, togglePlay } = useAudioStore();
   const [selectedGenre, setSelectedGenre] = useState<string>("Tất cả");
 
   const genres = ["Tất cả", "Ambient Synthwave", "Lo-Fi Cinematic", "Future Bass", "Chillout Electronic"];
@@ -127,12 +127,22 @@ export const HomePage: React.FC = () => {
                 className="apple-btn-primary"
                 style={{ padding: "14px 28px", fontSize: "1rem" }}
               >
-                {featuredTrack.id === currentTrack?.id && isPlaying ? (
+                {featuredTrack.id === currentTrack?.id && isBuffering ? (
+                  <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+                    <Loader2 size={18} color="#ffffff" />
+                  </motion.div>
+                ) : featuredTrack.id === currentTrack?.id && isPlaying ? (
                   <Pause size={18} fill="#ffffff" />
                 ) : (
                   <Play size={18} fill="#ffffff" />
                 )}
-                <span>{featuredTrack.id === currentTrack?.id && isPlaying ? "Tạm dừng phát" : "Nghe ngay"}</span>
+                <span>
+                  {featuredTrack.id === currentTrack?.id && isBuffering
+                    ? "Đang tải Lossless..."
+                    : featuredTrack.id === currentTrack?.id && isPlaying
+                    ? "Tạm dừng phát"
+                    : "Nghe ngay"}
+                </span>
               </motion.button>
 
               <button className="apple-btn-secondary" style={{ padding: "14px 24px", fontSize: "0.95rem" }}>

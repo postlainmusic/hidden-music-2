@@ -1,12 +1,13 @@
 import React, { useEffect, useRef } from "react";
 import { useAudioStore } from "../store/audioStore";
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Heart, Sparkles } from "lucide-react";
+import { Play, Pause, Loader2, SkipBack, SkipForward, Volume2, VolumeX, Heart, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 
 export const FloatingPlayerDock: React.FC = () => {
   const {
     currentTrack,
     isPlaying,
+    isBuffering,
     currentTime,
     duration,
     volume,
@@ -224,7 +225,15 @@ export const FloatingPlayerDock: React.FC = () => {
                 boxShadow: "0 4px 18px var(--glow-color), 0 0 12px rgba(255,255,255,0.8)"
               }}
             >
-              {isPlaying ? <Pause size={18} fill="#090a0f" /> : <Play size={18} fill="#090a0f" style={{ marginLeft: "2px" }} />}
+              {isBuffering ? (
+                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+                  <Loader2 size={18} color="#090a0f" />
+                </motion.div>
+              ) : isPlaying ? (
+                <Pause size={18} fill="#090a0f" />
+              ) : (
+                <Play size={18} fill="#090a0f" style={{ marginLeft: "2px" }} />
+              )}
             </motion.button>
 
             <button

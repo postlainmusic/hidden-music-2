@@ -398,6 +398,7 @@ interface AudioState {
   currentTrack: Track | null;
   queue: Track[];
   isPlaying: boolean;
+  isBuffering: boolean;
   currentTime: number;
   duration: number;
   volume: number;
@@ -436,6 +437,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   currentTrack: DEFAULT_TRACKS[0],
   queue: DEFAULT_TRACKS,
   isPlaying: false,
+  isBuffering: false,
   currentTime: 0,
   duration: DEFAULT_TRACKS[0].duration,
   volume: 0.85,
@@ -448,8 +450,20 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     if (typeof window === "undefined" || audioElement) return;
 
     audioElement = new Audio();
-    audioElement.preload = "auto";
+    audioElement.preload = "metadata";
     audioElement.src = DEFAULT_TRACKS[0].audioUrl;
+
+    audioElement.addEventListener("loadstart", () => {
+      set({ isBuffering: true });
+    });
+
+    audioElement.addEventListener("waiting", () => {
+      set({ isBuffering: true });
+    });
+
+    audioElement.addEventListener("canplay", () => {
+      set({ isBuffering: false });
+    });
 
     audioElement.addEventListener("timeupdate", () => {
       if (audioElement) {
@@ -464,11 +478,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     });
 
     audioElement.addEventListener("playing", () => {
-      set({ isPlaying: true });
+      set({ isPlaying: true, isBuffering: false });
     });
 
     audioElement.addEventListener("pause", () => {
-      set({ isPlaying: false });
+      set({ isPlaying: false, isBuffering: false });
     });
 
     audioElement.addEventListener("ended", () => {

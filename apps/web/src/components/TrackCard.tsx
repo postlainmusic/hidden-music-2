@@ -1,6 +1,6 @@
 import React from "react";
 import { Track, useAudioStore } from "../store/audioStore";
-import { Play, Pause, BarChart2 } from "lucide-react";
+import { Play, Pause, BarChart2, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface TrackCardProps {
@@ -9,9 +9,10 @@ interface TrackCardProps {
 }
 
 export const TrackCard: React.FC<TrackCardProps> = ({ track, index }) => {
-  const { currentTrack, isPlaying, playTrack, togglePlay } = useAudioStore();
+  const { currentTrack, isPlaying, isBuffering, playTrack, togglePlay } = useAudioStore();
   const isCurrent = currentTrack?.id === track.id;
   const isCurrentPlaying = isCurrent && isPlaying;
+  const isCurrentBuffering = isCurrent && isBuffering;
 
   const handlePlayClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -100,7 +101,11 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, index }) => {
               boxShadow: "0 8px 24px rgba(0,0,0,0.5), 0 0 20px " + track.palette.glow
             }}
           >
-            {isCurrentPlaying ? (
+            {isCurrentBuffering ? (
+              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+                <Loader2 size={20} color="#090a0f" />
+              </motion.div>
+            ) : isCurrentPlaying ? (
               <Pause size={20} fill="#090a0f" color="#090a0f" />
             ) : (
               <Play size={20} fill="#090a0f" color="#090a0f" style={{ marginLeft: "3px" }} />
@@ -126,8 +131,14 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, index }) => {
               borderColor: "rgba(255,255,255,0.3)"
             }}
           >
-            <BarChart2 size={12} color="var(--accent-secondary)" />
-            <span>{isCurrentPlaying ? "PLAYING" : "PAUSED"}</span>
+            {isCurrentBuffering ? (
+              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+                <Loader2 size={12} color="var(--accent-secondary)" />
+              </motion.div>
+            ) : (
+              <BarChart2 size={12} color="var(--accent-secondary)" />
+            )}
+            <span>{isCurrentBuffering ? "BUFFERING..." : isCurrentPlaying ? "PLAYING" : "PAUSED"}</span>
           </div>
         )}
       </div>
