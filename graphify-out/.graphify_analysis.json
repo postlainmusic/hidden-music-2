@@ -1,0 +1,314 @@
+{
+  "communities": {
+    "0": [
+      "apps_web_src_app",
+      "apps_web_src_app_app",
+      "apps_web_src_components_floatingplayerdock",
+      "apps_web_src_components_floatingplayerdock_floatingplayerdock",
+      "apps_web_src_components_glassnavbar",
+      "apps_web_src_components_glassnavbar_glassnavbar",
+      "apps_web_src_components_loginmodal",
+      "apps_web_src_components_loginmodal_loginmodal",
+      "apps_web_src_components_meshgradientbackground",
+      "apps_web_src_components_meshgradientbackground_meshgradientbackground",
+      "apps_web_src_components_trackcard",
+      "apps_web_src_components_trackcard_trackcard",
+      "apps_web_src_components_trackcard_trackcardprops",
+      "apps_web_src_main",
+      "apps_web_src_main_rootelement",
+      "apps_web_src_pages_homepage",
+      "apps_web_src_pages_homepage_homepage",
+      "apps_web_src_store_audiostore",
+      "apps_web_src_store_audiostore_audiostate",
+      "apps_web_src_store_audiostore_default_tracks",
+      "apps_web_src_store_audiostore_track",
+      "apps_web_src_store_audiostore_trackpalette",
+      "apps_web_src_store_audiostore_updatecsstheme",
+      "apps_web_src_store_audiostore_useaudiostore",
+      "apps_web_src_store_audiostore_usersession"
+    ],
+    "1": [
+      "apps_web_tsconfig",
+      "apps_web_tsconfig_compileroptions",
+      "apps_web_tsconfig_compileroptions_allowimportingtsextensions",
+      "apps_web_tsconfig_compileroptions_isolatedmodules",
+      "apps_web_tsconfig_compileroptions_jsx",
+      "apps_web_tsconfig_compileroptions_lib",
+      "apps_web_tsconfig_compileroptions_module",
+      "apps_web_tsconfig_compileroptions_moduleresolution",
+      "apps_web_tsconfig_compileroptions_noemit",
+      "apps_web_tsconfig_compileroptions_nofallthroughcasesinswitch",
+      "apps_web_tsconfig_compileroptions_nounusedlocals",
+      "apps_web_tsconfig_compileroptions_nounusedparameters",
+      "apps_web_tsconfig_compileroptions_resolvejsonmodule",
+      "apps_web_tsconfig_compileroptions_skiplibcheck",
+      "apps_web_tsconfig_compileroptions_strict",
+      "apps_web_tsconfig_compileroptions_target",
+      "apps_web_tsconfig_compileroptions_usedefineforclassfields",
+      "apps_web_tsconfig_include",
+      "apps_web_tsconfig_json_ref_src",
+      "apps_web_tsconfig_references",
+      "ref_dom",
+      "ref_dom_iterable",
+      "ref_es2020"
+    ],
+    "2": [
+      "apps_web_package",
+      "apps_web_package_devdependencies",
+      "apps_web_package_devdependencies_types_react",
+      "apps_web_package_devdependencies_types_react_dom",
+      "apps_web_package_devdependencies_vite",
+      "apps_web_package_devdependencies_vitejs_plugin_react",
+      "apps_web_package_name",
+      "apps_web_package_scripts",
+      "apps_web_package_scripts_build",
+      "apps_web_package_scripts_dev",
+      "apps_web_package_scripts_preview",
+      "apps_web_package_type",
+      "apps_web_package_version",
+      "types_react",
+      "types_react_dom",
+      "vite",
+      "vitejs_plugin_react"
+    ],
+    "3": [
+      "apps_api_package",
+      "apps_api_package_dependencies",
+      "apps_api_package_dependencies_hono",
+      "apps_api_package_dependencies_modelcontextprotocol_sdk",
+      "apps_api_package_dependencies_zod",
+      "apps_api_package_name",
+      "apps_api_package_scripts",
+      "apps_api_package_scripts_db_init",
+      "apps_api_package_scripts_deploy",
+      "apps_api_package_scripts_dev",
+      "apps_api_package_type",
+      "apps_api_package_version",
+      "hono",
+      "modelcontextprotocol_sdk",
+      "zod"
+    ],
+    "4": [
+      "package",
+      "package_name",
+      "package_private",
+      "package_scripts",
+      "package_scripts_build",
+      "package_scripts_build_api",
+      "package_scripts_build_web",
+      "package_scripts_deploy_api",
+      "package_scripts_deploy_web",
+      "package_scripts_dev",
+      "package_scripts_dev_api",
+      "package_scripts_dev_web",
+      "package_version",
+      "package_workspaces",
+      "ref_apps"
+    ],
+    "5": [
+      "apps_web_package_dependencies",
+      "apps_web_package_dependencies_clsx",
+      "apps_web_package_dependencies_framer_motion",
+      "apps_web_package_dependencies_lucide_react",
+      "apps_web_package_dependencies_react",
+      "apps_web_package_dependencies_react_dom",
+      "apps_web_package_dependencies_zustand",
+      "clsx",
+      "framer_motion",
+      "lucide_react",
+      "react",
+      "react_dom",
+      "zustand"
+    ],
+    "6": [
+      "apps_api_tsconfig",
+      "apps_api_tsconfig_compileroptions",
+      "apps_api_tsconfig_compileroptions_lib",
+      "apps_api_tsconfig_compileroptions_module",
+      "apps_api_tsconfig_compileroptions_moduleresolution",
+      "apps_api_tsconfig_compileroptions_skiplibcheck",
+      "apps_api_tsconfig_compileroptions_strict",
+      "apps_api_tsconfig_compileroptions_target",
+      "apps_api_tsconfig_include",
+      "apps_api_tsconfig_json_ref_src",
+      "ref_esnext"
+    ],
+    "7": [
+      "apps_api_package_devdependencies",
+      "apps_api_package_devdependencies_cloudflare_workers_types",
+      "apps_api_package_devdependencies_typescript",
+      "apps_api_package_devdependencies_wrangler",
+      "apps_api_package_json_typescript",
+      "apps_api_tsconfig_compileroptions_types",
+      "apps_web_package_devdependencies_typescript",
+      "cloudflare_workers_types",
+      "wrangler"
+    ],
+    "8": [
+      "apps_web_tsconfig_node",
+      "apps_web_tsconfig_node_compileroptions",
+      "apps_web_tsconfig_node_compileroptions_allowsyntheticdefaultimports",
+      "apps_web_tsconfig_node_compileroptions_composite",
+      "apps_web_tsconfig_node_compileroptions_module",
+      "apps_web_tsconfig_node_compileroptions_moduleresolution",
+      "apps_web_tsconfig_node_compileroptions_skiplibcheck",
+      "apps_web_tsconfig_node_include",
+      "ref_vite_config_ts"
+    ],
+    "9": [
+      "apps_api_src_index",
+      "apps_api_src_index_app",
+      "apps_api_src_index_bindings",
+      "apps_api_src_index_mck_tracks",
+      "apps_api_src_index_mcpserver",
+      "apps_api_src_index_r2_clean_map",
+      "apps_api_src_index_video_clean_map"
+    ],
+    "10": [
+      "antigravity_scripts_process_data",
+      "antigravity_scripts_process_data_analyze_glb",
+      "antigravity_scripts_process_data_main",
+      "path"
+    ],
+    "11": [
+      "agents_skills_idea_refine_scripts_idea_refine",
+      "agents_skills_idea_refine_scripts_idea_refine_sh__entry"
+    ],
+    "12": [
+      "antigravity_scripts_validate",
+      "antigravity_scripts_validate_sh__entry"
+    ],
+    "13": [
+      "apps_web_vite_config"
+    ]
+  },
+  "cohesion": {
+    "0": 0.18,
+    "1": 0.08695652173913043,
+    "2": 0.11764705882352941,
+    "3": 0.13333333333333333,
+    "4": 0.13333333333333333,
+    "5": 0.15384615384615385,
+    "6": 0.18181818181818182,
+    "7": 0.2222222222222222,
+    "8": 0.2222222222222222,
+    "9": 0.2857142857142857,
+    "10": 0.8333333333333334,
+    "11": 1.0,
+    "12": 1.0,
+    "13": 1.0
+  },
+  "gods": [
+    {
+      "id": "apps_web_src_store_audiostore_useaudiostore",
+      "label": "useAudioStore",
+      "degree": 16
+    },
+    {
+      "id": "apps_web_tsconfig_compileroptions",
+      "label": "compilerOptions",
+      "degree": 16
+    },
+    {
+      "id": "package_scripts",
+      "label": "scripts",
+      "degree": 9
+    },
+    {
+      "id": "apps_api_tsconfig_compileroptions",
+      "label": "compilerOptions",
+      "degree": 8
+    },
+    {
+      "id": "apps_web_tsconfig_node_compileroptions",
+      "label": "compilerOptions",
+      "degree": 6
+    },
+    {
+      "id": "apps_api_package_scripts",
+      "label": "scripts",
+      "degree": 4
+    },
+    {
+      "id": "apps_web_package_scripts",
+      "label": "scripts",
+      "degree": 4
+    },
+    {
+      "id": "apps_web_tsconfig_compileroptions_lib",
+      "label": "lib",
+      "degree": 4
+    },
+    {
+      "id": "antigravity_scripts_process_data_analyze_glb",
+      "label": "analyze_glb()",
+      "degree": 3
+    },
+    {
+      "id": "antigravity_scripts_process_data_main",
+      "label": "main()",
+      "degree": 3
+    }
+  ],
+  "surprises": [
+    {
+      "source": "types",
+      "target": "@cloudflare/workers-types",
+      "source_files": [
+        "apps/api/tsconfig.json",
+        "apps/api/package.json"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "extends",
+      "why": "cross-file semantic connection"
+    },
+    {
+      "source": "App()",
+      "target": "useAudioStore",
+      "source_files": [
+        "apps/web/src/App.tsx",
+        "apps/web/src/store/audioStore.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "cross-file semantic connection"
+    },
+    {
+      "source": "FloatingPlayerDock()",
+      "target": "useAudioStore",
+      "source_files": [
+        "apps/web/src/components/FloatingPlayerDock.tsx",
+        "apps/web/src/store/audioStore.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "cross-file semantic connection"
+    },
+    {
+      "source": "GlassNavbar()",
+      "target": "useAudioStore",
+      "source_files": [
+        "apps/web/src/components/GlassNavbar.tsx",
+        "apps/web/src/store/audioStore.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "cross-file semantic connection"
+    },
+    {
+      "source": "LoginModal()",
+      "target": "useAudioStore",
+      "source_files": [
+        "apps/web/src/components/LoginModal.tsx",
+        "apps/web/src/store/audioStore.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "cross-file semantic connection"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}
