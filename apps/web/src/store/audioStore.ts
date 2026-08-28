@@ -450,7 +450,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     if (typeof window === "undefined" || audioElement) return;
 
     audioElement = new Audio();
-    audioElement.preload = "metadata";
+    audioElement.preload = "auto";
     audioElement.src = DEFAULT_TRACKS[0].audioUrl;
 
     audioElement.addEventListener("loadstart", () => {
@@ -465,9 +465,17 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       set({ isBuffering: false });
     });
 
+    audioElement.addEventListener("canplaythrough", () => {
+      set({ isBuffering: false });
+    });
+
     audioElement.addEventListener("timeupdate", () => {
       if (audioElement) {
-        set({ currentTime: audioElement.currentTime });
+        set({
+          currentTime: audioElement.currentTime,
+          isBuffering: false,
+          isPlaying: !audioElement.paused
+        });
       }
     });
 
@@ -505,7 +513,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       if (playPromise !== undefined) {
         playPromise
           .then(() => {
-            set({ isPlaying: true });
+            set({ isPlaying: true, isBuffering: false });
           })
           .catch((e) => {
             if (e.name !== "AbortError") {
