@@ -472,17 +472,22 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       isPlaying: true
     });
 
-    if (audioElement) {
-      if (audioElement.src !== track.audioUrl) {
-        audioElement.src = track.audioUrl;
+    setTimeout(() => {
+      if (audioElement) {
+        audioElement.volume = get().volume;
+        audioElement.muted = get().isMuted;
+        const playPromise = audioElement.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              set({ isPlaying: true, isBuffering: false });
+            })
+            .catch((e) => {
+              if (e.name !== "AbortError") console.warn("Audio play error:", e);
+            });
+        }
       }
-      audioElement.currentTime = 0;
-      audioElement.volume = get().volume;
-      audioElement.muted = get().isMuted;
-      audioElement.play().catch((e) => {
-        if (e.name !== "AbortError") console.warn("Audio play error:", e);
-      });
-    }
+    }, 50);
   },
 
   togglePlay: () => {
@@ -527,8 +532,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   seek: (time: number) => {
-    if (audioElement) {
-      audioElement.currentTime = time;
+    if (audioElement && !isNaN(time)) {
+      try {
+        audioElement.currentTime = time;
+      } catch (err) {
+        console.warn("Seek error:", err);
+      }
     }
     set({ currentTime: time });
   },

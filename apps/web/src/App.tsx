@@ -40,10 +40,11 @@ export const App: React.FC = () => {
         src={currentTrack?.audioUrl}
         preload="auto"
         playsInline
-        crossOrigin="anonymous"
         onPlay={() => useAudioStore.setState({ isPlaying: true })}
         onPause={() => useAudioStore.setState({ isPlaying: false })}
         onWaiting={() => useAudioStore.setState({ isBuffering: true })}
+        onSeeking={() => useAudioStore.setState({ isBuffering: true })}
+        onSeeked={() => useAudioStore.setState({ isBuffering: false })}
         onPlaying={() => useAudioStore.setState({ isPlaying: true, isBuffering: false })}
         onCanPlay={() => useAudioStore.setState({ isBuffering: false })}
         onCanPlayThrough={() => useAudioStore.setState({ isBuffering: false })}
@@ -61,7 +62,8 @@ export const App: React.FC = () => {
           }
         }}
         onEnded={() => nextTrack()}
-        onError={() => {
+        onError={(e) => {
+          console.warn("Audio element playback error:", e);
           useAudioStore.setState({ isBuffering: false });
         }}
         style={{ display: "none" }}
