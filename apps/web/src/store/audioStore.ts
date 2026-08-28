@@ -21,68 +21,334 @@ export interface Track {
 
 export const DEFAULT_TRACKS: Track[] = [
   {
-    id: "track-1",
-    title: "Midnight Aurora",
-    artist: "Celestial Waves",
-    album: "Solaris Prism",
-    duration: 214,
+    id: "mck-01",
+    title: "01. Elegie",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 198,
     coverUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=800&auto=format&fit=crop",
     audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
-    palette: {
-      primary: "#6366f1",
-      secondary: "#ec4899",
-      accent: "#8b5cf6",
-      glow: "rgba(99, 102, 241, 0.45)"
-    },
-    genre: "Ambient Synthwave"
+    palette: { primary: "#6366f1", secondary: "#ec4899", accent: "#8b5cf6", glow: "rgba(99, 102, 241, 0.45)" },
+    genre: "Hip-Hop / Rap"
   },
   {
-    id: "track-2",
-    title: "Liquid Glass Dreams",
-    artist: "Ethereal Echo",
-    album: "Reflections in Neon",
-    duration: 188,
+    id: "mck-02",
+    title: "02. IDK",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 215,
     coverUrl: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=800&auto=format&fit=crop",
     audioUrl: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=ambient-piano-amp-strings-10711.mp3",
-    palette: {
-      primary: "#06b6d4",
-      secondary: "#3b82f6",
-      accent: "#10b981",
-      glow: "rgba(6, 182, 212, 0.45)"
-    },
-    genre: "Lo-Fi Cinematic"
+    palette: { primary: "#06b6d4", secondary: "#3b82f6", accent: "#10b981", glow: "rgba(6, 182, 212, 0.45)" },
+    genre: "Melodic Rap"
   },
   {
-    id: "track-3",
-    title: "Cybernetic Horizon",
-    artist: "Nova Pulse",
-    album: "Quantum Resonance",
-    duration: 245,
+    id: "mck-03",
+    title: "03. Wtf Bby I'm Lit",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 180,
     coverUrl: "https://images.unsplash.com/photo-1508739773434-c26b3d09e071?q=80&w=800&auto=format&fit=crop",
     audioUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8bbf7b5b5.mp3?filename=electronic-future-beats-117997.mp3",
-    palette: {
-      primary: "#f43f5e",
-      secondary: "#fb923c",
-      accent: "#d946ef",
-      glow: "rgba(244, 63, 94, 0.45)"
-    },
-    genre: "Future Bass"
+    palette: { primary: "#f43f5e", secondary: "#fb923c", accent: "#d946ef", glow: "rgba(244, 63, 94, 0.45)" },
+    genre: "Trap"
   },
   {
-    id: "track-4",
-    title: "Subtle Radiance",
-    artist: "Aura Soundscape",
-    album: "Luminescent Calm",
-    duration: 196,
+    id: "mck-04",
+    title: "04. Anh Không Muốn Nó Dễ Dàng",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 224,
     coverUrl: "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?q=80&w=800&auto=format&fit=crop",
     audioUrl: "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=chill-abstract-intention-12099.mp3",
-    palette: {
-      primary: "#14b8a6",
-      secondary: "#0284c7",
-      accent: "#a855f7",
-      glow: "rgba(20, 184, 166, 0.45)"
-    },
-    genre: "Chillout Electronic"
+    palette: { primary: "#14b8a6", secondary: "#0284c7", accent: "#a855f7", glow: "rgba(20, 184, 166, 0.45)" },
+    genre: "R&B / Soul"
+  },
+  {
+    id: "mck-05",
+    title: "05. Baby",
+    artist: "MCK ft. marzuz",
+    album: "99% & Archives",
+    duration: 230,
+    coverUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
+    palette: { primary: "#ec4899", secondary: "#8b5cf6", accent: "#f43f5e", glow: "rgba(236, 72, 153, 0.45)" },
+    genre: "Alternative R&B"
+  },
+  {
+    id: "mck-06",
+    title: "06. Yêu Anh Giết Anh",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 210,
+    coverUrl: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=ambient-piano-amp-strings-10711.mp3",
+    palette: { primary: "#ef4444", secondary: "#7c3aed", accent: "#f97316", glow: "rgba(239, 68, 68, 0.45)" },
+    genre: "Emo Rap"
+  },
+  {
+    id: "mck-07",
+    title: "07. Mắt Môi Tay Chân",
+    artist: "MCK ft. Tage",
+    album: "99% & Archives",
+    duration: 240,
+    coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8bbf7b5b5.mp3?filename=electronic-future-beats-117997.mp3",
+    palette: { primary: "#8b5cf6", secondary: "#06b6d4", accent: "#3b82f6", glow: "rgba(139, 92, 246, 0.45)" },
+    genre: "Hip-Hop"
+  },
+  {
+    id: "mck-08",
+    title: "08. Đạo Của Anh Vừa",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 195,
+    coverUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=chill-abstract-intention-12099.mp3",
+    palette: { primary: "#eab308", secondary: "#ef4444", accent: "#f97316", glow: "rgba(234, 179, 8, 0.45)" },
+    genre: "Trap"
+  },
+  {
+    id: "mck-09",
+    title: "09. Là Gì Của Nhau",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 205,
+    coverUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
+    palette: { primary: "#3b82f6", secondary: "#ec4899", accent: "#6366f1", glow: "rgba(59, 130, 246, 0.45)" },
+    genre: "R&B"
+  },
+  {
+    id: "mck-10",
+    title: "10. Night In Prague",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 250,
+    coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=ambient-piano-amp-strings-10711.mp3",
+    palette: { primary: "#6366f1", secondary: "#14b8a6", accent: "#a855f7", glow: "rgba(99, 102, 241, 0.45)" },
+    genre: "Chillhop / Jazzhop"
+  },
+  {
+    id: "mck-11",
+    title: "11. Một Cái Ôm",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 218,
+    coverUrl: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8bbf7b5b5.mp3?filename=electronic-future-beats-117997.mp3",
+    palette: { primary: "#f43f5e", secondary: "#8b5cf6", accent: "#06b6d4", glow: "rgba(244, 63, 94, 0.45)" },
+    genre: "Acoustic / Rap"
+  },
+  {
+    id: "mck-12",
+    title: "12. Liệm",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 235,
+    coverUrl: "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=chill-abstract-intention-12099.mp3",
+    palette: { primary: "#7c3aed", secondary: "#000000", accent: "#dc2626", glow: "rgba(124, 58, 237, 0.45)" },
+    genre: "Dark Trap"
+  },
+  {
+    id: "mck-13",
+    title: "13. Nếu Như Ta Chẳng Còn",
+    artist: "MCK ft. AAP Ướt Mi",
+    album: "99% & Archives",
+    duration: 242,
+    coverUrl: "https://images.unsplash.com/photo-1465847899084-d164df4dedc6?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
+    palette: { primary: "#0ea5e9", secondary: "#6366f1", accent: "#ec4899", glow: "rgba(14, 165, 233, 0.45)" },
+    genre: "R&B / Soul"
+  },
+  {
+    id: "mck-14",
+    title: "14. Ai Mới Là Kẻ Xấu Xa",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 212,
+    coverUrl: "https://images.unsplash.com/photo-1511735111819-9a3f7709049c?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=ambient-piano-amp-strings-10711.mp3",
+    palette: { primary: "#e11d48", secondary: "#f59e0b", accent: "#8b5cf6", glow: "rgba(225, 29, 72, 0.45)" },
+    genre: "Hip-Hop"
+  },
+  {
+    id: "mck-15",
+    title: "15. Slippery",
+    artist: "MCK ft. Tùng Dương",
+    album: "99% & Archives",
+    duration: 260,
+    coverUrl: "https://images.unsplash.com/photo-1506157786151-b8491531f063?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8bbf7b5b5.mp3?filename=electronic-future-beats-117997.mp3",
+    palette: { primary: "#d946ef", secondary: "#06b6d4", accent: "#f43f5e", glow: "rgba(217, 70, 239, 0.45)" },
+    genre: "Art Pop / Rap"
+  },
+  {
+    id: "mck-16",
+    title: "16. Interpol",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 185,
+    coverUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=chill-abstract-intention-12099.mp3",
+    palette: { primary: "#10b981", secondary: "#3b82f6", accent: "#6366f1", glow: "rgba(16, 185, 129, 0.45)" },
+    genre: "Trap"
+  },
+  {
+    id: "mck-17",
+    title: "17. Tây Thi",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 210,
+    coverUrl: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
+    palette: { primary: "#f43f5e", secondary: "#ec4899", accent: "#fbbf24", glow: "rgba(244, 63, 94, 0.45)" },
+    genre: "Oriental Trap"
+  },
+  {
+    id: "mck-18",
+    title: "18. Hút và Hút",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 198,
+    coverUrl: "https://images.unsplash.com/photo-1508739773434-c26b3d09e071?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=ambient-piano-amp-strings-10711.mp3",
+    palette: { primary: "#84cc16", secondary: "#06b6d4", accent: "#10b981", glow: "rgba(132, 204, 22, 0.45)" },
+    genre: "Chillhop"
+  },
+  {
+    id: "mck-19",
+    title: "19. Dưa Chua",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 204,
+    coverUrl: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8bbf7b5b5.mp3?filename=electronic-future-beats-117997.mp3",
+    palette: { primary: "#eab308", secondary: "#84cc16", accent: "#f97316", glow: "rgba(234, 179, 8, 0.45)" },
+    genre: "Hip-Hop"
+  },
+  {
+    id: "mck-20",
+    title: "20. Xa Xôi",
+    artist: "MCK ft. Obito",
+    album: "99% & Archives",
+    duration: 232,
+    coverUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=chill-abstract-intention-12099.mp3",
+    palette: { primary: "#6366f1", secondary: "#ec4899", accent: "#06b6d4", glow: "rgba(99, 102, 241, 0.45)" },
+    genre: "Melodic Rap"
+  },
+  {
+    id: "mck-21",
+    title: "21. Che Phù",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 190,
+    coverUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
+    palette: { primary: "#a855f7", secondary: "#f43f5e", accent: "#3b82f6", glow: "rgba(168, 85, 247, 0.45)" },
+    genre: "Hip-Hop"
+  },
+  {
+    id: "mck-22",
+    title: "22. Oanh M - Thuoc",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 215,
+    coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=ambient-piano-amp-strings-10711.mp3",
+    palette: { primary: "#06b6d4", secondary: "#6366f1", accent: "#10b981", glow: "rgba(6, 182, 212, 0.45)" },
+    genre: "Trap"
+  },
+  {
+    id: "mck-23",
+    title: "23. Ghét Xog Lại Thik",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 188,
+    coverUrl: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8bbf7b5b5.mp3?filename=electronic-future-beats-117997.mp3",
+    palette: { primary: "#ec4899", secondary: "#f43f5e", accent: "#fb923c", glow: "rgba(236, 72, 153, 0.45)" },
+    genre: "Pop Rap"
+  },
+  {
+    id: "mck-24",
+    title: "24. Nhìn Kẻ Thù Của Tao",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 220,
+    coverUrl: "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=chill-abstract-intention-12099.mp3",
+    palette: { primary: "#dc2626", secondary: "#7c3aed", accent: "#000000", glow: "rgba(220, 38, 38, 0.45)" },
+    genre: "Hardcore Trap"
+  },
+  {
+    id: "mck-25",
+    title: "25. Envy",
+    artist: "MCK ft. THANHDRAW",
+    album: "99% & Archives",
+    duration: 230,
+    coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
+    palette: { primary: "#10b981", secondary: "#f59e0b", accent: "#ef4444", glow: "rgba(16, 185, 129, 0.45)" },
+    genre: "Trap"
+  },
+  {
+    id: "mck-26",
+    title: "26. Cảm Ơn",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 245,
+    coverUrl: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=ambient-piano-amp-strings-10711.mp3",
+    palette: { primary: "#3b82f6", secondary: "#8b5cf6", accent: "#ec4899", glow: "rgba(59, 130, 246, 0.45)" },
+    genre: "Melodic Rap"
+  },
+  {
+    id: "mck-27",
+    title: "27. Không Cần Lo Cho Tao",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 215,
+    coverUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8bbf7b5b5.mp3?filename=electronic-future-beats-117997.mp3",
+    palette: { primary: "#f97316", secondary: "#6366f1", accent: "#06b6d4", glow: "rgba(249, 115, 22, 0.45)" },
+    genre: "Hip-Hop"
+  },
+  {
+    id: "mck-28",
+    title: "28. Huh",
+    artist: "MCK ft. RPT Orijinn & THANHDRAW",
+    album: "99% & Archives",
+    duration: 255,
+    coverUrl: "https://images.unsplash.com/photo-1511735111819-9a3f7709049c?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=chill-abstract-intention-12099.mp3",
+    palette: { primary: "#8b5cf6", secondary: "#ef4444", accent: "#eab308", glow: "rgba(139, 92, 246, 0.45)" },
+    genre: "Drill / Trap"
+  },
+  {
+    id: "mck-29",
+    title: "29. Nguyễn Văn Mười",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 220,
+    coverUrl: "https://images.unsplash.com/photo-1506157786151-b8491531f063?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3",
+    palette: { primary: "#14b8a6", secondary: "#f43f5e", accent: "#6366f1", glow: "rgba(20, 184, 166, 0.45)" },
+    genre: "Hip-Hop"
+  },
+  {
+    id: "mck-30",
+    title: "30. Thịt Lợn",
+    artist: "MCK",
+    album: "99% & Archives",
+    duration: 210,
+    coverUrl: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=800&auto=format&fit=crop",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=ambient-piano-amp-strings-10711.mp3",
+    palette: { primary: "#ec4899", secondary: "#f97316", accent: "#8b5cf6", glow: "rgba(236, 72, 153, 0.45)" },
+    genre: "Trap"
   }
 ];
 
