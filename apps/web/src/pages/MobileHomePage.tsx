@@ -47,66 +47,57 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
   const [activeSection, setActiveSection] = useState<number>(0);
   const [selectedAlbumModal, setSelectedAlbumModal] = useState<string | null>(null);
   
+  // Section 1 Internal Settled State (starts center -> settles to top after 1.5s)
+  const [isSec1Settled, setIsSec1Settled] = useState<boolean>(false);
+  const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
+
   // Section 2 Revolver Index (0..4)
   const [revolverIndex, setRevolverIndex] = useState<number>(0);
   const [dragOffset, setDragOffset] = useState<number>(0);
-
-  // Section 1 Internal States
-  const [sec1State, setSec1State] = useState<"initial_center" | "settled" | "closing_center" | "resting_handover">("initial_center");
-  const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
 
   const touchStartY = useRef<number>(0);
   const touchStartX = useRef<number>(0);
   const isTouchInsideCarousel = useRef<boolean>(false);
 
-  // Flow nhịp chuẩn: Vào trang -> Bìa Fade In ở giữa (0.4s) -> Nghỉ 1.5s -> Trượt lên và 5 bài hát Fade In
+  // Initial Sequence: Cover fades in at Center -> rests 1.5s -> glides up & 5 tracks fade in
   useEffect(() => {
-    setSec1State("initial_center");
-
     const settleTimer = setTimeout(() => {
-      setSec1State("settled");
+      setIsSec1Settled(true);
     }, 1500);
 
-    return () => {
-      clearTimeout(settleTimer);
-    };
+    return () => clearTimeout(settleTimer);
   }, []);
 
-  // Chuyển cảnh 1 -> 2 mượt mà
+  // Chuyển cảnh 1 -> 2 (Tracks fade out -> Bìa trượt về tâm -> Wings mở ra)
   const handleTransition1To2 = () => {
-    if (isTransitioning || sec1State !== "settled") return;
+    if (isTransitioning || !isSec1Settled) return;
     setIsTransitioning(true);
 
-    // Bước 1: 5 tracks Fade out và bìa trở về tâm êm ái trong 2.0s
-    setSec1State("closing_center");
+    setIsSec1Settled(false); // Trượt bìa về tâm
 
-    // Bước 2: Bìa dừng tại tâm 0.5s
     setTimeout(() => {
-      setSec1State("resting_handover");
-
-      // Bước 3: Chuyển Section 2
+      setRevolverIndex(0);
+      setActiveSection(1);
       setTimeout(() => {
-        setRevolverIndex(0);
-        setActiveSection(1);
         setIsTransitioning(false);
-      }, 500);
-    }, 2000);
+      }, 400);
+    }, 1100);
   };
 
-  // Chuyển cảnh ngược lại 2 -> 1
+  // Chuyển cảnh 2 -> 1 (Wings thu lại -> Bìa trượt lên -> Tracks fade in)
   const handleTransition2To1 = () => {
     if (isTransitioning) return;
     setIsTransitioning(true);
 
+    setRevolverIndex(0);
     setActiveSection(0);
-    setSec1State("closing_center");
 
     setTimeout(() => {
-      setSec1State("settled");
+      setIsSec1Settled(true);
       setTimeout(() => {
         setIsTransitioning(false);
-      }, 2000);
-    }, 50);
+      }, 1100);
+    }, 200);
   };
 
   // Touch Gesture Handling
@@ -139,7 +130,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
       }
 
       if (deltaY > 60) {
-        if (activeSection === 0 && sec1State === "settled") {
+        if (activeSection === 0 && isSec1Settled) {
           handleTransition1To2();
         } else if (activeSection === 1) {
           setIsTransitioning(true);
@@ -164,7 +155,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
       window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("touchend", handleTouchEnd);
     };
-  }, [activeSection, sec1State, isTransitioning]);
+  }, [activeSection, isSec1Settled, isTransitioning]);
 
   const totalSlots = 5;
   const getSlot = (offset: number) => {
@@ -179,7 +170,16 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
   const currentMarbleStep = MARBLE_STEPS[revolverIndex] ?? 0;
   const marbleBaseX = currentMarbleStep * 24;
 
-  const isSettled = sec1State === "settled";
+  // Tính toán vị trí Y và Scale của Album trung tâm
+  // Khi ở Section 1: nếu settled thì y = -135px, scale = 0.58; nếu đang ở tâm thì y = 0, scale = 1.0
+  // Khi ở Section 2: y = 0px, scale = 1.0
+  const centerCardY = activeSection === 0
+    ? (isSec1Settled ? -135 : 0)
+    : 0;
+
+  const centerCardScale = activeSection === 0
+    ? (isSec1Settled ? 0.58 : 1.0)
+    : 1.0;
 
   return (
     <main
@@ -198,60 +198,274 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
       }}
     >
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 1: KHỞI TẠO CHUẨN XÁC (CHỈ HIỆN BÌA TẠI TÂM LÚC ĐẦU)
+          UNIFIED STAGE CONTAINER: ZERO UNMOUNTING, ZERO OVERLAPPING FLASH
       ────────────────────────────────────────────────────────────────────── */}
       <div
         style={{
-          position: "absolute",
-          inset: 0,
+          position: "relative",
+          width: "100%",
+          maxWidth: "420px",
+          height: "100%",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          opacity: activeSection === 0 ? 1 : 0,
-          pointerEvents: activeSection === 0 ? "auto" : "none",
-          transition: "opacity 0.4s ease-in-out",
-          zIndex: activeSection === 0 ? 10 : 1
+          opacity: activeSection === 2 ? 0 : 1,
+          pointerEvents: activeSection === 2 ? "none" : "auto",
+          transition: "opacity 0.4s ease-in-out"
         }}
       >
-        {/* Top Album Artwork (Mở màn ở tâm, chỉ lướt lên khi settled) */}
+        {/* Localized metallic sheen glow behind cards in Section 2 */}
         <motion.div
-          initial={{ opacity: 0, y: 0, scale: 1 }}
           animate={{
-            opacity: 1,
-            y: isSettled ? -135 : 0,
-            scale: isSettled ? 0.58 : 1
+            opacity: activeSection === 1 ? 0.35 : 0,
+            scale: activeSection === 1 ? 1 : 0.8
           }}
-          transition={{ duration: 2.0, ease: [0.16, 1, 0.3, 1] }}
-          onClick={() => {
-            if (isSettled) setSelectedAlbumModal("HVL (99%)");
-          }}
-          style={{
-            position: "absolute",
-            width: "min(76vw, 280px)",
-            height: "min(76vw, 280px)",
-            borderRadius: "28px",
-            overflow: "hidden",
-            boxShadow: isSettled
-              ? "0 14px 35px rgba(0, 0, 0, 0.85), 0 0 20px rgba(255, 255, 255, 0.2)"
-              : "0 28px 70px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)",
-            border: "1px solid rgba(255, 255, 255, 0.25)",
-            cursor: isSettled ? "pointer" : "default",
-            background: "#18181b",
-            zIndex: 10
-          }}
-        >
-          <img
-            src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
-            alt="HVL (99%)"
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-          />
-        </motion.div>
+          transition={{ duration: 0.6, ease: "easeInOut" }}
+          className="metallic-sheen-glow"
+        />
 
-        {/* Bottom 5 Tracks List (BẮT BUỘC ẨN LÚC ĐẦU, CHỈ HIỆN KHI SETTLED) */}
-        <div
+        {/* ── SECTION 2 WINGS: LEFT & RIGHT CARDS (FADE & SLIDE INTO PLACE) ── */}
+        {[-1, 1].map((offset) => {
+          const { slot } = getSlot(offset);
+          const isSection2 = activeSection === 1;
+
+          return (
+            <motion.div
+              key={`${slot.id}-${offset}`}
+              onClick={() => {
+                if (isSection2) {
+                  setRevolverIndex((prev) => (prev + offset + totalSlots) % totalSlots);
+                }
+              }}
+              animate={{
+                x: offset === -1 ? -165 + dragOffset * 0.25 : 165 + dragOffset * 0.25,
+                scale: 0.8,
+                opacity: isSection2 ? 0.45 : 0,
+                filter: "blur(2.5px)",
+                pointerEvents: isSection2 ? "auto" : "none"
+              }}
+              transition={{ type: "spring", stiffness: 240, damping: 26, mass: 0.8 }}
+              style={{
+                position: "absolute",
+                width: "min(76vw, 280px)",
+                height: "min(76vw, 280px)",
+                borderRadius: "28px",
+                overflow: "hidden",
+                cursor: "pointer",
+                boxShadow: "0 15px 35px rgba(0, 0, 0, 0.8)",
+                border: slot.isReal
+                  ? "1px solid rgba(255, 255, 255, 0.3)"
+                  : "1.5px solid rgba(255, 255, 255, 0.22)",
+                background: slot.isReal
+                  ? "#18181b"
+                  : "linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%)",
+                backdropFilter: slot.isReal ? "none" : "blur(20px)",
+                WebkitBackdropFilter: slot.isReal ? "none" : "blur(20px)",
+                zIndex: 5
+              }}
+            >
+              {slot.isReal ? (
+                <img
+                  src={slot.coverUrl}
+                  alt={slot.title}
+                  loading="eager"
+                  style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none", display: "block" }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "12px",
+                    padding: "20px",
+                    position: "relative",
+                    color: "#ffffff"
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: "15%",
+                      borderRadius: "50%",
+                      border: "1px dashed rgba(255, 255, 255, 0.15)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center"
+                    }}
+                  >
+                    <Disc3 size={32} color="rgba(255, 255, 255, 0.3)" />
+                  </div>
+                  <div style={{ zIndex: 1, textAlign: "center", marginTop: "auto", marginBottom: "8px" }}>
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        padding: "4px 10px",
+                        borderRadius: "999px",
+                        background: "rgba(255, 255, 255, 0.08)",
+                        border: "1px solid rgba(255, 255, 255, 0.15)",
+                        fontSize: "0.72rem",
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                        color: "rgba(255, 255, 255, 0.8)",
+                        marginBottom: "4px"
+                      }}
+                    >
+                      <Sparkles size={12} />
+                      <span>{slot.title}</span>
+                    </div>
+                    <p style={{ fontSize: "0.7rem", color: "rgba(255, 255, 255, 0.45)" }}>
+                      {slot.artist}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          );
+        })}
+
+        {/* ── THE SINGLE PERSISTENT CENTER CARD (HVL OR CURRENT REVOLVER SLOT) ── */}
+        {(() => {
+          const { slot } = getSlot(0);
+          const isSection2 = activeSection === 1;
+
+          return (
+            <motion.div
+              drag={isSection2 ? "x" : false}
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.4}
+              onDrag={(_, info) => {
+                if (isSection2) setDragOffset(info.offset.x);
+              }}
+              onDragEnd={(_, info) => {
+                setDragOffset(0);
+                const offsetVal = info.offset.x;
+                const velocity = info.velocity.x;
+
+                if (offsetVal < -30 || velocity < -120) {
+                  setRevolverIndex((prev) => (prev + 1) % totalSlots);
+                } else if (offsetVal > 30 || velocity > 120) {
+                  setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
+                }
+              }}
+              whileTap={isSection2 ? { scale: 0.98 } : {}}
+              onClick={() => {
+                setSelectedAlbumModal(slot.title);
+              }}
+              animate={{
+                x: isSection2 ? dragOffset * 0.35 : 0,
+                y: centerCardY,
+                scale: centerCardScale,
+                opacity: 1.0
+              }}
+              transition={{
+                y: { duration: 1.1, ease: [0.16, 1, 0.3, 1] },
+                scale: { duration: 1.1, ease: [0.16, 1, 0.3, 1] },
+                x: { duration: 0.2, ease: "easeOut" }
+              }}
+              style={{
+                position: "absolute",
+                width: "min(76vw, 280px)",
+                height: "min(76vw, 280px)",
+                borderRadius: "28px",
+                overflow: "hidden",
+                cursor: isSection2 ? "grab" : isSec1Settled ? "pointer" : "default",
+                boxShadow: isSection2
+                  ? "0 28px 70px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)"
+                  : isSec1Settled
+                  ? "0 14px 35px rgba(0, 0, 0, 0.85), 0 0 20px rgba(255, 255, 255, 0.2)"
+                  : "0 28px 70px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)",
+                border: slot.isReal
+                  ? "1px solid rgba(255, 255, 255, 0.3)"
+                  : "1.5px solid rgba(255, 255, 255, 0.22)",
+                background: slot.isReal
+                  ? "#18181b"
+                  : "linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%)",
+                backdropFilter: slot.isReal ? "none" : "blur(20px)",
+                WebkitBackdropFilter: slot.isReal ? "none" : "blur(20px)",
+                zIndex: 10
+              }}
+            >
+              {slot.isReal ? (
+                <img
+                  src={slot.coverUrl}
+                  alt={slot.title}
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
+                  style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none", display: "block" }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "12px",
+                    padding: "20px",
+                    position: "relative",
+                    color: "#ffffff"
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: "15%",
+                      borderRadius: "50%",
+                      border: "1px dashed rgba(255, 255, 255, 0.15)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center"
+                    }}
+                  >
+                    <Disc3 size={32} color="rgba(255, 255, 255, 0.3)" />
+                  </div>
+                  <div style={{ zIndex: 1, textAlign: "center", marginTop: "auto", marginBottom: "8px" }}>
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        padding: "4px 10px",
+                        borderRadius: "999px",
+                        background: "rgba(255, 255, 255, 0.08)",
+                        border: "1px solid rgba(255, 255, 255, 0.15)",
+                        fontSize: "0.72rem",
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                        color: "rgba(255, 255, 255, 0.8)",
+                        marginBottom: "4px"
+                      }}
+                    >
+                      <Sparkles size={12} />
+                      <span>{slot.title}</span>
+                    </div>
+                    <p style={{ fontSize: "0.7rem", color: "rgba(255, 255, 255, 0.45)" }}>
+                      {slot.artist}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          );
+        })()}
+
+        {/* ── SECTION 1: 5 TRACKS LIST (BOTTOM HALF) ── */}
+        <motion.div
+          animate={{
+            opacity: activeSection === 0 && isSec1Settled ? 1 : 0,
+            y: activeSection === 0 && isSec1Settled ? 0 : 20,
+            pointerEvents: activeSection === 0 && isSec1Settled ? "auto" : "none"
+          }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
           style={{
             position: "absolute",
             top: "calc(50% - 35px)",
@@ -261,10 +475,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
             display: "flex",
             flexDirection: "column",
             gap: "6px",
-            opacity: isSettled ? 1 : 0,
-            pointerEvents: isSettled ? "auto" : "none",
-            transition: "opacity 1.6s ease-in-out",
-            zIndex: 5
+            zIndex: 6
           }}
         >
           {BEST_PLAY_TRACKS.map((track, idx) => {
@@ -365,221 +576,52 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
           <div style={{ textAlign: "center", opacity: 0.35, fontSize: "0.68rem", letterSpacing: "0.08em", marginTop: "4px" }}>
             VUỐT LÊN ĐỂ TIẾP TỤC
           </div>
-        </div>
-      </div>
+        </motion.div>
 
-      {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 2: BẮT BUỘC ẨN LÚC ĐẦU (OPACITY 0 IN CSS)
-      ────────────────────────────────────────────────────────────────────── */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          overflow: "hidden",
-          opacity: activeSection === 1 ? 1 : 0,
-          pointerEvents: activeSection === 1 ? "auto" : "none",
-          transition: "opacity 0.4s ease-in-out",
-          zIndex: activeSection === 1 ? 10 : 1
-        }}
-      >
-        {/* Localized metallic sheen glow behind cards in Section 2 */}
-        <div className="metallic-sheen-glow" />
-
-        {/* Carousel Interactive Container */}
-        <div
-          className="carousel-interactive-zone"
+        {/* ── SECTION 2: 5-POINT MAGNETIC ROLLING MARBLE CAPSULE ── */}
+        <motion.div
+          animate={{
+            opacity: activeSection === 1 ? 1 : 0,
+            y: activeSection === 1 ? 0 : 20,
+            pointerEvents: activeSection === 1 ? "auto" : "none"
+          }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
           style={{
-            position: "relative",
-            width: "100%",
-            maxWidth: "420px",
-            height: "min(76vw, 280px)",
+            position: "absolute",
+            bottom: "calc(50% - 190px)",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "130px",
+            height: "26px",
+            borderRadius: "13px",
+            background: "rgba(255, 255, 255, 0.08)",
+            border: "1px solid rgba(255, 255, 255, 0.18)",
+            backdropFilter: "blur(14px)",
+            WebkitBackdropFilter: "blur(14px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            touchAction: "pan-x"
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.2)",
+            zIndex: 20,
+            overflow: "hidden"
           }}
         >
-          {/* ── 3D INFINITE REVOLVER: 3 VISIBLE CARDS ── */}
-          {[-1, 0, 1].map((offset) => {
-            const { slot } = getSlot(offset);
-            const isCenter = offset === 0;
-
-            return (
-              <motion.div
-                key={`${slot.id}-${offset}`}
-                drag={isCenter ? "x" : false}
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.4}
-                onDrag={(_, info) => {
-                  if (isCenter) setDragOffset(info.offset.x);
-                }}
-                onDragEnd={(_, info) => {
-                  setDragOffset(0);
-                  const offsetVal = info.offset.x;
-                  const velocity = info.velocity.x;
-
-                  if (offsetVal < -30 || velocity < -120) {
-                    setRevolverIndex((prev) => (prev + 1) % totalSlots);
-                  } else if (offsetVal > 30 || velocity > 120) {
-                    setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
-                  }
-                }}
-                whileTap={isCenter ? { scale: 0.98 } : {}}
-                onClick={() => {
-                  if (isCenter) {
-                    setSelectedAlbumModal(slot.title);
-                  } else if (offset === 1) {
-                    setRevolverIndex((prev) => (prev + 1) % totalSlots);
-                  } else if (offset === -1) {
-                    setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
-                  }
-                }}
-                animate={{
-                  x: (offset === 0 ? 0 : offset === -1 ? -165 : 165) + dragOffset * (isCenter ? 0.35 : 0.25),
-                  scale: offset === 0 ? 1.0 : 0.8,
-                  opacity: offset === 0 ? 1.0 : 0.45,
-                  filter: offset === 0 ? "blur(0px)" : "blur(2.5px)",
-                  zIndex: offset === 0 ? 10 : 5
-                }}
-                transition={{ type: "spring", stiffness: 260, damping: 26, mass: 0.7 }}
-                style={{
-                  position: "absolute",
-                  width: "min(76vw, 280px)",
-                  height: "min(76vw, 280px)",
-                  borderRadius: "28px",
-                  overflow: "hidden",
-                  cursor: isCenter ? "grab" : "pointer",
-                  boxShadow: isCenter
-                    ? "0 28px 70px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)"
-                    : "0 15px 35px rgba(0, 0, 0, 0.8)",
-                  border: slot.isReal
-                    ? "1px solid rgba(255, 255, 255, 0.3)"
-                    : "1.5px solid rgba(255, 255, 255, 0.22)",
-                  background: slot.isReal
-                    ? "#18181b"
-                    : "linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%)",
-                  backdropFilter: slot.isReal ? "none" : "blur(20px)",
-                  WebkitBackdropFilter: slot.isReal ? "none" : "blur(20px)"
-                }}
-              >
-                {/* REAL ALBUM (HVL) */}
-                {slot.isReal ? (
-                  <img
-                    src={slot.coverUrl}
-                    alt={slot.title}
-                    loading="eager"
-                    decoding="async"
-                    fetchPriority="high"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      pointerEvents: "none",
-                      display: "block"
-                    }}
-                  />
-                ) : (
-                  /* 4 FROSTED GLASS CARDS (BÌA 2, 3, 4, 5) */
-                  <div
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "12px",
-                      padding: "20px",
-                      position: "relative",
-                      color: "#ffffff"
-                    }}
-                  >
-                    <div
-                      style={{
-                        position: "absolute",
-                        inset: "15%",
-                        borderRadius: "50%",
-                        border: "1px dashed rgba(255, 255, 255, 0.15)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                      }}
-                    >
-                      <Disc3 size={32} color="rgba(255, 255, 255, 0.3)" />
-                    </div>
-
-                    <div style={{ zIndex: 1, textAlign: "center", marginTop: "auto", marginBottom: "8px" }}>
-                      <div
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "4px",
-                          padding: "4px 10px",
-                          borderRadius: "999px",
-                          background: "rgba(255, 255, 255, 0.08)",
-                          border: "1px solid rgba(255, 255, 255, 0.15)",
-                          fontSize: "0.72rem",
-                          fontWeight: 700,
-                          letterSpacing: "0.06em",
-                          color: "rgba(255, 255, 255, 0.8)",
-                          marginBottom: "4px"
-                        }}
-                      >
-                        <Sparkles size={12} />
-                        <span>{slot.title}</span>
-                      </div>
-                      <p style={{ fontSize: "0.7rem", color: "rgba(255, 255, 255, 0.45)" }}>
-                        {slot.artist}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-            );
-          })}
-
-          {/* ── 5-POINT MAGNETIC ROLLING MARBLE CAPSULE ───────────────────── */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: "-48px",
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: "130px", // 5 nấc đều: -48px, -24px, 0px, +24px, +48px
-              height: "26px",
-              borderRadius: "13px",
-              background: "rgba(255, 255, 255, 0.08)",
-              border: "1px solid rgba(255, 255, 255, 0.18)",
-              backdropFilter: "blur(14px)",
-              WebkitBackdropFilter: "blur(14px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.2)",
-              zIndex: 20,
-              overflow: "hidden"
+          <motion.div
+            animate={{
+              x: Math.max(-52, Math.min(52, marbleBaseX - dragOffset * 0.1))
             }}
-          >
-            <motion.div
-              animate={{
-                x: Math.max(-52, Math.min(52, marbleBaseX - dragOffset * 0.1))
-              }}
-              transition={{ type: "spring", stiffness: 260, damping: 26, mass: 0.7 }}
-              style={{
-                width: "16px",
-                height: "16px",
-                borderRadius: "50%",
-                background: "radial-gradient(circle at 35% 35%, #ffffff 0%, #d4d4d8 60%, #71717a 100%)",
-                boxShadow: "0 0 12px rgba(255, 255, 255, 0.75), 0 2px 6px rgba(0, 0, 0, 0.8)",
-                border: "1px solid rgba(255, 255, 255, 0.9)",
-                zIndex: 2
-              }}
-            />
-          </div>
-        </div>
+            transition={{ type: "spring", stiffness: 260, damping: 26, mass: 0.7 }}
+            style={{
+              width: "16px",
+              height: "16px",
+              borderRadius: "50%",
+              background: "radial-gradient(circle at 35% 35%, #ffffff 0%, #d4d4d8 60%, #71717a 100%)",
+              boxShadow: "0 0 12px rgba(255, 255, 255, 0.75), 0 2px 6px rgba(0, 0, 0, 0.8)",
+              border: "1px solid rgba(255, 255, 255, 0.9)",
+              zIndex: 2
+            }}
+          />
+        </motion.div>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────
@@ -599,7 +641,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
           opacity: activeSection === 2 ? 1 : 0,
           pointerEvents: activeSection === 2 ? "auto" : "none",
           transition: "opacity 0.45s ease-in-out",
-          zIndex: activeSection === 2 ? 10 : 1
+          zIndex: 10
         }}
       >
         <motion.button
