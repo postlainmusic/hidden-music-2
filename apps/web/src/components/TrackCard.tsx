@@ -13,7 +13,8 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, index }) => {
   const isCurrent = currentTrack?.id === track.id;
   const isCurrentPlaying = isCurrent && isPlaying;
 
-  const handlePlayClick = () => {
+  const handlePlayClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (isCurrent) {
       togglePlay();
     } else {

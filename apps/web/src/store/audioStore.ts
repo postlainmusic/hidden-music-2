@@ -452,7 +452,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     if (typeof window === "undefined" || audioElement) return;
 
     audioElement = new Audio();
-    audioElement.crossOrigin = "anonymous";
     audioElement.preload = "auto";
     audioElement.src = DEFAULT_TRACKS[0].audioUrl;
 
@@ -463,8 +462,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     });
 
     audioElement.addEventListener("loadedmetadata", () => {
-      if (audioElement) {
-        set({ duration: audioElement.duration || DEFAULT_TRACKS[0].duration });
+      if (audioElement && audioElement.duration) {
+        set({ duration: audioElement.duration });
       }
     });
 
@@ -484,57 +483,36 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     updateCssTheme(DEFAULT_TRACKS[0].palette);
   },
 
-  playTrack: async (track: Track) => {
-    if (!audioElement) {
-      get().initAudioEngine();
-    }
-
-    if (!audioContext && typeof window !== "undefined") {
-      try {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        audioContext = new AudioCtx();
-        analyser = audioContext.createAnalyser();
-        analyser.fftSize = 64;
-        gainNode = audioContext.createGain();
-
-        if (audioElement) {
-          sourceNode = audioContext.createMediaElementSource(audioElement);
-          sourceNode.connect(analyser);
-          analyser.connect(gainNode);
-          gainNode.connect(audioContext.destination);
-          set({ analyserNode: analyser });
-        }
-      } catch (err) {
-        console.warn("Web Audio Graph initialization fallback:", err);
-      }
-    }
-
-    if (audioContext && audioContext.state === "suspended") {
-      await audioContext.resume().catch(() => {});
-    }
+  playTrack: (track: Track) => {
+    get().initAudioEngine();
 
     if (audioElement) {
       if (audioElement.src !== track.audioUrl) {
         audioElement.src = track.audioUrl;
-        audioElement.load();
       }
       audioElement.currentTime = 0;
-      audioElement.play().catch((e) => {
-        console.warn("Audio playback deferred or interrupted:", e);
-      });
+      const playPromise = audioElement.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            set({ isPlaying: true });
+          })
+          .catch((e) => {
+            console.warn("Play deferred or interrupted:", e);
+          });
+      }
     }
 
     updateCssTheme(track.palette);
 
     set({
       currentTrack: track,
-      isPlaying: true,
       currentTime: 0,
       duration: track.duration
     });
   },
 
-  togglePlay: async () => {
+  togglePlay: () => {
     const { isPlaying, currentTrack, initAudioEngine, playTrack } = get();
 
     if (!audioElement) {
@@ -546,17 +524,19 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       return;
     }
 
-    if (audioContext && audioContext.state === "suspended") {
-      await audioContext.resume().catch(() => {});
-    }
-
     if (audioElement) {
       if (isPlaying) {
         audioElement.pause();
         set({ isPlaying: false });
       } else {
-        audioElement.play().catch((e) => console.warn("Audio play error:", e));
-        set({ isPlaying: true });
+        const playPromise = audioElement.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              set({ isPlaying: true });
+            })
+            .catch((e) => console.warn("Audio play error:", e));
+        }
       }
     }
   },
