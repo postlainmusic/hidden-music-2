@@ -1,0 +1,32 @@
+# Project Cursor Rules: Hidden Music 2 (MCK HVL Experience)
+
+## Tech Stack & Core Philosophy
+- **Framework**: React 19 / Next.js 16 + Vite + TypeScript (Strict Mode)
+- **Styling**: Tailwind CSS v4, Vanilla CSS Design System, Apple Liquid Frosted Glass (OKLCH color space, dark mode first #000000 / #050505)
+- **3D & Graphics**: Three.js, React Three Fiber (@react-three/fiber), Drei (@react-three/drei), Framer Motion
+- **Backend / Edge**: Cloudflare Workers (Hono), Cloudflare D1 Database, Cloudflare R2 Bucket (hidden-music-vault)
+- **Audio Engine**: DOM-mounted HTML5 Audio with Byte-Range HTTP 206 streaming, FLAC lossless decoding, and Next-Track Pre-buffering
+
+## Strict Guidelines
+
+### 1. React 19 & Next.js 16
+- Explicit `'use client'` on interactive components.
+- Zero hydration mismatches: Never access browser-only globals (window, document, localStorage) during render time.
+- Always provide cleanup functions in `useEffect` when attaching listeners or starting animation frames.
+
+### 2. Three.js & R3F Performance & Lifecycle
+- Strict memory disposal: Always call `geometry.dispose()`, `material.dispose()`, `texture.dispose()` on component unmount.
+- 60fps frame budgeting: Zero memory allocation inside `useFrame` or render loops. Reuse vector and matrix objects.
+- High-fidelity visual quality: No primitive toy shapes; use high-resolution meshes, shaders, and ACESFilmicToneMapping.
+
+### 3. Tailwind CSS & Liquid Glass UI
+- Use semantic CSS variables (`--accent-primary`, `--accent-secondary`, `--glow-color`).
+- Maintain WCAG AA contrast (4.5:1 minimum) and resilient text wrapping without clipping.
+- Glassmorphism tokens: `backdrop-blur-2xl`, translucent borders, and dynamic specular gradients.
+
+### 4. Audio Streaming Protocol
+- Streaming endpoint: `https://media.postlain.com/audio/...` and `https://hidden-music-api.postlain-music.workers.dev/api/stream/audio/...`
+- Always verify `Range: bytes=` support and immutable caching headers (`Cache-Control: public, max-age=31536000, immutable`).
+
+### 5. Automated Build & Deploy (Auto-Push)
+- Always run `npm run build:web`, `npx wrangler pages deploy apps/web/dist --project-name=hidden-music-web`, and `git push origin main`.
