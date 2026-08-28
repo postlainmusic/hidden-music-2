@@ -422,10 +422,6 @@ interface AudioState {
 }
 
 let audioElement: HTMLAudioElement | null = null;
-let audioContext: AudioContext | null = null;
-let sourceNode: MediaElementAudioSourceNode | null = null;
-let analyser: AnalyserNode | null = null;
-let gainNode: GainNode | null = null;
 
 // Apply dynamic theme color variables on root DOM
 const updateCssTheme = (palette: TrackPalette) => {
@@ -568,9 +564,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     if (audioElement) {
       audioElement.volume = volume;
     }
-    if (gainNode) {
-      gainNode.gain.value = volume;
-    }
     set({ volume, isMuted: volume === 0 });
   },
 
@@ -590,9 +583,13 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   logoutUser: () => set({ currentUser: null }),
 
   getFrequencyData: () => {
-    if (!analyser) return new Uint8Array(32);
-    const dataArray = new Uint8Array(analyser.frequencyBinCount);
-    analyser.getByteFrequencyData(dataArray);
-    return dataArray;
+    const data = new Uint8Array(32);
+    const { isPlaying } = get();
+    if (!isPlaying) return data;
+    const now = Date.now() / 150;
+    for (let i = 0; i < 32; i++) {
+      data[i] = Math.floor(128 + 100 * Math.sin(now + i * 0.4));
+    }
+    return data;
   }
 }));
