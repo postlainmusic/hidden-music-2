@@ -468,6 +468,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       }
     });
 
+    audioElement.addEventListener("playing", () => {
+      set({ isPlaying: true });
+    });
+
+    audioElement.addEventListener("pause", () => {
+      set({ isPlaying: false });
+    });
+
     audioElement.addEventListener("ended", () => {
       get().nextTrack();
     });
@@ -476,35 +484,44 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     updateCssTheme(DEFAULT_TRACKS[0].palette);
   },
 
-  playTrack: (track: Track) => {
+  playTrack: async (track: Track) => {
     if (!audioElement) {
       get().initAudioEngine();
     }
 
     if (!audioContext && typeof window !== "undefined") {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      audioContext = new AudioCtx();
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 64;
-      gainNode = audioContext.createGain();
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        audioContext = new AudioCtx();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 64;
+        gainNode = audioContext.createGain();
 
-      if (audioElement) {
-        sourceNode = audioContext.createMediaElementSource(audioElement);
-        sourceNode.connect(analyser);
-        analyser.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        set({ analyserNode: analyser });
+        if (audioElement) {
+          sourceNode = audioContext.createMediaElementSource(audioElement);
+          sourceNode.connect(analyser);
+          analyser.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          set({ analyserNode: analyser });
+        }
+      } catch (err) {
+        console.warn("Web Audio Graph initialization fallback:", err);
       }
     }
 
     if (audioContext && audioContext.state === "suspended") {
-      audioContext.resume();
+      await audioContext.resume().catch(() => {});
     }
 
     if (audioElement) {
-      audioElement.src = track.audioUrl;
+      if (audioElement.src !== track.audioUrl) {
+        audioElement.src = track.audioUrl;
+        audioElement.load();
+      }
       audioElement.currentTime = 0;
-      audioElement.play().catch((e) => console.log("Audio playback deferred:", e));
+      audioElement.play().catch((e) => {
+        console.warn("Audio playback deferred or interrupted:", e);
+      });
     }
 
     updateCssTheme(track.palette);
@@ -517,7 +534,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     });
   },
 
-  togglePlay: () => {
+  togglePlay: async () => {
     const { isPlaying, currentTrack, initAudioEngine, playTrack } = get();
 
     if (!audioElement) {
@@ -530,7 +547,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     }
 
     if (audioContext && audioContext.state === "suspended") {
-      audioContext.resume();
+      await audioContext.resume().catch(() => {});
     }
 
     if (audioElement) {
@@ -538,7 +555,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         audioElement.pause();
         set({ isPlaying: false });
       } else {
-        audioElement.play().catch((e) => console.log("Audio play error:", e));
+        audioElement.play().catch((e) => console.warn("Audio play error:", e));
         set({ isPlaying: true });
       }
     }

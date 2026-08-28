@@ -462,7 +462,7 @@ app.post("/api/auth/login", async (c) => {
   });
 });
 
-// Stream asset directly from R2 Storage (hidden-music-vault) - Supports wildcard subfolders & audio/video/cover streaming
+// Stream asset directly from R2 Storage (hidden-music-vault) - Supports wildcard subfolders & byte-range streaming for large FLAC files
 app.get("/api/stream/*", async (c) => {
   const rawKey = c.req.path.replace("/api/stream/", "");
   const key = decodeURIComponent(rawKey);
@@ -471,8 +471,20 @@ app.get("/api/stream/*", async (c) => {
     return c.text("R2 Bucket not configured", 503);
   }
 
-  const object = await c.env.MUSIC_ASSETS.get(key);
-  if (!object) {
+  // Pass HTTP headers to R2 to enable native Byte-Range (Range: bytes=...) streaming
+  const rangeHeader = c.req.header("Range");
+  let object: R2ObjectBody | R2Object | null = null;
+
+  if (rangeHeader) {
+    object = await c.env.MUSIC_ASSETS.get(key, {
+      range: c.req.raw.headers,
+      onlyIf: c.req.raw.headers,
+    });
+  } else {
+    object = await c.env.MUSIC_ASSETS.get(key);
+  }
+
+  if (!object || !("body" in object)) {
     return c.text(`Asset not found for key: ${key}`, 404);
   }
 
@@ -481,6 +493,9 @@ app.get("/api/stream/*", async (c) => {
   headers.set("etag", object.httpEtag);
   headers.set("Access-Control-Allow-Origin", "*");
   headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "*");
+  headers.set("Access-Control-Expose-Headers", "Content-Range, Accept-Ranges, Content-Length");
+  headers.set("Accept-Ranges", "bytes");
   headers.set("Cache-Control", "public, max-age=31536000, immutable");
 
   if (key.endsWith(".jpg") || key.endsWith(".jpeg")) {
@@ -493,7 +508,8 @@ app.get("/api/stream/*", async (c) => {
     headers.set("Content-Type", "video/mp4");
   }
 
-  return new Response(object.body, { headers });
+  const status = object.range ? 206 : 200;
+  return new Response(object.body, { headers, status });
 });
 
 // R2 Object Name Clean Mapping
