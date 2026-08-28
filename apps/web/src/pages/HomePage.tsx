@@ -198,6 +198,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                   <img
                     src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
                     alt="HVL (99%)"
+                    loading="eager"
+                    decoding="async"
+                    fetchPriority="high"
                     style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                   />
                 </motion.div>
@@ -352,6 +355,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
               <img
                 src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
                 alt="HVL (99%)"
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
                 style={{
                   width: "100%",
                   height: "100%",

@@ -597,19 +597,115 @@ app.get("/api/health", (c) => {
   });
 });
 
+// List Albums from D1
+app.get("/api/albums", async (c) => {
+  if (c.env.DB) {
+    try {
+      const { results } = await c.env.DB.prepare("SELECT * FROM albums ORDER BY created_at DESC").all();
+      return c.json({ success: true, albums: results || [] });
+    } catch (e: any) {
+      return c.json({ success: false, error: e.message }, 500);
+    }
+  }
+  return c.json({ success: true, albums: [] });
+});
+
 // List tracks (querying D1 if available, otherwise returning full MCK Vault library)
 app.get("/api/tracks", async (c) => {
   if (c.env.DB) {
     try {
-      const { results } = await c.env.DB.prepare("SELECT * FROM tracks ORDER BY track_number ASC LIMIT 50").all();
+      const { results } = await c.env.DB.prepare("SELECT * FROM tracks ORDER BY id ASC").all();
       if (results && results.length > 0) {
-        return c.json({ tracks: results });
+        return c.json({ success: true, tracks: results });
       }
     } catch (e) {
       console.warn("D1 query fallback:", e);
     }
   }
-  return c.json({ tracks: MCK_TRACKS });
+  return c.json({ success: true, tracks: MCK_TRACKS });
+});
+
+// Admin Seed Endpoint for HVL Album & 30 Tracks into D1
+app.post("/api/admin/seed", async (c) => {
+  if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);
+
+  try {
+    // Drop playlists tables
+    await c.env.DB.prepare("DROP TABLE IF EXISTS playlist_tracks").run();
+    await c.env.DB.prepare("DROP TABLE IF EXISTS playlists").run();
+
+    // Create albums table with type column (album/single/ep)
+    await c.env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS albums (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        artist TEXT NOT NULL,
+        cover_url TEXT NOT NULL,
+        model_3d_url TEXT,
+        palette_colors TEXT,
+        release_year INTEGER,
+        genre TEXT,
+        type TEXT DEFAULT 'album',
+        created_at TEXT DEFAULT (datetime('now'))
+      )
+    `).run();
+
+    // Create tracks table
+    await c.env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS tracks (
+        id TEXT PRIMARY KEY,
+        album_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        artist TEXT NOT NULL,
+        duration_sec INTEGER NOT NULL,
+        audio_url TEXT NOT NULL,
+        video_url TEXT,
+        cover_url TEXT NOT NULL,
+        waveform_data TEXT,
+        play_count INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (album_id) REFERENCES albums(id)
+      )
+    `).run();
+
+    // Insert Album HVL (99%)
+    await c.env.DB.prepare(`
+      INSERT OR REPLACE INTO albums (id, title, artist, cover_url, model_3d_url, palette_colors, release_year, genre, type, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    `).bind(
+      'hvl-99',
+      'HVL (99%)',
+      'MCK',
+      'https://media.postlain.com/covers/HVL_Album_Cover.jpg',
+      'https://media.postlain.com/models/vinyl_record_3d.glb',
+      '{"primary":"#ffffff","secondary":"#cbd5e1","accent":"#94a3b8"}',
+      2023,
+      'Melodic Rap / R&B',
+      'album'
+    ).run();
+
+    // Insert all 30 tracks
+    for (const track of MCK_TRACKS) {
+      await c.env.DB.prepare(`
+        INSERT OR REPLACE INTO tracks (id, album_id, title, artist, duration_sec, audio_url, video_url, cover_url, play_count)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        track.id,
+        'hvl-99',
+        track.title,
+        track.artist,
+        track.duration,
+        track.audioUrl,
+        track.videoUrl || null,
+        track.coverUrl,
+        Math.floor(1000000 + Math.random() * 5000000)
+      ).run();
+    }
+
+    return c.json({ success: true, message: "D1 database successfully seeded with HVL (99%) and 30 tracks!" });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
 });
 
 // Simple Auth endpoint for Login Zone
