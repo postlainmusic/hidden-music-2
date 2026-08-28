@@ -2,25 +2,25 @@
   --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-  /* Dynamic Mesh Palette Defaults */
-  --accent-primary: #6366f1;
-  --accent-secondary: #ec4899;
-  --accent-tertiary: #8b5cf6;
-  --glow-color: rgba(99, 102, 241, 0.35);
+  /* Monochrome Luxury Palette (No purple/blue glowing tints) */
+  --accent-primary: #ffffff;
+  --accent-secondary: #e2e8f0;
+  --accent-tertiary: #94a3b8;
+  --glow-color: rgba(255, 255, 255, 0.08);
 
-  /* Apple Liquid Glass Tokens */
-  --glass-base: rgba(15, 17, 23, 0.62);
-  --glass-surface: rgba(255, 255, 255, 0.05);
-  --glass-surface-hover: rgba(255, 255, 255, 0.1);
-  --glass-border: rgba(255, 255, 255, 0.12);
-  --glass-border-focus: rgba(255, 255, 255, 0.28);
-  --glass-specular: inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  --glass-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.55);
+  /* Monochrome Glass Tokens */
+  --glass-base: rgba(10, 10, 10, 0.7);
+  --glass-surface: rgba(255, 255, 255, 0.04);
+  --glass-surface-hover: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-border-focus: rgba(255, 255, 255, 0.25);
+  --glass-specular: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  --glass-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.8);
 
   /* Typography Colors */
-  --text-primary: #f8fafc;
-  --text-secondary: rgba(248, 250, 252, 0.72);
-  --text-muted: rgba(248, 250, 252, 0.45);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.65);
+  --text-muted: rgba(255, 255, 255, 0.35);
 
   /* Layout Constants */
   --header-height: 72px;
@@ -35,9 +35,14 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   font-family: var(--font-body);
-  background-color: #090a0f;
+  background-color: #000000;
+  background-image: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0) 70%), radial-gradient(circle at 50% 100%, rgba(255, 255, 255, 0.02) 0%, rgba(0, 0, 0, 0) 70%);
   color: var(--text-primary);
   min-height: 100vh;
   overflow-x: hidden;

@@ -1,214 +1,212 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useAudioStore } from "../store/audioStore";
-import { Search, Disc3, Sparkles, User, LogOut, Radio, Compass, Layers } from "lucide-react";
+import { Disc3, LogOut, Compass, Database } from "lucide-react";
 import { motion } from "framer-motion";
 
-export const GlassNavbar: React.FC = () => {
-  const { currentUser, setLoginModalOpen, logoutUser } = useAudioStore();
+interface GlassNavbarProps {
+  activeTab?: "vault" | "explore";
+  onTabChange?: (tab: "vault" | "explore") => void;
+}
+
+export const GlassNavbar: React.FC<GlassNavbarProps> = ({
+  activeTab = "vault",
+  onTabChange
+}) => {
+  const { currentUser, logoutUser } = useAudioStore();
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
     <header
       style={{
-        position: "sticky",
-        top: "16px",
-        zIndex: 50,
-        margin: "0 auto",
-        maxWidth: "1280px",
-        padding: "0 16px"
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100,
+        transition: "all 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
+        background: isScrolled
+          ? "rgba(0, 0, 0, 0.75)"
+          : "transparent",
+        backdropFilter: isScrolled ? "blur(24px) saturate(180%)" : "none",
+        WebkitBackdropFilter: isScrolled ? "blur(24px) saturate(180%)" : "none",
+        borderBottom: isScrolled
+          ? "1px solid rgba(255, 255, 255, 0.08)"
+          : "1px solid transparent",
+        padding: "0 36px",
+        height: "72px",
+        display: "flex",
+        alignItems: "center"
       }}
     >
-      <nav
-        className="glass-panel"
+      <div
         style={{
+          width: "100%",
+          maxWidth: "1600px",
+          margin: "0 auto",
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
-          padding: "10px 20px",
-          height: "64px"
+          justifyContent: "space-between"
         }}
       >
-        {/* Brand Logo */}
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", cursor: "pointer" }}>
+        {/* ── GÓC TRÁI: ICON + TÊN WEB ─────────────────────────────────────── */}
+        <div
+          onClick={() => onTabChange?.("vault")}
+          style={{ display: "flex", alignItems: "center", gap: "12px", cursor: "pointer" }}
+        >
           <motion.div
-            whileHover={{ rotate: 180 }}
-            transition={{ duration: 0.8, ease: "easeInOut" }}
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 24, ease: "linear" }}
             style={{
-              width: "38px",
-              height: "38px",
-              borderRadius: "12px",
-              background: "linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))",
+              width: "36px",
+              height: "36px",
+              borderRadius: "10px",
+              background: "linear-gradient(135deg, #ffffff 0%, #71717a 100%)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              boxShadow: "0 4px 16px var(--glow-color)"
+              boxShadow: "0 2px 12px rgba(255, 255, 255, 0.15)"
             }}
           >
-            <Disc3 size={22} color="#ffffff" />
+            <Disc3 size={20} color="#000000" />
           </motion.div>
-          <div>
-            <span
-              style={{
-                fontFamily: "var(--font-display)",
-                fontWeight: 700,
-                fontSize: "1.1rem",
-                letterSpacing: "-0.03em",
-                background: "linear-gradient(to right, #ffffff, rgba(255,255,255,0.75))",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent"
-              }}
-            >
-              HIDDEN MUSIC
-            </span>
-            <span
-              style={{
-                fontSize: "0.68rem",
-                marginLeft: "6px",
-                padding: "2px 6px",
-                borderRadius: "6px",
-                background: "rgba(255,255,255,0.08)",
-                color: "var(--accent-primary)",
-                fontWeight: 600,
-                border: "1px solid rgba(255,255,255,0.12)"
-              }}
-            >
-              STUDIO
-            </span>
-          </div>
+
+          <span
+            style={{
+              fontFamily: "var(--font-display)",
+              fontWeight: 800,
+              fontSize: "1.1rem",
+              letterSpacing: "0.08em",
+              color: "#ffffff"
+            }}
+          >
+            HIDDEN MUSIC
+          </span>
         </div>
 
-        {/* Navigation Tabs */}
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+        {/* ── CHÍNH GIỮA: NÚT CHUYỂN VAULT / KHÁM PHÁ ──────────────────────── */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            background: "rgba(255, 255, 255, 0.06)",
+            borderRadius: "999px",
+            padding: "4px",
+            border: "1px solid rgba(255, 255, 255, 0.1)"
+          }}
+        >
           <button
-            className="glass-pill"
+            onClick={() => onTabChange?.("vault")}
             style={{
               display: "flex",
               alignItems: "center",
               gap: "6px",
-              padding: "7px 16px",
-              fontSize: "0.88rem",
-              color: "var(--text-primary)",
+              padding: "6px 18px",
+              borderRadius: "999px",
+              fontSize: "0.86rem",
+              fontWeight: 600,
               border: "none",
               cursor: "pointer",
-              background: "rgba(255, 255, 255, 0.12)",
-              borderColor: "rgba(255, 255, 255, 0.25)"
+              transition: "all 0.2s ease",
+              background: activeTab === "vault" ? "#ffffff" : "transparent",
+              color: activeTab === "vault" ? "#000000" : "rgba(255, 255, 255, 0.6)"
             }}
           >
-            <Compass size={16} color="var(--accent-primary)" />
+            <Database size={14} />
+            <span>Vault</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange?.("explore")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "6px 18px",
+              borderRadius: "999px",
+              fontSize: "0.86rem",
+              fontWeight: 600,
+              border: "none",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              background: activeTab === "explore" ? "#ffffff" : "transparent",
+              color: activeTab === "explore" ? "#000000" : "rgba(255, 255, 255, 0.6)"
+            }}
+          >
+            <Compass size={14} />
             <span>Khám phá</span>
           </button>
-          <button
-            className="glass-pill"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "7px 16px",
-              fontSize: "0.88rem",
-              color: "var(--text-secondary)",
-              border: "none",
-              cursor: "pointer"
-            }}
-          >
-            <Radio size={16} />
-            <span>Radio</span>
-          </button>
-          <button
-            className="glass-pill"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "7px 16px",
-              fontSize: "0.88rem",
-              color: "var(--text-muted)",
-              border: "none",
-              cursor: "default"
-            }}
-          >
-            <Layers size={16} />
-            <span>3D Zone</span>
-            <span style={{ fontSize: "0.65rem", padding: "1px 5px", background: "rgba(236, 72, 153, 0.2)", color: "#f472b6", borderRadius: "4px" }}>
-              Phase 4
-            </span>
-          </button>
         </div>
 
-        {/* Right Search & User Profile */}
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          {/* Quick Search */}
-          <div
-            className="glass-pill"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "6px 14px",
-              width: "200px"
-            }}
-          >
-            <Search size={15} color="var(--text-muted)" />
-            <input
-              type="text"
-              placeholder="Tìm bài hát, nghệ sĩ..."
+        {/* ── GÓC PHẢI: AVATAR PROFILE (BỎ TÊN) + SIGN OUT ─────────────────── */}
+        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+          {currentUser?.avatarUrl ? (
+            <img
+              src={currentUser.avatarUrl}
+              alt="Profile Avatar"
               style={{
-                background: "transparent",
-                border: "none",
-                color: "var(--text-primary)",
-                fontSize: "0.84rem",
-                outline: "none",
-                width: "100%"
+                width: "36px",
+                height: "36px",
+                borderRadius: "50%",
+                objectFit: "cover",
+                border: "1px solid rgba(255, 255, 255, 0.25)"
               }}
             />
-          </div>
-
-          {/* User Auth Trigger */}
-          {currentUser ? (
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <div
-                className="glass-pill"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "4px 12px 4px 4px"
-                }}
-              >
-                <img
-                  src={currentUser.avatarUrl}
-                  alt={currentUser.name}
-                  style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover" }}
-                />
-                <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>{currentUser.name}</span>
-                <Sparkles size={13} color="var(--accent-secondary)" />
-              </div>
-              <button
-                onClick={logoutUser}
-                className="glass-pill"
-                title="Đăng xuất"
-                style={{
-                  padding: "8px",
-                  color: "var(--text-muted)",
-                  border: "none",
-                  cursor: "pointer"
-                }}
-              >
-                <LogOut size={16} />
-              </button>
-            </div>
           ) : (
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => setLoginModalOpen(true)}
-              className="apple-btn-primary"
-              style={{ padding: "8px 18px", fontSize: "0.88rem" }}
+            <div
+              style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "50%",
+                background: "rgba(255, 255, 255, 0.1)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "1px solid rgba(255, 255, 255, 0.2)"
+              }}
             >
-              <User size={16} />
-              <span>Đăng nhập</span>
-            </motion.button>
+              <span style={{ fontSize: "0.82rem", fontWeight: 700 }}>
+                {currentUser?.email?.[0]?.toUpperCase() || "U"}
+              </span>
+            </div>
           )}
+
+          <button
+            onClick={logoutUser}
+            title="Đăng xuất"
+            style={{
+              background: "rgba(255, 255, 255, 0.06)",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              borderRadius: "50%",
+              width: "36px",
+              height: "36px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              color: "rgba(255, 255, 255, 0.7)",
+              transition: "all 0.2s ease"
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)";
+              e.currentTarget.style.color = "#ef4444";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)";
+              e.currentTarget.style.color = "rgba(255, 255, 255, 0.7)";
+            }}
+          >
+            <LogOut size={16} />
+          </button>
         </div>
-      </nav>
+      </div>
     </header>
   );
 };

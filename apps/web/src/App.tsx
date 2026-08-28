@@ -8,6 +8,7 @@ import { useAudioStore } from "./store/audioStore";
 
 export const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [activeTab, setActiveTab] = React.useState<"vault" | "explore">("vault");
   const { currentTrack, isPlaying, volume, isMuted, currentUser, setAudioElement, nextTrack, initAudioEngine } = useAudioStore();
 
   useEffect(() => {
@@ -46,22 +47,57 @@ export const App: React.FC = () => {
   }, [isPlaying, currentTrack?.audioUrl]);
 
   return (
-    <div style={{ position: "relative", minHeight: "100vh", overflowX: "hidden" }}>
-      {/* 1. Apple Dynamic Mesh Gradient Background */}
+    <div style={{ position: "relative", minHeight: "100vh", overflowX: "hidden", backgroundColor: "#000000" }}>
+      {/* 1. Subtle Monochrome Background */}
       <MeshGradientBackground />
 
-      {/* 2. Mandatory Google Login Vault Gate (Single Entrypoint) */}
+      {/* 2. Mandatory Google Login Vault Gate */}
       {!currentUser ? (
         <VaultGate />
       ) : (
         <>
-          {/* Frosted Glass Top Navigation */}
-          <GlassNavbar />
+          {/* Frosted Glass Corner-to-Corner Navigation */}
+          <GlassNavbar activeTab={activeTab} onTabChange={setActiveTab} />
 
-          {/* 3-Section Visual Showcase Discovery Experience */}
-          <HomePage />
+          {/* Tab Content */}
+          {activeTab === "vault" ? (
+            <HomePage onExploreClick={() => setActiveTab("explore")} />
+          ) : (
+            <div
+              style={{
+                minHeight: "100vh",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "100px 24px",
+                textAlign: "center"
+              }}
+            >
+              <h2 style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "16px", color: "#ffffff" }}>
+                EXPLORE UNIVERSE
+              </h2>
+              <p style={{ color: "rgba(255, 255, 255, 0.5)", maxWidth: "480px", marginBottom: "32px", lineHeight: 1.6 }}>
+                Không gian âm nhạc mở rộng đang được kết nối với hệ sinh thái streaming độc quyền.
+              </p>
+              <button
+                onClick={() => setActiveTab("vault")}
+                style={{
+                  padding: "12px 28px",
+                  borderRadius: "999px",
+                  background: "#ffffff",
+                  color: "#000000",
+                  fontWeight: 700,
+                  border: "none",
+                  cursor: "pointer"
+                }}
+              >
+                Quay lại Vault
+              </button>
+            </div>
+          )}
 
-          {/* Floating Player Dock (Only shows when playing or inside 3D space) */}
+          {/* Floating Player Dock (Only shows when playing) */}
           {isPlaying && <FloatingPlayerDock />}
         </>
       )}
