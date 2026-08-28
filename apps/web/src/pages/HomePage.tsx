@@ -291,18 +291,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
         justifyContent: "center",
         color: "#ffffff",
         zIndex: 1,
-        background: "#000000"
+        background: "transparent"
       }}
     >
-      {/* Background Metallic Sheen Glow */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: activeSection === 1 ? 1 : 0.2 }}
-        transition={{ duration: 1.2, ease: "easeInOut" }}
-        className="metallic-sheen-glow"
-        style={{ pointerEvents: "none" }}
-      />
-
       {/* ─────────────────────────────────────────────────────────────────────
           SECTION 1: KHỞI TẠO CHUẨN XÁC (CHỈ HIỆN BÌA TẠI TÂM LÚC ĐẦU)
       ────────────────────────────────────────────────────────────────────── */}
@@ -476,6 +467,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
           zIndex: activeSection === 1 ? 10 : 1
         }}
       >
+        {/* Localized metallic sheen glow behind cards in Section 2 */}
+        <div className="metallic-sheen-glow" />
+
         {/* Carousel Interactive Container */}
         <div
           className="carousel-interactive-zone"
