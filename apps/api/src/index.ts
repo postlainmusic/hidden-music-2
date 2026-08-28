@@ -463,6 +463,18 @@ app.post("/api/auth/login", async (c) => {
 });
 
 // Stream asset directly from R2 Storage (hidden-music-vault) - Supports wildcard subfolders & byte-range streaming for large FLAC files
+app.options("/api/stream/*", (c) => {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Max-Age": "86400"
+    }
+  });
+});
+
 app.get("/api/stream/*", async (c) => {
   const rawKey = c.req.path.replace("/api/stream/", "");
   const key = decodeURIComponent(rawKey);
@@ -471,14 +483,13 @@ app.get("/api/stream/*", async (c) => {
     return c.text("R2 Bucket not configured", 503);
   }
 
-  // Pass HTTP headers to R2 to enable native Byte-Range (Range: bytes=...) streaming
+  // Pass HTTP Range header to R2 for native Byte-Range streaming
   const rangeHeader = c.req.header("Range");
   let object: R2ObjectBody | R2Object | null = null;
 
   if (rangeHeader) {
     object = await c.env.MUSIC_ASSETS.get(key, {
-      range: c.req.raw.headers,
-      onlyIf: c.req.raw.headers,
+      range: c.req.raw.headers
     });
   } else {
     object = await c.env.MUSIC_ASSETS.get(key);
@@ -494,7 +505,7 @@ app.get("/api/stream/*", async (c) => {
   headers.set("Access-Control-Allow-Origin", "*");
   headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
   headers.set("Access-Control-Allow-Headers", "*");
-  headers.set("Access-Control-Expose-Headers", "Content-Range, Accept-Ranges, Content-Length");
+  headers.set("Access-Control-Expose-Headers", "Content-Range, Accept-Ranges, Content-Length, Content-Type");
   headers.set("Accept-Ranges", "bytes");
   headers.set("Cache-Control", "public, max-age=31536000, immutable");
 
@@ -508,8 +519,18 @@ app.get("/api/stream/*", async (c) => {
     headers.set("Content-Type", "video/mp4");
   }
 
-  const status = object.range ? 206 : 200;
-  return new Response(object.body, { headers, status });
+  // Handle byte range response ONLY if Range header was explicitly requested by client
+  if (rangeHeader && object.range && typeof (object.range as any).offset === "number") {
+    const offset = (object.range as any).offset ?? 0;
+    const length = (object.range as any).length ?? (object.size - offset);
+    const end = offset + length - 1;
+    headers.set("Content-Range", `bytes ${offset}-${end}/${object.size}`);
+    headers.set("Content-Length", `${length}`);
+    return new Response(object.body, { headers, status: 206 });
+  }
+
+  headers.set("Content-Length", `${object.size}`);
+  return new Response(object.body, { headers, status: 200 });
 });
 
 // R2 Object Name Clean Mapping
