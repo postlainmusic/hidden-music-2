@@ -449,25 +449,94 @@ app.get("/api/stream/:key", async (c) => {
   return new Response(object.body, { headers });
 });
 
-// List all files/assets inside hidden-music-vault R2 Bucket
-app.get("/api/r2/objects", async (c) => {
+// R2 Object Name Clean Mapping
+const R2_CLEAN_MAP: Record<string, string> = {
+  "01": "01. Elegie.flac",
+  "02": "02. IDK.flac",
+  "03": "03. Wtf Bby I_m Lit.flac",
+  "04": "04. Anh Không Muốn Nó Dễ Dàng.flac",
+  "05": "05. Baby (feat. marzuz).flac",
+  "06": "06. Yêu Anh Giết Anh.flac",
+  "07": "07. Mắt Môi Tay Chân (feat. Tage).flac",
+  "08": "08. Đạo Của Anh Vừa.flac",
+  "09": "09. Là Gì Của Nhau.flac",
+  "10": "10. Night In Prague.flac",
+  "11": "11. Một Cái Ôm.flac",
+  "12": "12. Liệm.flac",
+  "13": "13. Nếu Như Ta Chẳng Còn (feat. AAP Ướt Mi).flac",
+  "14": "14. Ai Mới Là Kẻ Xấu Xa.flac",
+  "15": "15. Slippery (feat. Tùng Dương).flac",
+  "16": "16. Intenpol.flac",
+  "17": "17. Tây Thi.flac",
+  "18": "18. Hút và Hút.flac",
+  "19": "19. Dưa Chua.flac",
+  "20": "20. Xa Xôi (feat. Obito).flac",
+  "21": "21. Che Phù.flac",
+  "22": "22. Oanh M - Thuoc.flac",
+  "23": "23. Ghét Xog Lại Thik.flac",
+  "24": "24. Nhìn Kẻ Thù Của Tao.flac",
+  "25": "25. Envy (feat. THANHDRAW).flac",
+  "26": "26. Cảm Ơn.flac",
+  "27": "27. Không Cần Lo Cho Tao.flac",
+  "28": "28. Huh (feat. RPT Orijinn & THANHDRAW).flac",
+  "29": "29. Nguyễn Văn Mười.flac",
+  "30": "30. Thịt Lợn.flac",
+};
+
+// Endpoint to physically rename objects inside the Cloudflare R2 bucket
+app.all("/api/r2/rename-vault-objects", async (c) => {
   if (!c.env.MUSIC_ASSETS) {
     return c.json({ error: "R2 Bucket not bound" }, 503);
   }
 
   const listed = await c.env.MUSIC_ASSETS.list({ limit: 100 });
-  const objects = listed.objects.map((obj) => ({
-    key: obj.key,
-    size: obj.size,
-    uploaded: obj.uploaded,
-    streamUrl: `/api/stream/${encodeURIComponent(obj.key)}`
-  }));
+  const results: any[] = [];
+
+  for (const obj of listed.objects) {
+    const oldKey = obj.key;
+    const hasAudioPrefix = oldKey.startsWith("audio/");
+    const filenameOnly = hasAudioPrefix ? oldKey.replace("audio/", "") : oldKey;
+
+    // Find track number (e.g. _01_, _02_, 01_, 02_)
+    let matchedTrackNum = "";
+    for (let i = 1; i <= 30; i++) {
+      const numStr = i < 10 ? `0${i}` : `${i}`;
+      if (filenameOnly.includes(`_${numStr}_`) || filenameOnly.startsWith(`${numStr}_`) || filenameOnly.startsWith(`${numStr}.`)) {
+        matchedTrackNum = numStr;
+        break;
+      }
+    }
+
+    if (matchedTrackNum && R2_CLEAN_MAP[matchedTrackNum]) {
+      const cleanName = R2_CLEAN_MAP[matchedTrackNum];
+      const newKey = hasAudioPrefix ? `audio/${cleanName}` : cleanName;
+
+      if (newKey !== oldKey) {
+        const oldObject = await c.env.MUSIC_ASSETS.get(oldKey);
+        if (oldObject) {
+          // Copy to new clean object key in R2
+          await c.env.MUSIC_ASSETS.put(newKey, oldObject.body, {
+            httpMetadata: oldObject.httpMetadata,
+            customMetadata: oldObject.customMetadata,
+          });
+
+          // Delete the old mangled object key from R2
+          await c.env.MUSIC_ASSETS.delete(oldKey);
+
+          results.push({
+            oldKey,
+            newKey,
+            status: "SUCCESS_RENAMED"
+          });
+        }
+      }
+    }
+  }
 
   return c.json({
-    bucket: "hidden-music-vault",
-    count: objects.length,
-    truncated: listed.truncated,
-    objects
+    success: true,
+    totalRenamed: results.length,
+    results
   });
 });
 
