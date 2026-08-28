@@ -11,7 +11,7 @@ const BEST_PLAY_TRACKS = [
   DEFAULT_TRACKS[19], // 20. Xa Xôi (feat. Obito)
 ];
 
-// Exact 5 Slots Layout: Bìa 1 ở giữa, sang phải là Bìa 2 & 3, sang trái là Bìa 5 & 4
+// Thứ tự 5 Bìa: Bìa 1 ở giữa, vuốt phải lần lượt là Bìa 2, 3 (rìa phải), 4 (rìa trái), 5, quay về 1
 interface RevolverSlot {
   id: string;
   slotNumber: number;
@@ -22,20 +22,20 @@ interface RevolverSlot {
 }
 
 const REVOLVER_SLOTS: RevolverSlot[] = [
-  { id: "hvl", slotNumber: 1, title: "HVL (99%)", artist: "MCK • 30 Tracks", isReal: true, coverUrl: "https://media.postlain.com/covers/HVL_Album_Cover.jpg" }, // Bìa 1 (Tâm ban đầu)
-  { id: "slot-2", slotNumber: 2, title: "VAULT SLOT 02", artist: "Lossless Ready", isReal: false }, // Bìa 2 (Bên phải Bìa 1)
-  { id: "slot-3", slotNumber: 3, title: "VAULT SLOT 03", artist: "Lossless Ready", isReal: false }, // Bìa 3 (Sát rìa phải)
-  { id: "slot-4", slotNumber: 4, title: "VAULT SLOT 04", artist: "Lossless Ready", isReal: false }, // Bìa 4 (Sát rìa trái)
-  { id: "slot-5", slotNumber: 5, title: "VAULT SLOT 05", artist: "Lossless Ready", isReal: false }, // Bìa 5 (Bên trái Bìa 1)
+  { id: "hvl", slotNumber: 1, title: "HVL (99%)", artist: "MCK • 30 Tracks", isReal: true, coverUrl: "https://media.postlain.com/covers/HVL_Album_Cover.jpg" }, // Index 0 (Bìa 1 - Tâm)
+  { id: "slot-2", slotNumber: 2, title: "VAULT SLOT 02", artist: "Lossless Ready", isReal: false }, // Index 1 (Bìa 2)
+  { id: "slot-3", slotNumber: 3, title: "VAULT SLOT 03", artist: "Lossless Ready", isReal: false }, // Index 2 (Bìa 3 - Sát rìa phải)
+  { id: "slot-4", slotNumber: 4, title: "VAULT SLOT 04", artist: "Lossless Ready", isReal: false }, // Index 3 (Bìa 4 - Sát rìa trái)
+  { id: "slot-5", slotNumber: 5, title: "VAULT SLOT 05", artist: "Lossless Ready", isReal: false }, // Index 4 (Bìa 5)
 ];
 
-// Mapping từ slot index (0..4) sang vị trí bậc trên thanh bi (-2..+2)
-// Index 0 (Bìa 1) -> 0 (Tâm)
-// Index 1 (Bìa 2) -> +1 (Giữa tâm và rìa phải)
-// Index 2 (Bìa 3) -> +2 (Sát rìa phải)
-// Index 3 (Bìa 4) -> -2 (Sát rìa trái)
-// Index 4 (Bìa 5) -> -1 (Giữa tâm và rìa trái)
-const SLOT_TO_MARBLE_STEP = [0, 1, 2, -2, -1];
+// Vị trí con bi theo từng bìa:
+// Bìa 1 (Idx 0) -> 0 (Tâm)
+// Bìa 2 (Idx 1) -> +1 (Giữa tâm và rìa phải)
+// Bìa 3 (Idx 2) -> +2 (Sát rìa phải)
+// Bìa 4 (Idx 3) -> -2 (Sát rìa trái)
+// Bìa 5 (Idx 4) -> -1 (Giữa tâm và rìa trái)
+const MARBLE_STEPS = [0, 1, 2, -2, -1];
 
 const formatDuration = (seconds: number) => {
   const m = Math.floor(seconds / 60);
@@ -54,11 +54,11 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
   const [activeSection, setActiveSection] = useState<number>(0);
   const [selectedAlbumModal, setSelectedAlbumModal] = useState<string | null>(null);
   
-  // Section 2 Revolver Index (0 to 4) - Luôn khởi tạo là 0 (Bìa 1 HVL)
+  // Section 2 Revolver Index (0..4) - Luôn khởi tạo là 0 (Bìa 1 HVL)
   const [revolverIndex, setRevolverIndex] = useState<number>(0);
   const [dragOffset, setDragOffset] = useState<number>(0);
 
-  // Section 1 Internal States
+  // Section 1 Continuous States
   const [sec1State, setSec1State] = useState<"fadeIn" | "resting_initial" | "settled" | "returning_center" | "resting_center">("fadeIn");
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
 
@@ -84,15 +84,15 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     };
   }, []);
 
-  // Forward Transition: Section 1 ➔ Section 2 (Bìa 1 HVL luôn là bìa trung tâm khi xuất hiện)
+  // Forward Transition: Section 1 ➔ Section 2 (2.2s slow graceful collapse ➔ 0.5s rest ➔ Section 2 Bìa 1)
   const handleTransition1To2 = () => {
     if (isAnimating) return;
     setIsAnimating(true);
 
-    // Bước 1: 5 tracks thu vào bìa (2.0s) + Bìa trượt về tâm (2.0s) (Zero Halo)
+    // Bước 1: Thu 5 tracks và đưa bìa về tâm êm đềm, chậm rãi trong 2.2s (Zero Halo, Zero Jerk)
     setSec1State("returning_center");
 
-    // Bước 2: Sau 2.0s, bước vào khoảng nghỉ tĩnh tại tâm 0.5s
+    // Bước 2: Sau 2.2s, bước vào khoảng nghỉ tĩnh tại tâm 0.5s
     setTimeout(() => {
       setSec1State("resting_center");
 
@@ -102,7 +102,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
         setActiveSection(1);
         setIsAnimating(false);
       }, 500);
-    }, 2000);
+    }, 2200);
   };
 
   // Reverse Transition: Section 2 ➔ Section 1 (2.0s simultaneous slide out)
@@ -127,7 +127,6 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
       touchStartY.current = e.touches[0].clientY;
       touchStartX.current = e.touches[0].clientX;
 
-      // Kiểm tra xem vị trí chạm có nằm trong khu vực tương tác của Carousel Section 2 hay không
       if (activeSection === 1) {
         const target = e.target as HTMLElement | null;
         if (target && target.closest(".carousel-interactive-zone")) {
@@ -145,15 +144,14 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
       const deltaY = touchStartY.current - e.changedTouches[0].clientY;
       const deltaX = touchStartX.current - e.changedTouches[0].clientX;
 
-      // Trong Section 2: Nếu vuốt bắt đầu từ khu vực trung tâm Carousel, KHÔNG cho dính chuyển section trừ khi cố tình vuốt dọc cực mạnh ở ngoài
+      // Trong Section 2: Nếu vuốt bắt đầu từ vùng Carousel, KHÔNG cho nhảy section
       if (activeSection === 1 && isTouchInsideCarousel.current) {
-        if (Math.abs(deltaX) > 15 || Math.abs(deltaY) < 75 || Math.abs(deltaY) < Math.abs(deltaX) * 2) {
-          return; // Bỏ qua vuốt dọc để tránh gián đoạn tương tác đĩa & thanh bi
+        if (Math.abs(deltaX) > 10 || Math.abs(deltaY) < 80 || Math.abs(deltaY) < Math.abs(deltaX) * 2.5) {
+          return;
         }
       }
 
       if (deltaY > 50) {
-        // Vuốt lên (Next Section)
         if (activeSection === 0 && sec1State === "settled") {
           handleTransition1To2();
         } else if (activeSection === 1) {
@@ -162,7 +160,6 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
           setTimeout(() => setIsAnimating(false), 500);
         }
       } else if (deltaY < -50) {
-        // Vuốt xuống (Prev Section)
         if (activeSection === 1) {
           handleTransition2To1();
         } else if (activeSection === 2) {
@@ -193,9 +190,9 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     playTrack(track);
   };
 
-  // Tính toán vị trí của viên bi: 5 bậc đều nhau với bước nhảy 24px (-48px, -24px, 0px, +24px, +48px)
-  const currentMarbleStep = SLOT_TO_MARBLE_STEP[revolverIndex] ?? 0;
-  const marbleBaseX = currentMarbleStep * 24; // Sát rìa trái là -48px, Sát rìa phải là +48px
+  // Tính toán vị trí con bi: bước nhảy 24px (-48px, -24px, 0px, +24px, +48px)
+  const currentMarbleStep = MARBLE_STEPS[revolverIndex] ?? 0;
+  const marbleBaseX = currentMarbleStep * 24;
 
   return (
     <main
@@ -218,220 +215,180 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
       }}
     >
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 1: PURE ARTWORK (CINEMATIC TIMING + 2.0s SIMULTANEOUS COLLAPSE)
+          SECTION 1: ZERO-JITTER CONTINUOUS SINGLE-TREE ARCHITECTURE
       ────────────────────────────────────────────────────────────────────── */}
       {activeSection === 0 && (
         <div
           style={{
+            position: "relative",
             width: "100%",
             maxWidth: "340px",
             height: "100%",
             display: "flex",
             flexDirection: "column",
-            justifyContent: sec1State === "settled" ? "space-between" : "center",
             alignItems: "center",
-            gap: "12px",
-            padding: "6px 0",
-            position: "relative"
+            justifyContent: "center"
           }}
         >
-          {/* TRẠNG THÁI Ở TÂM: fadeIn | resting_initial (1.5s) | returning_center (2.0s) | resting_center (0.5s) */}
-          {sec1State !== "settled" && (
-            <div
-              style={{
-                position: "relative",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center"
-              }}
-            >
-              <motion.div
-                layoutId="mobile-album-hero"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{
-                  duration: sec1State === "fadeIn" ? 0.5 : 2.0,
-                  ease: [0.16, 1, 0.3, 1]
-                }}
-                style={{
-                  width: "min(84vw, 290px)",
-                  height: "min(84vw, 290px)",
-                  borderRadius: "28px",
-                  overflow: "hidden",
-                  boxShadow: "0 28px 70px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)",
-                  border: "1px solid rgba(255, 255, 255, 0.25)",
-                  position: "relative",
-                  zIndex: 1,
-                  background: "#18181b"
-                }}
-              >
-                <img
-                  src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
-                  alt="HVL (99%)"
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                />
-              </motion.div>
-            </div>
-          )}
+          {/* Continuous Album Artwork (Không bao giờ bị unmount hoặc đổi layout container) */}
+          <motion.div
+            layoutId="mobile-album-hero"
+            animate={{
+              y: sec1State === "settled" ? -140 : 0,
+              scale: sec1State === "settled" ? 0.65 : 1,
+              opacity: 1
+            }}
+            transition={{
+              duration: sec1State === "returning_center" ? 2.2 : 2.0,
+              ease: [0.16, 1, 0.3, 1]
+            }}
+            onClick={() => {
+              if (sec1State === "settled") setSelectedAlbumModal("HVL (99%)");
+            }}
+            style={{
+              width: "min(84vw, 290px)",
+              height: "min(84vw, 290px)",
+              borderRadius: "28px",
+              overflow: "hidden",
+              boxShadow: "0 28px 70px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)",
+              border: "1px solid rgba(255, 255, 255, 0.25)",
+              position: "absolute",
+              zIndex: 2,
+              background: "#18181b",
+              cursor: "pointer"
+            }}
+          >
+            <img
+              src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
+              alt="HVL (99%)"
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          </motion.div>
 
-          {/* TRẠNG THÁI ĐÃ TRƯỢT LÊN ĐỈNH (settled) */}
-          {sec1State === "settled" && (
-            <>
-              <motion.div
-                layoutId="mobile-album-hero"
-                initial={{ y: 80, scale: 1.25, opacity: 0.9 }}
-                animate={{ y: 0, scale: 1, opacity: 1 }}
-                exit={{ y: 80, scale: 1.25, opacity: 0.9 }}
-                transition={{ duration: 2.0, ease: [0.16, 1, 0.3, 1] }}
-                onClick={() => setSelectedAlbumModal("HVL (99%)")}
-                style={{
-                  width: "160px",
-                  height: "160px",
-                  borderRadius: "24px",
-                  overflow: "hidden",
-                  flexShrink: 0,
-                  boxShadow: "0 14px 35px rgba(0, 0, 0, 0.85), 0 0 25px rgba(255, 255, 255, 0.2)",
-                  border: "1px solid rgba(255, 255, 255, 0.2)",
-                  cursor: "pointer",
-                  background: "#18181b",
-                  marginTop: "2px"
-                }}
-              >
-                <img
-                  src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
-                  alt="HVL (99%)"
-                  loading="eager"
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                />
-              </motion.div>
+          {/* 5 Tracks trượt xuất hiện / thu vào êm đềm bên dưới */}
+          <motion.div
+            animate={{
+              opacity: sec1State === "settled" ? 1 : 0,
+              y: sec1State === "settled" ? 80 : 140,
+              pointerEvents: sec1State === "settled" ? "auto" : "none"
+            }}
+            transition={{
+              duration: sec1State === "returning_center" ? 1.8 : 2.0,
+              ease: [0.16, 1, 0.3, 1]
+            }}
+            style={{
+              position: "absolute",
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              gap: "7px",
+              zIndex: 1
+            }}
+          >
+            {BEST_PLAY_TRACKS.map((track, idx) => {
+              const isFav = favoritedTrackIds.includes(track.id);
+              const isCurrent = currentTrack?.id === track.id;
 
-              <motion.div
-                initial={{ opacity: 0, y: -30 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -60, transition: { duration: 2.0, ease: [0.16, 1, 0.3, 1] } }}
-                transition={{ duration: 2.0, ease: [0.16, 1, 0.3, 1] }}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "7px",
-                  flex: 1,
-                  width: "100%",
-                  justifyContent: "center"
-                }}
-              >
-                {BEST_PLAY_TRACKS.map((track, idx) => {
-                  const isFav = favoritedTrackIds.includes(track.id);
-                  const isCurrent = currentTrack?.id === track.id;
-
-                  return (
-                    <motion.div
-                      key={track.id}
-                      initial={{ opacity: 0, y: 24 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{
-                        duration: 1.8,
-                        delay: 0.06 * idx,
-                        ease: [0.16, 1, 0.3, 1]
-                      }}
-                      onClick={() => handleTrackSelect(track)}
+              return (
+                <div
+                  key={track.id}
+                  onClick={() => handleTrackSelect(track)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 14px",
+                    borderRadius: "16px",
+                    background: isCurrent
+                      ? "rgba(255, 255, 255, 0.12)"
+                      : "rgba(255, 255, 255, 0.04)",
+                    border: isCurrent
+                      ? "1px solid rgba(255, 255, 255, 0.3)"
+                      : "1px solid rgba(255, 255, 255, 0.07)",
+                    boxShadow: isCurrent ? "0 4px 16px rgba(255, 255, 255, 0.15)" : "none",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0, flex: 1 }}>
+                    <span
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "10px 14px",
-                        borderRadius: "16px",
-                        background: isCurrent
-                          ? "rgba(255, 255, 255, 0.12)"
-                          : "rgba(255, 255, 255, 0.04)",
-                        border: isCurrent
-                          ? "1px solid rgba(255, 255, 255, 0.3)"
-                          : "1px solid rgba(255, 255, 255, 0.07)",
-                        boxShadow: isCurrent ? "0 4px 16px rgba(255, 255, 255, 0.15)" : "none",
-                        cursor: "pointer",
-                        transition: "all 0.2s ease"
+                        fontSize: "0.8rem",
+                        fontWeight: 700,
+                        color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.4)",
+                        width: "18px",
+                        textAlign: "center"
                       }}
                     >
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0, flex: 1 }}>
-                        <span
-                          style={{
-                            fontSize: "0.8rem",
-                            fontWeight: 700,
-                            color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.4)",
-                            width: "18px",
-                            textAlign: "center"
-                          }}
-                        >
-                          {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
-                        </span>
+                      {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
+                    </span>
 
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <p
-                            style={{
-                              fontSize: "0.88rem",
-                              fontWeight: isCurrent ? 700 : 600,
-                              color: "#ffffff",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis"
-                            }}
-                          >
-                            {track.title}
-                          </p>
-                          <p
-                            style={{
-                              fontSize: "0.72rem",
-                              color: "rgba(255, 255, 255, 0.5)",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis"
-                            }}
-                          >
-                            {track.artist}
-                          </p>
-                        </div>
-                      </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <p
+                        style={{
+                          fontSize: "0.88rem",
+                          fontWeight: isCurrent ? 700 : 600,
+                          color: "#ffffff",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis"
+                        }}
+                      >
+                        {track.title}
+                      </p>
+                      <p
+                        style={{
+                          fontSize: "0.72rem",
+                          color: "rgba(255, 255, 255, 0.5)",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis"
+                        }}
+                      >
+                        {track.artist}
+                      </p>
+                    </div>
+                  </div>
 
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
-                        <span style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.4)" }}>
-                          {formatDuration(track.duration)}
-                        </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+                    <span style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.4)" }}>
+                      {formatDuration(track.duration)}
+                    </span>
 
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFavoriteTrack(track.id);
-                          }}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            cursor: "pointer",
-                            padding: "6px",
-                            display: "flex",
-                            alignItems: "center"
-                          }}
-                        >
-                          <Heart
-                            size={15}
-                            color={isFav ? "#ffffff" : "rgba(255, 255, 255, 0.35)"}
-                            fill={isFav ? "#ffffff" : "none"}
-                          />
-                        </button>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </motion.div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavoriteTrack(track.id);
+                      }}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: "6px",
+                        display: "flex",
+                        alignItems: "center"
+                      }}
+                    >
+                      <Heart
+                        size={15}
+                        color={isFav ? "#ffffff" : "rgba(255, 255, 255, 0.35)"}
+                        fill={isFav ? "#ffffff" : "none"}
+                      />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
 
-              <div style={{ textAlign: "center", opacity: 0.35, fontSize: "0.7rem", letterSpacing: "0.08em" }}>
-                VUỐT LÊN ĐỂ TIẾP TỤC
-              </div>
-            </>
-          )}
+            <div style={{ textAlign: "center", opacity: 0.35, fontSize: "0.7rem", letterSpacing: "0.08em", marginTop: "4px" }}>
+              VUỐT LÊN ĐỂ TIẾP TỤC
+            </div>
+          </motion.div>
         </div>
       )}
 
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 2: 5-SLOT INFINITE REVOLVER (INERTIA SWIPE & MAGNETIC MARBLE)
+          SECTION 2: 5-SLOT INFINITE REVOLVER (SWIPE-RIGHT TO ADVANCE & CLEAN CAPSULE)
       ────────────────────────────────────────────────────────────────────── */}
       {activeSection === 1 && (
         <div
@@ -459,10 +416,10 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              touchAction: "pan-x" // Khóa thao tác vuốt dọc trên vùng này
+              touchAction: "pan-x"
             }}
           >
-            {/* ── 3D INFINITE REVOLVER: 3 VISIBLE CARDS (LEFT = Bìa 5, CENTER = Bìa 1, RIGHT = Bìa 2) ── */}
+            {/* ── 3D INFINITE REVOLVER: 3 VISIBLE CARDS ── */}
             {[-1, 0, 1].map((offset) => {
               const { slot } = getSlot(offset);
               const isCenter = offset === 0;
@@ -472,7 +429,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                   key={`${slot.id}-${offset}`}
                   drag={isCenter ? "x" : false}
                   dragConstraints={{ left: 0, right: 0 }}
-                  dragElastic={0.45}
+                  dragElastic={0.5}
                   onDrag={(_, info) => {
                     if (isCenter) setDragOffset(info.offset.x);
                   }}
@@ -481,12 +438,14 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                     const velocity = info.velocity.x;
                     const offsetVal = info.offset.x;
 
-                    // Tính quán tính vuốt: Vuốt mạnh (flick) trượt 2 nấc, vuốt vừa trượt 1 nấc, luôn neo ở 1 trong 5 điểm
+                    // Chuẩn hóa logic vuốt theo yêu cầu người dùng:
+                    // Vuốt sang phải (offsetVal > 0 hoặc velocity > 0) -> NEXT: Bìa 1 ➔ 2 ➔ 3 ➔ 4 ➔ 5 ➔ 1
+                    // Vuốt sang trái (offsetVal < 0 hoặc velocity < 0) -> PREV: Bìa 1 ➔ 5 ➔ 4 ➔ 3 ➔ 2 ➔ 1
                     let steps = 0;
-                    if (Math.abs(velocity) > 650 || Math.abs(offsetVal) > 130) {
-                      steps = velocity < 0 || offsetVal < -100 ? 2 : -2;
-                    } else if (Math.abs(velocity) > 180 || Math.abs(offsetVal) > 25) {
-                      steps = velocity < 0 || offsetVal < 0 ? 1 : -1;
+                    if (Math.abs(velocity) > 600 || Math.abs(offsetVal) > 120) {
+                      steps = velocity > 0 || offsetVal > 100 ? 2 : -2;
+                    } else if (Math.abs(velocity) > 160 || Math.abs(offsetVal) > 24) {
+                      steps = velocity > 0 || offsetVal > 0 ? 1 : -1;
                     }
 
                     if (steps !== 0) {
@@ -497,20 +456,20 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                   onClick={() => {
                     if (isCenter) {
                       setSelectedAlbumModal(slot.title);
-                    } else if (offset === -1) {
-                      setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
                     } else if (offset === 1) {
                       setRevolverIndex((prev) => (prev + 1) % totalSlots);
+                    } else if (offset === -1) {
+                      setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
                     }
                   }}
                   animate={{
-                    x: offset === 0 ? 0 : offset === -1 ? -175 : 175,
+                    x: (offset === 0 ? 0 : offset === -1 ? -175 : 175) + (isCenter ? dragOffset * 0.4 : 0),
                     scale: offset === 0 ? 1.0 : 0.8,
                     opacity: offset === 0 ? 1.0 : 0.45,
                     filter: offset === 0 ? "blur(0px)" : "blur(2.5px)",
                     zIndex: offset === 0 ? 10 : 5
                   }}
-                  transition={{ type: "spring", stiffness: 260, damping: 26 }}
+                  transition={{ type: "spring", stiffness: 220, damping: 24, mass: 0.8 }}
                   style={{
                     position: "absolute",
                     width: "min(84vw, 290px)",
@@ -605,14 +564,14 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
               );
             })}
 
-            {/* ── 5-POINT MAGNETIC ROLLING MARBLE CAPSULE INDICATOR ─────────── */}
+            {/* ── 5-POINT MAGNETIC ROLLING MARBLE CAPSULE (KHÔNG HIỆN MỐC) ─── */}
             <div
               style={{
                 position: "absolute",
                 bottom: "-48px",
                 left: "50%",
                 transform: "translateX(-50%)",
-                width: "130px", // 5 nấc: -48px, -24px, 0px, +24px, +48px (Viên bi 16px ôm sát rìa)
+                width: "130px", // 5 nấc đều: -48px, -24px, 0px, +24px, +48px
                 height: "26px",
                 borderRadius: "13px",
                 background: "rgba(255, 255, 255, 0.08)",
@@ -627,29 +586,12 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                 overflow: "hidden"
               }}
             >
-              {/* 5 Vạch khắc siêu tinh tế biểu thị 5 điểm neo */}
-              {[-48, -24, 0, 24, 48].map((xPos) => (
-                <div
-                  key={xPos}
-                  style={{
-                    position: "absolute",
-                    left: `calc(50% + ${xPos}px)`,
-                    transform: "translateX(-50%)",
-                    width: "2px",
-                    height: "6px",
-                    borderRadius: "1px",
-                    background: "rgba(255, 255, 255, 0.15)",
-                    pointerEvents: "none"
-                  }}
-                />
-              ))}
-
-              {/* Viên bi kim loại lăn vô cực: Bìa 1 ở giữa (0px), Bìa 3 sát rìa phải (+48px), Bìa 4 sát rìa trái (-48px) */}
+              {/* Viên bi kim loại lăn mượt mà theo quán tính: Bìa 1 ở giữa (0px), Bìa 3 sát rìa phải (+48px), Bìa 4 sát rìa trái (-48px) */}
               <motion.div
                 animate={{
                   x: Math.max(-52, Math.min(52, marbleBaseX + dragOffset * 0.12))
                 }}
-                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                transition={{ type: "spring", stiffness: 240, damping: 24, mass: 0.8 }}
                 style={{
                   width: "16px",
                   height: "16px",
