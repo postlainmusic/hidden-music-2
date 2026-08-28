@@ -37,7 +37,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
   };
 
   return (
-    <main style={{ width: "100%", overflowX: "hidden", color: "#ffffff" }}>
+    <main style={{ width: "100%", overflowX: "hidden", color: "#ffffff", position: "relative", zIndex: 1 }}>
       {/* ─────────────────────────────────────────────────────────────────────────
           SECTION 1 (100VH): AWWWARDS EXPANDING MOTION (CENTER COVER ➔ SLIDE LEFT)
       ────────────────────────────────────────────────────────────────────────── */}
@@ -47,22 +47,22 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "100px 32px 60px",
-          position: "relative"
+          padding: "100px 24px 60px"
         }}
       >
         <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
+          initial={{ opacity: 0, scale: 0.94, y: 30 }}
+          whileInView={{ opacity: 1, scale: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           style={{
             width: "100%",
             maxWidth: "1080px",
-            background: "linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%)",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
+            background: "linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%)",
+            border: "1px solid rgba(255, 255, 255, 0.12)",
             borderRadius: "36px",
             padding: "40px",
-            boxShadow: "0 30px 60px rgba(0, 0, 0, 0.9)",
+            boxShadow: "0 30px 70px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.15)",
             display: "grid",
             gridTemplateColumns: "repeat(12, 1fr)",
             gap: "48px",
@@ -71,9 +71,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
         >
           {/* Left: Square Rounded Album Cover sliding in */}
           <motion.div
-            initial={{ x: 120, scale: 1.05 }}
-            animate={{ x: 0, scale: 1 }}
-            transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ x: 80, scale: 1.05 }}
+            whileInView={{ x: 0, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.9, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
             style={{
               gridColumn: "span 5",
               display: "flex",
@@ -81,7 +82,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
               alignItems: "center"
             }}
           >
-            <div
+            <motion.div
+              whileHover={{ scale: 1.03 }}
               onClick={() => handleAlbumClick("HVL (99%)")}
               style={{
                 width: "100%",
@@ -89,36 +91,41 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                 aspectRatio: "1/1",
                 borderRadius: "28px",
                 overflow: "hidden",
-                boxShadow: "0 20px 50px rgba(0, 0, 0, 0.8), 0 0 1px 1px rgba(255, 255, 255, 0.15)",
+                boxShadow: "0 20px 50px rgba(0, 0, 0, 0.85), 0 0 1px 1px rgba(255, 255, 255, 0.2)",
                 cursor: "pointer",
-                position: "relative"
+                background: "#18181b"
               }}
             >
               <img
                 src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
                 alt="HVL (99%)"
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
               />
-            </div>
+            </motion.div>
           </motion.div>
 
-          {/* Right: Minimalist Tracklist revealing cleanly */}
+          {/* Right: Minimalist Tracklist with Stagger Animation */}
           <motion.div
-            initial={{ opacity: 0, x: 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.9, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
             style={{
               gridColumn: "span 7",
               display: "flex",
               flexDirection: "column",
-              gap: "14px"
+              gap: "12px"
             }}
           >
             {BEST_PLAY_TRACKS.map((track, idx) => {
               const isFav = favoritedTrackIds.includes(track.id);
               return (
-                <div
+                <motion.div
                   key={track.id}
+                  initial={{ opacity: 0, y: 15 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: 0.1 * idx }}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -126,7 +133,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                     padding: "12px 18px",
                     borderRadius: "16px",
                     background: "rgba(255, 255, 255, 0.03)",
-                    border: "1px solid rgba(255, 255, 255, 0.06)",
+                    border: "1px solid rgba(255, 255, 255, 0.07)",
                     transition: "all 0.25s ease"
                   }}
                 >
@@ -185,7 +192,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                       />
                     </button>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </motion.div>
@@ -193,7 +200,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
       </section>
 
       {/* ─────────────────────────────────────────────────────────────────────────
-          SECTION 2 (100VH): PURE ALBUM COVER 3D COVER FLOW DRAGGABLE CAROUSEL
+          SECTION 2 (100VH): SYNCHRONIZED 3D ALBUM CAROUSEL WITH INTERACTIVE DOTS
       ────────────────────────────────────────────────────────────────────────── */}
       <section
         style={{
@@ -202,78 +209,96 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          padding: "60px 32px",
-          position: "relative"
+          padding: "60px 24px"
         }}
       >
-        <div
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9, y: 30 }}
+          whileInView={{ opacity: 1, scale: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           style={{
             width: "100%",
-            maxWidth: "720px",
+            maxWidth: "600px",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center"
           }}
         >
-          {/* Draggable 3D Cover Flow Box */}
+          {/* Draggable & Synchronized Album Card */}
           <motion.div
             drag="x"
-            dragConstraints={{ left: -100, right: 100 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ cursor: "grabbing" }}
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.4}
             onDragEnd={(_, info) => {
-              if (info.offset.x < -40) setActiveCarouselIndex((prev) => (prev + 1) % 2);
-              if (info.offset.x > 40) setActiveCarouselIndex((prev) => (prev - 1 + 2) % 2);
+              if (info.offset.x < -50) {
+                setActiveCarouselIndex(1);
+              } else if (info.offset.x > 50) {
+                setActiveCarouselIndex(0);
+              }
             }}
+            whileHover={{ scale: 1.03 }}
             onClick={() => handleAlbumClick("HVL (99%)")}
             style={{
               width: "360px",
               height: "360px",
               borderRadius: "32px",
               overflow: "hidden",
-              boxShadow: "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 1px 1px rgba(255, 255, 255, 0.2)",
+              boxShadow: "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 1px 1px rgba(255, 255, 255, 0.25)",
               cursor: "grab",
-              marginBottom: "36px"
+              marginBottom: "36px",
+              background: "#18181b",
+              position: "relative"
             }}
           >
             <img
               src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
               alt="HVL (99%)"
-              style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+                pointerEvents: "none"
+              }}
             />
           </motion.div>
 
-          {/* Minimalist Motion Pagination Dots */}
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div
+          {/* Synchronized Pagination Dots */}
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <motion.div
               onClick={() => setActiveCarouselIndex(0)}
+              animate={{
+                width: activeCarouselIndex === 0 ? "28px" : "10px",
+                background: activeCarouselIndex === 0 ? "#ffffff" : "rgba(255, 255, 255, 0.25)"
+              }}
+              transition={{ duration: 0.3 }}
               style={{
-                width: activeCarouselIndex === 0 ? "24px" : "8px",
-                height: "8px",
+                height: "10px",
                 borderRadius: "999px",
-                background: activeCarouselIndex === 0 ? "#ffffff" : "rgba(255, 255, 255, 0.2)",
-                transition: "all 0.3s ease",
                 cursor: "pointer"
               }}
             />
-            <div
+            <motion.div
               onClick={() => setActiveCarouselIndex(1)}
+              animate={{
+                width: activeCarouselIndex === 1 ? "28px" : "10px",
+                background: activeCarouselIndex === 1 ? "#ffffff" : "rgba(255, 255, 255, 0.25)"
+              }}
+              transition={{ duration: 0.3 }}
               style={{
-                width: activeCarouselIndex === 1 ? "24px" : "8px",
-                height: "8px",
+                height: "10px",
                 borderRadius: "999px",
-                background: activeCarouselIndex === 1 ? "#ffffff" : "rgba(255, 255, 255, 0.2)",
-                transition: "all 0.3s ease",
                 cursor: "pointer"
               }}
             />
           </div>
-        </div>
+        </motion.div>
       </section>
 
       {/* ─────────────────────────────────────────────────────────────────────────
-          SECTION 3 (100VH): SINGLE LUXURY BUTTON TO SWITCH TO EXPLORE
+          SECTION 3 (100VH): SINGLE LUXURY BUTTON REVEALING ON HOVER
       ────────────────────────────────────────────────────────────────────────── */}
       <section
         style={{
@@ -281,34 +306,48 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "60px 32px"
+          padding: "60px 24px"
         }}
       >
-        <motion.button
-          whileHover={{ scale: 1.05, boxShadow: "0 0 40px rgba(255, 255, 255, 0.25)" }}
-          whileTap={{ scale: 0.95 }}
-          onClick={onExploreClick}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "14px",
-            padding: "20px 48px",
-            fontSize: "1.1rem",
-            fontWeight: 800,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            borderRadius: "999px",
-            background: "#ffffff",
-            color: "#000000",
-            border: "none",
-            cursor: "pointer",
-            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.8)",
-            transition: "all 0.3s ease"
-          }}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.8 }}
         >
-          <span>CHUYỂN QUA EXPLORE</span>
-          <ArrowRight size={20} color="#000000" />
-        </motion.button>
+          <motion.button
+            initial={{ opacity: 0.4, scale: 0.98 }}
+            whileHover={{
+              opacity: 1,
+              scale: 1.05,
+              boxShadow: "0 0 50px rgba(255, 255, 255, 0.4)",
+              background: "#ffffff",
+              color: "#000000"
+            }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onExploreClick}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "14px",
+              padding: "20px 52px",
+              fontSize: "1.05rem",
+              fontWeight: 800,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              borderRadius: "999px",
+              background: "rgba(255, 255, 255, 0.08)",
+              color: "#ffffff",
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              backdropFilter: "blur(16px)",
+              cursor: "pointer",
+              transition: "all 0.35s cubic-bezier(0.16, 1, 0.3, 1)"
+            }}
+          >
+            <span>CHUYỂN QUA EXPLORE</span>
+            <ArrowRight size={20} />
+          </motion.button>
+        </motion.div>
       </section>
 
       {/* ─────────────────────────────────────────────────────────────────────────
