@@ -205,54 +205,53 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
         height: "100dvh",
         overflow: "hidden",
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         color: "#ffffff",
-        zIndex: 1,
-        paddingTop: "max(56px, env(safe-area-inset-top, 56px))",
-        paddingBottom: "max(64px, env(safe-area-inset-bottom, 64px))",
-        paddingLeft: "16px",
-        paddingRight: "16px"
+        zIndex: 1
       }}
     >
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 1: PURE FADE IN / FADE OUT FOR TRACKS (ZERO OVERLAP, ZERO JITTER)
+          SECTION 1: ZERO-JITTER GPU TRANSFORM ARCHITECTURE (FIXED CENTER)
       ────────────────────────────────────────────────────────────────────── */}
       {activeSection === 0 && (
         <div
           style={{
+            position: "relative",
             width: "100%",
             maxWidth: "340px",
             height: "100%",
             display: "flex",
-            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            gap: isSettled ? "10px" : "0px",
-            position: "relative"
+            pointerEvents: "auto"
           }}
         >
-          {/* Top Album Artwork (Smooth layout transition from 280px to 154px) */}
+          {/* Top Album Artwork (Fixed screen center, transforms up -135px when settled) */}
           <motion.div
-            layout
+            layoutId="mobile-album-hero"
+            animate={{
+              y: isSettled ? -135 : 0,
+              scale: isSettled ? 0.58 : 1,
+              opacity: 1
+            }}
             transition={{ duration: 2.0, ease: [0.16, 1, 0.3, 1] }}
             onClick={() => {
               if (isSettled) setSelectedAlbumModal("HVL (99%)");
             }}
             style={{
-              width: isSettled ? "154px" : "min(80vw, 280px)",
-              height: isSettled ? "154px" : "min(80vw, 280px)",
-              borderRadius: isSettled ? "22px" : "28px",
+              position: "absolute",
+              width: "270px",
+              height: "270px",
+              borderRadius: "28px",
               overflow: "hidden",
               boxShadow: isSettled
-                ? "0 12px 30px rgba(0, 0, 0, 0.85), 0 0 20px rgba(255, 255, 255, 0.2)"
+                ? "0 14px 35px rgba(0, 0, 0, 0.85), 0 0 20px rgba(255, 255, 255, 0.2)"
                 : "0 28px 70px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)",
               border: "1px solid rgba(255, 255, 255, 0.25)",
-              flexShrink: 0,
               cursor: isSettled ? "pointer" : "default",
               background: "#18181b",
-              zIndex: 2
+              zIndex: 10
             }}
           >
             <img
@@ -262,124 +261,122 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
             />
           </motion.div>
 
-          {/* Bottom 5 Tracks List: THU VÀO = FADE OUT, HIỆN RA = FADE IN */}
-          <AnimatePresence>
-            {isSettled && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 1.6, ease: "easeInOut" }}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "6px",
-                  overflow: "hidden",
-                  zIndex: 1
-                }}
-              >
-                {BEST_PLAY_TRACKS.map((track, idx) => {
-                  const isFav = favoritedTrackIds.includes(track.id);
-                  const isCurrent = currentTrack?.id === track.id;
+          {/* Bottom 5 Tracks List (Positioned below center, pure fade in / out) */}
+          <motion.div
+            animate={{
+              opacity: isSettled ? 1 : 0,
+              pointerEvents: isSettled ? "auto" : "none"
+            }}
+            transition={{ duration: 1.6, ease: "easeInOut" }}
+            style={{
+              position: "absolute",
+              top: "calc(50% - 35px)",
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              gap: "6px",
+              zIndex: 5
+            }}
+          >
+            {BEST_PLAY_TRACKS.map((track, idx) => {
+              const isFav = favoritedTrackIds.includes(track.id);
+              const isCurrent = currentTrack?.id === track.id;
 
-                  return (
-                    <div
-                      key={track.id}
-                      onClick={() => handleTrackSelect(track)}
+              return (
+                <div
+                  key={track.id}
+                  onClick={() => handleTrackSelect(track)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "9px 12px",
+                    borderRadius: "15px",
+                    background: isCurrent
+                      ? "rgba(255, 255, 255, 0.12)"
+                      : "rgba(255, 255, 255, 0.04)",
+                    border: isCurrent
+                      ? "1px solid rgba(255, 255, 255, 0.3)"
+                      : "1px solid rgba(255, 255, 255, 0.07)",
+                    boxShadow: isCurrent ? "0 4px 16px rgba(255, 255, 255, 0.15)" : "none",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: 1 }}>
+                    <span
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "9px 12px",
-                        borderRadius: "15px",
-                        background: isCurrent
-                          ? "rgba(255, 255, 255, 0.12)"
-                          : "rgba(255, 255, 255, 0.04)",
-                        border: isCurrent
-                          ? "1px solid rgba(255, 255, 255, 0.3)"
-                          : "1px solid rgba(255, 255, 255, 0.07)",
-                        boxShadow: isCurrent ? "0 4px 16px rgba(255, 255, 255, 0.15)" : "none",
-                        cursor: "pointer",
-                        transition: "all 0.2s ease"
+                        fontSize: "0.78rem",
+                        fontWeight: 700,
+                        color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.4)",
+                        width: "18px",
+                        textAlign: "center"
                       }}
                     >
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: 1 }}>
-                        <span
-                          style={{
-                            fontSize: "0.78rem",
-                            fontWeight: 700,
-                            color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.4)",
-                            width: "18px",
-                            textAlign: "center"
-                          }}
-                        >
-                          {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
-                        </span>
+                      {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
+                    </span>
 
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <p
-                            style={{
-                              fontSize: "0.85rem",
-                              fontWeight: isCurrent ? 700 : 600,
-                              color: "#ffffff",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis"
-                            }}
-                          >
-                            {track.title}
-                          </p>
-                          <p
-                            style={{
-                              fontSize: "0.7rem",
-                              color: "rgba(255, 255, 255, 0.5)",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis"
-                            }}
-                          >
-                            {track.artist}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-                        <span style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.4)" }}>
-                          {formatDuration(track.duration)}
-                        </span>
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFavoriteTrack(track.id);
-                          }}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            cursor: "pointer",
-                            padding: "4px",
-                            display: "flex",
-                            alignItems: "center"
-                          }}
-                        >
-                          <Heart
-                            size={14}
-                            color={isFav ? "#ffffff" : "rgba(255, 255, 255, 0.35)"}
-                            fill={isFav ? "#ffffff" : "none"}
-                          />
-                        </button>
-                      </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <p
+                        style={{
+                          fontSize: "0.85rem",
+                          fontWeight: isCurrent ? 700 : 600,
+                          color: "#ffffff",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis"
+                        }}
+                      >
+                        {track.title}
+                      </p>
+                      <p
+                        style={{
+                          fontSize: "0.7rem",
+                          color: "rgba(255, 255, 255, 0.5)",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis"
+                        }}
+                      >
+                        {track.artist}
+                      </p>
                     </div>
-                  );
-                })}
+                  </div>
 
-                <div style={{ textAlign: "center", opacity: 0.35, fontSize: "0.68rem", letterSpacing: "0.08em", marginTop: "2px" }}>
-                  VUỐT LÊN ĐỂ TIẾP TỤC
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+                    <span style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.4)" }}>
+                      {formatDuration(track.duration)}
+                    </span>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavoriteTrack(track.id);
+                      }}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: "4px",
+                        display: "flex",
+                        alignItems: "center"
+                      }}
+                    >
+                      <Heart
+                        size={14}
+                        color={isFav ? "#ffffff" : "rgba(255, 255, 255, 0.35)"}
+                        fill={isFav ? "#ffffff" : "none"}
+                      />
+                    </button>
+                  </div>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              );
+            })}
+
+            <div style={{ textAlign: "center", opacity: 0.35, fontSize: "0.68rem", letterSpacing: "0.08em", marginTop: "4px" }}>
+              VUỐT LÊN ĐỂ TIẾP TỤC
+            </div>
+          </motion.div>
         </div>
       )}
 
@@ -453,10 +450,8 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                     if (isCenter) {
                       setSelectedAlbumModal(slot.title);
                     } else if (offset === 1) {
-                      // Bấm vào đĩa bên phải để chuyển tiếp (Next)
                       setRevolverIndex((prev) => (prev + 1) % totalSlots);
                     } else if (offset === -1) {
-                      // Bấm vào đĩa bên trái để quay lại (Prev)
                       setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
                     }
                   }}

@@ -308,30 +308,35 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
       }}
     >
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 1: PURE FADE IN / FADE OUT FOR TRACKS (ZERO JITTER)
+          SECTION 1: ZERO-JITTER GPU TRANSFORM ARCHITECTURE (FIXED CENTER)
       ────────────────────────────────────────────────────────────────────── */}
       {activeSection === 0 && (
         <div
           style={{
+            position: "relative",
             width: "100%",
-            maxWidth: "1120px",
-            padding: "0 32px",
+            maxWidth: "1080px",
+            height: "100%",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            gap: isSettled ? "54px" : "0px",
-            position: "relative"
+            justifyContent: "center"
           }}
         >
-          {/* Left Album Artwork (Dead center when resting, glides left when settled) */}
+          {/* Left Album Artwork (Fixed screen center, transforms left -230px when settled) */}
           <motion.div
-            layout
+            layoutId="desktop-album-hero"
+            animate={{
+              x: isSettled ? -230 : 0,
+              scale: 1,
+              opacity: 1
+            }}
             transition={{ duration: 2.0, ease: [0.16, 1, 0.3, 1] }}
             whileHover={isSettled ? { scale: 1.02 } : {}}
             onClick={() => {
               if (isSettled) handleAlbumClick("HVL (99%)");
             }}
             style={{
+              position: "absolute",
               width: "360px",
               height: "360px",
               borderRadius: "32px",
@@ -342,8 +347,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
               border: "1px solid rgba(255, 255, 255, 0.25)",
               cursor: isSettled ? "pointer" : "default",
               background: "#18181b",
-              flexShrink: 0,
-              zIndex: 2
+              zIndex: 10
             }}
           >
             <img
@@ -356,109 +360,108 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
             />
           </motion.div>
 
-          {/* Right 5 Tracks List: THU VÀO = FADE OUT, HIỆN RA = FADE IN */}
-          <AnimatePresence>
-            {isSettled && (
-              <motion.div
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: "100%" }}
-                exit={{ opacity: 0, width: 0 }}
-                transition={{ duration: 1.6, ease: "easeInOut" }}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "12px",
-                  maxWidth: "520px",
-                  overflow: "hidden",
-                  zIndex: 1
-                }}
-              >
-                {BEST_PLAY_TRACKS.map((track, idx) => {
-                  const isFav = favoritedTrackIds.includes(track.id);
-                  const isCurrent = currentTrack?.id === track.id;
+          {/* Right 5 Tracks List (Positioned right of center, pure fade in / out) */}
+          <motion.div
+            animate={{
+              opacity: isSettled ? 1 : 0,
+              pointerEvents: isSettled ? "auto" : "none"
+            }}
+            transition={{ duration: 1.6, ease: "easeInOut" }}
+            style={{
+              position: "absolute",
+              left: "calc(50% + 20px)",
+              width: "100%",
+              maxWidth: "480px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+              zIndex: 5
+            }}
+          >
+            {BEST_PLAY_TRACKS.map((track, idx) => {
+              const isFav = favoritedTrackIds.includes(track.id);
+              const isCurrent = currentTrack?.id === track.id;
 
-                  return (
-                    <div
-                      key={track.id}
-                      onClick={() => handleTrackSelect(track)}
+              return (
+                <div
+                  key={track.id}
+                  onClick={() => handleTrackSelect(track)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "14px 20px",
+                    borderRadius: "18px",
+                    background: isCurrent
+                      ? "rgba(255, 255, 255, 0.12)"
+                      : "rgba(255, 255, 255, 0.04)",
+                    border: isCurrent
+                      ? "1px solid rgba(255, 255, 255, 0.35)"
+                      : "1px solid rgba(255, 255, 255, 0.08)",
+                    boxShadow: isCurrent ? "0 4px 20px rgba(255, 255, 255, 0.15)" : "none",
+                    cursor: "pointer",
+                    transition: "all 0.25s ease"
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: 0 }}>
+                    <span
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "14px 20px",
-                        borderRadius: "18px",
-                        background: isCurrent
-                          ? "rgba(255, 255, 255, 0.12)"
-                          : "rgba(255, 255, 255, 0.04)",
-                        border: isCurrent
-                          ? "1px solid rgba(255, 255, 255, 0.35)"
-                          : "1px solid rgba(255, 255, 255, 0.08)",
-                        boxShadow: isCurrent ? "0 4px 20px rgba(255, 255, 255, 0.15)" : "none",
-                        cursor: "pointer",
-                        transition: "all 0.25s ease"
+                        fontSize: "0.88rem",
+                        fontWeight: 700,
+                        color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.4)",
+                        width: "22px",
+                        textAlign: "center"
                       }}
                     >
-                      <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: 0 }}>
-                        <span
-                          style={{
-                            fontSize: "0.88rem",
-                            fontWeight: 700,
-                            color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.4)",
-                            width: "22px",
-                            textAlign: "center"
-                          }}
-                        >
-                          {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
-                        </span>
+                      {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
+                    </span>
 
-                        <div style={{ minWidth: 0 }}>
-                          <p
-                            style={{
-                              fontSize: "0.98rem",
-                              fontWeight: isCurrent ? 700 : 600,
-                              color: "#ffffff",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis"
-                            }}
-                          >
-                            {track.title}
-                          </p>
-                          <p style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.5)" }}>
-                            {track.artist}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                        <span style={{ fontSize: "0.85rem", color: "rgba(255, 255, 255, 0.4)" }}>
-                          {formatDuration(track.duration)}
-                        </span>
-
-                        <button
-                          onClick={(e) => toggleFavorite(e, track.id)}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            cursor: "pointer",
-                            padding: "4px",
-                            display: "flex",
-                            alignItems: "center"
-                          }}
-                        >
-                          <Heart
-                            size={16}
-                            color={isFav ? "#ffffff" : "rgba(255, 255, 255, 0.35)"}
-                            fill={isFav ? "#ffffff" : "none"}
-                          />
-                        </button>
-                      </div>
+                    <div style={{ minWidth: 0 }}>
+                      <p
+                        style={{
+                          fontSize: "0.98rem",
+                          fontWeight: isCurrent ? 700 : 600,
+                          color: "#ffffff",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis"
+                        }}
+                      >
+                        {track.title}
+                      </p>
+                      <p style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.5)" }}>
+                        {track.artist}
+                      </p>
                     </div>
-                  );
-                })}
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                    <span style={{ fontSize: "0.85rem", color: "rgba(255, 255, 255, 0.4)" }}>
+                      {formatDuration(track.duration)}
+                    </span>
+
+                    <button
+                      onClick={(e) => toggleFavorite(e, track.id)}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: "4px",
+                        display: "flex",
+                        alignItems: "center"
+                      }}
+                    >
+                      <Heart
+                        size={16}
+                        color={isFav ? "#ffffff" : "rgba(255, 255, 255, 0.35)"}
+                        fill={isFav ? "#ffffff" : "none"}
+                      />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </motion.div>
         </div>
       )}
 
