@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, ArrowRight, Disc3, Sparkles } from "lucide-react";
+import { Heart, ArrowRight } from "lucide-react";
 import { useAudioStore, DEFAULT_TRACKS, Track } from "../store/audioStore";
 
 const BEST_PLAY_TRACKS = [
@@ -27,7 +27,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
   const [selectedAlbumModal, setSelectedAlbumModal] = useState<string | null>(null);
   const [carouselIndex, setCarouselIndex] = useState<number>(0);
 
-  // Burst animation state: 'bursting' (0s-0.7s at center) ➔ 'settled' (slid up to top + tracks unfolded)
+  // Burst animation state: 'bursting' (center ~0.7s) ➔ 'settled' (slid up + tracks unfolded)
   const [hasBurstPlayed, setHasBurstPlayed] = useState<boolean>(false);
   const [burstStage, setBurstStage] = useState<"bursting" | "settled">("bursting");
 
@@ -41,7 +41,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
       const timer = setTimeout(() => {
         setBurstStage("settled");
         setHasBurstPlayed(true);
-      }, 750);
+      }, 700);
       return () => clearTimeout(timer);
     } else {
       setBurstStage("settled");
@@ -64,14 +64,14 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
         setActiveSection((prev) => Math.min(prev + 1, 2));
         setTimeout(() => {
           isSwiping.current = false;
-        }, 500);
+        }, 550);
       } else if (deltaY < -38) {
         // Swipe down ➔ Prev section
         isSwiping.current = true;
         setActiveSection((prev) => Math.max(prev - 1, 0));
         setTimeout(() => {
           isSwiping.current = false;
-        }, 500);
+        }, 550);
       }
     };
 
@@ -110,7 +110,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
     >
       <AnimatePresence mode="wait">
         {/* ─────────────────────────────────────────────────────────────────────
-            SECTION 1: RADIANT BURST ➔ SLIDE UP ➔ CASCADING TOP TRACKS
+            SECTION 1: PURE ARTWORK BURST ➔ SLIDE UP ➔ TRACKS SLIDE DOWN
         ────────────────────────────────────────────────────────────────────── */}
         {activeSection === 0 && (
           <motion.div
@@ -121,7 +121,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
               opacity: 0,
               y: -20,
               filter: "blur(6px)",
-              transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] }
+              transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] }
             }}
             transition={{ duration: 0.5 }}
             style={{
@@ -132,25 +132,23 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
               flexDirection: "column",
               justifyContent: burstStage === "bursting" ? "center" : "space-between",
               alignItems: "center",
-              gap: "12px",
-              padding: "4px 0",
+              gap: "14px",
+              padding: "8px 0",
               position: "relative"
             }}
           >
-            {/* GIAI ĐOẠN 1: BỪNG SÁNG TẠI TRUNG TÂM MÀN HÌNH (~0.7s) */}
+            {/* GIAI ĐOẠN 1: BÌA THUẦN TÚY BỪNG SÁNG TẠI TRUNG TÂM (~0.7s) */}
             {burstStage === "bursting" && (
               <motion.div
-                initial={{ scale: 0.6, opacity: 0 }}
+                initial={{ scale: 0.7, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
+                exit={{ scale: 0.95, opacity: 0 }}
                 transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
                 style={{
+                  position: "relative",
                   display: "flex",
-                  flexDirection: "column",
                   alignItems: "center",
-                  justifyContent: "center",
-                  gap: "18px",
-                  position: "relative"
+                  justifyContent: "center"
                 }}
               >
                 {/* 360 Aurora Burst Halo Glowing Ring */}
@@ -159,21 +157,21 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                   style={{
                     position: "absolute",
                     inset: "-16px",
-                    borderRadius: "38px",
+                    borderRadius: "36px",
                     pointerEvents: "none",
                     zIndex: 0
                   }}
                 />
 
                 <motion.div
-                  layoutId="album-cover-hero"
+                  layoutId="mobile-album-cover"
                   style={{
-                    width: "min(68vw, 250px)",
-                    height: "min(68vw, 250px)",
-                    borderRadius: "32px",
+                    width: "min(76vw, 290px)",
+                    height: "min(76vw, 290px)",
+                    borderRadius: "28px",
                     overflow: "hidden",
-                    boxShadow: "0 25px 70px rgba(0, 0, 0, 0.95), 0 0 40px rgba(255, 255, 255, 0.4)",
-                    border: "2px solid rgba(255, 255, 255, 0.4)",
+                    boxShadow: "0 25px 70px rgba(0, 0, 0, 0.95), 0 0 50px rgba(255, 255, 255, 0.4)",
+                    border: "1px solid rgba(255, 255, 255, 0.25)",
                     position: "relative",
                     zIndex: 1,
                     background: "#18181b"
@@ -181,118 +179,49 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                 >
                   <img
                     src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
-                    alt="HVL (99%) Top Album"
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    alt="HVL (99%)"
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                   />
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    padding: "6px 14px",
-                    borderRadius: "999px",
-                    background: "rgba(255, 255, 255, 0.12)",
-                    border: "1px solid rgba(255, 255, 255, 0.3)",
-                    backdropFilter: "blur(12px)",
-                    boxShadow: "0 4px 16px rgba(255, 255, 255, 0.2)"
-                  }}
-                >
-                  <Sparkles size={14} color="#ffffff" />
-                  <span style={{ fontSize: "0.82rem", fontWeight: 800, letterSpacing: "0.08em", color: "#ffffff" }}>
-                    TOP ALBUM • HVL (99%)
-                  </span>
                 </motion.div>
               </motion.div>
             )}
 
-            {/* GIAI ĐOẠN 2: TRƯỢT LÊN ĐỈNH VÀ SỔ 5 TRACKS XUỐNG DƯỚI */}
+            {/* GIAI ĐOẠN 2: BÌA TRƯỢT LÊN TRÊN & 5 TRACKS TRƯỢT XUỐNG DƯỚI */}
             {burstStage === "settled" && (
               <>
-                {/* Top: Album Art Header Card */}
+                {/* Top: Pure Album Artwork (No Box/Card container, No text) */}
                 <motion.div
-                  layoutId="album-cover-hero-container"
-                  initial={{ y: 20, opacity: 0 }}
+                  layoutId="mobile-album-cover"
+                  initial={{ y: 30, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-                  style={{
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "14px",
-                    background: "linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)",
-                    border: "1px solid rgba(255, 255, 255, 0.15)",
-                    borderRadius: "22px",
-                    padding: "12px",
-                    boxShadow: "0 12px 30px rgba(0, 0, 0, 0.8)"
-                  }}
+                  transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                   onClick={() => setSelectedAlbumModal("HVL (99%)")}
+                  style={{
+                    width: "140px",
+                    height: "140px",
+                    borderRadius: "22px",
+                    overflow: "hidden",
+                    flexShrink: 0,
+                    boxShadow: "0 14px 35px rgba(0, 0, 0, 0.85), 0 0 25px rgba(255, 255, 255, 0.2)",
+                    border: "1px solid rgba(255, 255, 255, 0.2)",
+                    cursor: "pointer",
+                    background: "#18181b",
+                    marginTop: "4px"
+                  }}
                 >
-                  <motion.div
-                    layoutId="album-cover-hero"
-                    style={{
-                      width: "74px",
-                      height: "74px",
-                      borderRadius: "16px",
-                      overflow: "hidden",
-                      flexShrink: 0,
-                      boxShadow: "0 8px 20px rgba(0, 0, 0, 0.7)",
-                      border: "1px solid rgba(255, 255, 255, 0.25)"
-                    }}
-                  >
-                    <img
-                      src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
-                      alt="HVL (99%)"
-                      loading="eager"
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    />
-                  </motion.div>
-
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "2px" }}>
-                      <span
-                        style={{
-                          fontSize: "0.68rem",
-                          fontWeight: 700,
-                          padding: "2px 6px",
-                          borderRadius: "999px",
-                          background: "#ffffff",
-                          color: "#000000"
-                        }}
-                      >
-                        TOP ALBUM
-                      </span>
-                      <span style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.55)" }}>2023 • 30 Tracks</span>
-                    </div>
-                    <h3
-                      style={{
-                        fontSize: "1.1rem",
-                        fontWeight: 800,
-                        color: "#ffffff",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis"
-                      }}
-                    >
-                      HVL (99%)
-                    </h3>
-                    <p style={{ fontSize: "0.82rem", color: "rgba(255, 255, 255, 0.65)" }}>MCK</p>
-                  </div>
-
-                  <div style={{ padding: "6px", color: "rgba(255, 255, 255, 0.5)" }}>
-                    <Sparkles size={18} />
-                  </div>
+                  <img
+                    src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
+                    alt="HVL (99%)"
+                    loading="eager"
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  />
                 </motion.div>
 
-                {/* Bottom: Cascading 5 Best-Play Tracks */}
+                {/* Bottom: 5 Best-Play Tracks Cascading Down */}
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  exit={{ opacity: 0, y: -20, transition: { duration: 0.18 } }}
+                  exit={{ opacity: 0, y: 20, transition: { duration: 0.18 } }}
                   style={{
                     display: "flex",
                     flexDirection: "column",
@@ -313,7 +242,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                         animate={{ opacity: 1, y: 0 }}
                         transition={{
                           duration: 0.45,
-                          delay: 0.07 * idx + 0.1,
+                          delay: 0.06 * idx + 0.1,
                           ease: [0.16, 1, 0.3, 1]
                         }}
                         onClick={() => handleTrackSelect(track)}
@@ -415,13 +344,13 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
         )}
 
         {/* ─────────────────────────────────────────────────────────────────────
-            SECTION 2: SEAMLESS MORPHED 3D COVER FLOW & ELASTIC DRAG
+            SECTION 2: SEAMLESS CONTINUOUS 3D COVER FLOW (MATCHES SECTION 1 EXACTLY)
         ────────────────────────────────────────────────────────────────────── */}
         {activeSection === 1 && (
           <motion.div
             key="mobile-section-2"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{
               opacity: 0,
               scale: 1.1,
@@ -441,9 +370,9 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
               gap: "24px"
             }}
           >
-            {/* Morphing Album Card with shared layoutId */}
+            {/* Pure Album Artwork with shared layoutId matching Section 1 center exactly */}
             <motion.div
-              layoutId="album-cover-hero"
+              layoutId="mobile-album-cover"
               drag="x"
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.45}
@@ -475,31 +404,10 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                   width: "100%",
                   height: "100%",
                   objectFit: "cover",
-                  pointerEvents: "none"
+                  pointerEvents: "none",
+                  display: "block"
                 }}
               />
-
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: "14px",
-                  left: "14px",
-                  right: "14px",
-                  padding: "8px 12px",
-                  borderRadius: "14px",
-                  background: "rgba(0, 0, 0, 0.7)",
-                  backdropFilter: "blur(12px)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between"
-                }}
-              >
-                <div>
-                  <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "#ffffff" }}>HVL (99%)</h4>
-                  <p style={{ fontSize: "0.7rem", color: "rgba(255, 255, 255, 0.6)" }}>MCK • 30 Bài hát</p>
-                </div>
-                <Disc3 size={20} color="#ffffff" />
-              </div>
             </motion.div>
 
             {/* Pagination Indicator */}
@@ -583,7 +491,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
       </AnimatePresence>
 
       {/* ─────────────────────────────────────────────────────────────────────────
-          MOBILE 3D TRANSITION MODAL
+          MOBILE 3D PREVIEW MODAL
       ────────────────────────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {selectedAlbumModal && (

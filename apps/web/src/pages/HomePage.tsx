@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, ArrowRight, Sparkles } from "lucide-react";
+import { Heart, ArrowRight } from "lucide-react";
 import { useAudioStore, DEFAULT_TRACKS, Track } from "../store/audioStore";
 
 // Real 5 Best Play tracks extracted from verified MCK library
@@ -28,7 +28,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
   const [activeSection, setActiveSection] = useState(0); // 0: Section 1, 1: Section 2, 2: Section 3
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
 
-  // Burst animation state on Desktop Section 1
+  // Burst animation state on Desktop Section 1: 'bursting' ➔ 'settled'
   const [hasBurstPlayed, setHasBurstPlayed] = useState<boolean>(false);
   const [burstStage, setBurstStage] = useState<"bursting" | "settled">("bursting");
 
@@ -42,7 +42,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
       const timer = setTimeout(() => {
         setBurstStage("settled");
         setHasBurstPlayed(true);
-      }, 750);
+      }, 700);
       return () => clearTimeout(timer);
     } else {
       setBurstStage("settled");
@@ -154,30 +154,31 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
     >
       <AnimatePresence mode="wait">
         {/* ─────────────────────────────────────────────────────────────────────
-            SECTION 1: RADIANT BURST ➔ SLIDE LEFT ➔ EXPAND TRACKLIST
+            SECTION 1: PURE ARTWORK BURST ➔ SLIDE LEFT ➔ TRACKS SLIDE RIGHT
         ────────────────────────────────────────────────────────────────────── */}
         {activeSection === 0 && (
           <motion.div
             key="section-1"
-            initial={{ opacity: 0, filter: "blur(8px)" }}
-            animate={{ opacity: 1, filter: "blur(0px)" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{
               opacity: 0,
               y: -25,
               filter: "blur(8px)",
-              transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] }
+              transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] }
             }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             style={{
               width: "100%",
-              maxWidth: "1080px",
-              padding: "0 24px",
+              maxWidth: "1120px",
+              padding: "0 32px",
               display: "flex",
               alignItems: "center",
-              justifyContent: "center"
+              justifyContent: "center",
+              position: "relative"
             }}
           >
-            {/* GIAI ĐOẠN 1: BỪNG SÁNG TẠI TÂM MÀN HÌNH (~0.7s) */}
+            {/* GIAI ĐOẠN 1: BÌA THUẦN TÚY BỪNG SÁNG TẠI TÂM MÀN HÌNH (~0.7s) */}
             {burstStage === "bursting" && (
               <motion.div
                 initial={{ scale: 0.7, opacity: 0 }}
@@ -185,12 +186,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                 exit={{ scale: 0.95, opacity: 0 }}
                 transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
                 style={{
+                  position: "relative",
                   display: "flex",
-                  flexDirection: "column",
                   alignItems: "center",
-                  justifyContent: "center",
-                  gap: "24px",
-                  position: "relative"
+                  justifyContent: "center"
                 }}
               >
                 {/* 360 Aurora Burst Halo Glowing Ring */}
@@ -198,7 +197,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                   className="aurora-burst-halo"
                   style={{
                     position: "absolute",
-                    inset: "-20px",
+                    inset: "-24px",
                     borderRadius: "44px",
                     pointerEvents: "none",
                     zIndex: 0
@@ -206,14 +205,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                 />
 
                 <motion.div
-                  layoutId="album-cover-hero"
+                  layoutId="desktop-album-cover"
                   style={{
-                    width: "340px",
-                    height: "340px",
+                    width: "360px",
+                    height: "360px",
                     borderRadius: "32px",
                     overflow: "hidden",
-                    boxShadow: "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 50px rgba(255, 255, 255, 0.4)",
-                    border: "2px solid rgba(255, 255, 255, 0.4)",
+                    boxShadow: "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 60px rgba(255, 255, 255, 0.4)",
+                    border: "1px solid rgba(255, 255, 255, 0.3)",
                     position: "relative",
                     zIndex: 1,
                     background: "#18181b"
@@ -222,99 +221,64 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                   <img
                     src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
                     alt="HVL (99%) Top Album"
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                   />
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    padding: "8px 20px",
-                    borderRadius: "999px",
-                    background: "rgba(255, 255, 255, 0.12)",
-                    border: "1px solid rgba(255, 255, 255, 0.3)",
-                    backdropFilter: "blur(16px)",
-                    boxShadow: "0 4px 20px rgba(255, 255, 255, 0.25)"
-                  }}
-                >
-                  <Sparkles size={16} color="#ffffff" />
-                  <span style={{ fontSize: "0.95rem", fontWeight: 800, letterSpacing: "0.1em", color: "#ffffff" }}>
-                    TOP ALBUM • HVL (99%)
-                  </span>
                 </motion.div>
               </motion.div>
             )}
 
-            {/* GIAI ĐOẠN 2: TRƯỢT SANG TRÁI VÀ MỞ DANH SÁCH BÀI HÁT BÊN PHẢI */}
+            {/* GIAI ĐOẠN 2: BÌA TRƯỢT SANG TRÁI & 5 TRACKS TRƯỢT SANG PHẢI (NO CONTAINER CARD) */}
             {burstStage === "settled" && (
               <div
                 style={{
                   width: "100%",
-                  background: "linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%)",
-                  border: "1px solid rgba(255, 255, 255, 0.12)",
-                  borderRadius: "36px",
-                  padding: "40px",
-                  boxShadow: "0 30px 70px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.15)",
-                  display: "grid",
-                  gridTemplateColumns: "repeat(12, 1fr)",
-                  gap: "48px",
-                  alignItems: "center"
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "54px"
                 }}
               >
-                {/* Left: Square Rounded Album Cover sliding into place */}
+                {/* Left: Pure Album Artwork (No outer box/card, No text clutters) */}
                 <motion.div
-                  initial={{ x: 60, scale: 1.04 }}
-                  animate={{ x: 0, scale: 1 }}
+                  layoutId="desktop-album-cover"
+                  initial={{ x: 60, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
                   transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+                  whileHover={{ scale: 1.02 }}
+                  onClick={() => handleAlbumClick("HVL (99%)")}
                   style={{
-                    gridColumn: "span 5",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center"
+                    width: "360px",
+                    height: "360px",
+                    borderRadius: "32px",
+                    overflow: "hidden",
+                    boxShadow: "0 30px 80px rgba(0, 0, 0, 0.9), 0 0 1px 1px rgba(255, 255, 255, 0.25)",
+                    cursor: "pointer",
+                    background: "#18181b",
+                    flexShrink: 0
                   }}
                 >
-                  <motion.div
-                    layoutId="album-cover-hero"
-                    whileHover={{ scale: 1.03 }}
-                    onClick={() => handleAlbumClick("HVL (99%)")}
-                    style={{
-                      width: "100%",
-                      maxWidth: "340px",
-                      aspectRatio: "1/1",
-                      borderRadius: "28px",
-                      overflow: "hidden",
-                      boxShadow: "0 20px 50px rgba(0, 0, 0, 0.85), 0 0 1px 1px rgba(255, 255, 255, 0.2)",
-                      cursor: "pointer",
-                      background: "#18181b"
-                    }}
-                  >
-                    <img
-                      src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
-                      alt="HVL (99%)"
-                      loading="eager"
-                      decoding="async"
-                      fetchPriority="high"
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                    />
-                  </motion.div>
+                  <img
+                    src="https://media.postlain.com/covers/HVL_Album_Cover.jpg"
+                    alt="HVL (99%)"
+                    loading="eager"
+                    decoding="async"
+                    fetchPriority="high"
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  />
                 </motion.div>
 
-                {/* Right: Minimalist Tracklist with Stagger Animation */}
+                {/* Right: Minimalist Tracklist sliding in from right */}
                 <motion.div
                   initial={{ opacity: 0, x: 40 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 30, transition: { duration: 0.2 } }}
-                  transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                  exit={{ opacity: 0, x: 30, transition: { duration: 0.18 } }}
+                  transition={{ duration: 0.6, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
                   style={{
-                    gridColumn: "span 7",
                     display: "flex",
                     flexDirection: "column",
-                    gap: "12px"
+                    gap: "12px",
+                    width: "100%",
+                    maxWidth: "520px"
                   }}
                 >
                   {BEST_PLAY_TRACKS.map((track, idx) => {
@@ -326,20 +290,21 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                         key={track.id}
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4, delay: 0.08 * idx + 0.2 }}
+                        transition={{ duration: 0.4, delay: 0.07 * idx + 0.15 }}
                         onClick={() => handleTrackSelect(track)}
                         style={{
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "space-between",
-                          padding: "12px 18px",
-                          borderRadius: "16px",
+                          padding: "14px 20px",
+                          borderRadius: "18px",
                           background: isCurrent
                             ? "rgba(255, 255, 255, 0.12)"
-                            : "rgba(255, 255, 255, 0.03)",
+                            : "rgba(255, 255, 255, 0.04)",
                           border: isCurrent
-                            ? "1px solid rgba(255, 255, 255, 0.3)"
-                            : "1px solid rgba(255, 255, 255, 0.07)",
+                            ? "1px solid rgba(255, 255, 255, 0.35)"
+                            : "1px solid rgba(255, 255, 255, 0.08)",
+                          boxShadow: isCurrent ? "0 4px 20px rgba(255, 255, 255, 0.15)" : "none",
                           cursor: "pointer",
                           transition: "all 0.25s ease"
                         }}
@@ -347,10 +312,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                         <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: 0 }}>
                           <span
                             style={{
-                              fontSize: "0.85rem",
+                              fontSize: "0.88rem",
                               fontWeight: 700,
                               color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.4)",
-                              width: "20px",
+                              width: "22px",
                               textAlign: "center"
                             }}
                           >
@@ -360,7 +325,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                           <div style={{ minWidth: 0 }}>
                             <p
                               style={{
-                                fontSize: "0.95rem",
+                                fontSize: "0.98rem",
                                 fontWeight: isCurrent ? 700 : 600,
                                 color: "#ffffff",
                                 whiteSpace: "nowrap",
@@ -370,14 +335,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                             >
                               {track.title}
                             </p>
-                            <p style={{ fontSize: "0.78rem", color: "rgba(255, 255, 255, 0.5)" }}>
+                            <p style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.5)" }}>
                               {track.artist}
                             </p>
                           </div>
                         </div>
 
                         <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                          <span style={{ fontSize: "0.82rem", color: "rgba(255, 255, 255, 0.4)" }}>
+                          <span style={{ fontSize: "0.85rem", color: "rgba(255, 255, 255, 0.4)" }}>
                             {formatDuration(track.duration)}
                           </span>
 
@@ -414,8 +379,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
         {activeSection === 1 && (
           <motion.div
             key="section-2"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{
               opacity: 0,
               scale: 1.15,
@@ -423,7 +388,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
               filter: "blur(10px)",
               transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] }
             }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
             style={{
               width: "100%",
               maxWidth: "600px",
@@ -434,9 +399,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
               justifyContent: "center"
             }}
           >
-            {/* Seamless Shared Layout Morphing Album Card */}
+            {/* Seamless Shared Layout Morphing Album Card (Matches Section 1 Center Exactly) */}
             <motion.div
-              layoutId="album-cover-hero"
+              layoutId="desktop-album-cover"
               drag="x"
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.35}
