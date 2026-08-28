@@ -541,7 +541,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   toggleMute: () => {
-    const { isMuted, volume } = get();
+    const { isMuted } = get();
     const nextMuted = !isMuted;
     if (audioElement) {
       audioElement.muted = nextMuted;
