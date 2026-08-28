@@ -7,10 +7,6 @@ import {
   Compass,
   ArrowRight,
   Flame,
-  Radio,
-  Music2,
-  Clock,
-  Heart,
   ChevronRight,
   Info
 } from "lucide-react";
