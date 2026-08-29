@@ -1,12 +1,11 @@
 /**
- * StudioBeatEngine.ts (V3 - Luxury Multi-Band Transient & Adaptive Beat Engine)
+ * StudioBeatEngine.ts (V4 - 4096-Bin Multi-Band Transient & Dual-Gate Snare Intelligence)
  * 
  * Advanced Audio Signal Processing (DSP) & Rhythm Intelligence:
- * - 20-70Hz Sub-Bandpass Isolation + Nonlinear Dynamic Range Expansion (E^1.6)
+ * - 4096 FFT Bins (~10.76Hz per bin) for true Sub 20-70Hz, Kick 70-160Hz & Snare Isolation
+ * - Dual-Band Snare Detection (180-380Hz Fundamental + 2.2kHz-5.5kHz Snap Crack)
  * - Spectral Flux Differential Onset Detection (dE/dt) for Mastered Audio
  * - 25ms Fast Damping Micro-Decay for 1/16 & 1/32 Rapid Kick Rolls
- * - Adaptive Gentle Sinusoidal Breathing Engine for Chill / Acoustic Songs
- * - Multi-Chromatic Frequency Bands (Sub-Bass, Kick/Snare, Vocal, Hi-hat)
  * - Zero GC / 60fps-120fps Real-Time Micro-Buffers
  */
 
@@ -41,22 +40,25 @@ export interface StudioBeatState {
   isHihatHit: boolean;
 
   // Distinct Envelopes for Visual Layering [0.0 - 1.0]
-  subImpact: number; // Deep Sub-Bass glow envelope
-  kickImpact: number; // Sharp Kick / Snare flash envelope
+  subImpact: number; // Deep Sub-Bass glow envelope (Neon Violet / Crimson)
+  kickImpact: number; // Sharp Kick / 808 flash envelope (Ruby Red)
   ghostKickImpact: number; // Subtle micro-ripple envelope
   kickRollIntensity: number; // Rapid roll intensity [0.0 - 1.0]
-  snareFlash: number; // Snare flare envelope
+  snareImpact: number; // Snare hit envelope [0.0 - 1.0] (Blinding Silver-White / Diamond)
+  snareStrobe: number; // Decaying snare flash envelope
   hihatSparkle: number; // High-frequency diamond sparkle envelope
   vocalPresence: number; // Vocal / Lead melodic energy [0.0 - 1.0]
   downbeatPulse: number; // Phách 1 major pulse
   overallEnergy: number; // Macro energy level
+  trebleEnergy: number; // Treble energy level
 
   // Granular Multi-Chromatic Frequency Bands [0.0 - 1.0]
   subBass: number; // 20 - 70 Hz (Neon Violet)
   kick: number; // 70 - 180 Hz (Ruby Red / Amber)
-  upperBass: number; // 180 - 350 Hz
+  upperBass: number; // 180 - 350 Hz (Snare Fundamental)
   lowMid: number; // 350 - 900 Hz
   vocalMid: number; // 900 - 3800 Hz (Cyan / Liquid Silver)
+  snareCrack: number; // 2200 - 5500 Hz (Snare Snap)
   highTreble: number; // 5000 - 16000 Hz (Gold / Diamond)
 }
 
@@ -66,12 +68,14 @@ export class StudioBeatEngine {
   private frequencyData: Uint8Array<ArrayBuffer> | null = null;
   private prevSubEnergy = 0;
   private prevKickEnergy = 0;
-  private prevSnareEnergy = 0;
+  private prevSnareFundEnergy = 0;
+  private prevSnareCrackEnergy = 0;
   private prevTrebleEnergy = 0;
 
   // Rolling Averages for Adaptive Dynamic Noise Gates
   private lowEndHistory: number[] = [];
-  private snareHistory: number[] = [];
+  private snareFundHistory: number[] = [];
+  private snareCrackHistory: number[] = [];
   private hihatHistory: number[] = [];
   private subIsolatedHistory: number[] = [];
   private readonly HISTORY_SIZE = 24;
@@ -83,14 +87,13 @@ export class StudioBeatEngine {
   private lastGhostTime = 0;
   private recentKickIntervals: number[] = [];
   
-  // Fast Micro-Decay Parameters (25ms - 35ms)
+  // Fast Micro-Decay Parameters (25ms - 100ms)
   private readonly KICK_MIN_INTERVAL_MS = 25;
-  private readonly SNARE_MIN_INTERVAL_MS = 120;
+  private readonly SNARE_MIN_INTERVAL_MS = 90;
   private readonly HIHAT_MIN_INTERVAL_MS = 30;
 
   // Active Track Profile
   private currentTrackProfile: GroundTruthTrackProfile | null = null;
-  private drumStartSec: number = 0;
 
   // Internal State
   private state: StudioBeatState = {
@@ -121,17 +124,20 @@ export class StudioBeatEngine {
     kickImpact: 0,
     ghostKickImpact: 0,
     kickRollIntensity: 0,
-    snareFlash: 0,
+    snareImpact: 0,
+    snareStrobe: 0,
     hihatSparkle: 0,
     vocalPresence: 0,
     downbeatPulse: 0,
     overallEnergy: 0,
+    trebleEnergy: 0,
 
     subBass: 0,
     kick: 0,
     upperBass: 0,
     lowMid: 0,
     vocalMid: 0,
+    snareCrack: 0,
     highTreble: 0
   };
 
@@ -160,7 +166,8 @@ export class StudioBeatEngine {
 
     // Reset transient histories
     this.lowEndHistory = [];
-    this.snareHistory = [];
+    this.snareFundHistory = [];
+    this.snareCrackHistory = [];
     this.hihatHistory = [];
     this.subIsolatedHistory = [];
     this.recentKickIntervals = [];
@@ -202,6 +209,7 @@ export class StudioBeatEngine {
     let rawBass180_350 = 0;
     let rawMid350_900 = 0;
     let rawVocal900_3800 = 0;
+    let rawSnareCrack2k_5k = 0;
     let rawTreble5k_16k = 0;
     let rawOverall = 0;
     let hasSignal = false;
@@ -232,18 +240,19 @@ export class StudioBeatEngine {
           return sum / ((endBin - startBin + 1) * 255);
         };
 
-        // 1. Precise Multi-Band Isolated Spectrum
+        // 1. Precise 4096-Bin Multi-Band Isolated Spectrum (~10.7Hz/bin)
         rawSub20_70 = getAverageInRange(20, 70);
         rawKick70_180 = getAverageInRange(70, 180);
-        rawBass180_350 = getAverageInRange(180, 350);
+        rawBass180_350 = getAverageInRange(180, 380); // Snare Fundamental
         rawMid350_900 = getAverageInRange(350, 900);
         rawVocal900_3800 = getAverageInRange(900, 3800);
+        rawSnareCrack2k_5k = getAverageInRange(2200, 5500); // Snare Snap Crack
         rawTreble5k_16k = getAverageInRange(5000, 16000);
 
         rawOverall = (
-          rawSub20_70 * 0.32 +
+          rawSub20_70 * 0.30 +
           rawKick70_180 * 0.28 +
-          rawBass180_350 * 0.12 +
+          rawBass180_350 * 0.14 +
           rawVocal900_3800 * 0.16 +
           rawTreble5k_16k * 0.12
         );
@@ -280,21 +289,25 @@ export class StudioBeatEngine {
     let isHihatHit = false;
 
     if (hasSignal && isPlaying) {
-      // 1. Nonlinear Expansion on Sub-Band (E^1.6) to separate buried ghost sub/kicks
+      // 1. Nonlinear Expansion on Sub-Band (E^1.4)
       const expandedSub = Math.pow(rawSub20_70, 1.4);
       this.subIsolatedHistory.push(expandedSub);
       if (this.subIsolatedHistory.length > this.HISTORY_SIZE) this.subIsolatedHistory.shift();
       const avgSub = this.subIsolatedHistory.reduce((a, b) => a + b, 0) / this.subIsolatedHistory.length;
 
-      // 2. Rolling History for Kick & Transient Flux
+      // 2. Rolling History for Kick & Snare
       const combinedLow = rawSub20_70 * 0.50 + rawKick70_180 * 0.50;
       this.lowEndHistory.push(combinedLow);
       if (this.lowEndHistory.length > this.HISTORY_SIZE) this.lowEndHistory.shift();
       const avgLow = this.lowEndHistory.reduce((a, b) => a + b, 0) / this.lowEndHistory.length;
 
-      this.snareHistory.push(rawVocal900_3800);
-      if (this.snareHistory.length > this.HISTORY_SIZE) this.snareHistory.shift();
-      const avgSnare = this.snareHistory.reduce((a, b) => a + b, 0) / this.snareHistory.length;
+      this.snareFundHistory.push(rawBass180_350);
+      if (this.snareFundHistory.length > this.HISTORY_SIZE) this.snareFundHistory.shift();
+      const avgSnareFund = this.snareFundHistory.reduce((a, b) => a + b, 0) / this.snareFundHistory.length;
+
+      this.snareCrackHistory.push(rawSnareCrack2k_5k);
+      if (this.snareCrackHistory.length > this.HISTORY_SIZE) this.snareCrackHistory.shift();
+      const avgSnareCrack = this.snareCrackHistory.reduce((a, b) => a + b, 0) / this.snareCrackHistory.length;
 
       this.hihatHistory.push(rawTreble5k_16k);
       if (this.hihatHistory.length > this.HISTORY_SIZE) this.hihatHistory.shift();
@@ -303,19 +316,19 @@ export class StudioBeatEngine {
       // 3. Spectral Flux (First-Order Difference dE/dt)
       const subFlux = Math.max(0, rawSub20_70 - this.prevSubEnergy);
       const kickFlux = Math.max(0, rawKick70_180 - this.prevKickEnergy);
-      const snareFlux = Math.max(0, rawVocal900_3800 - this.prevSnareEnergy);
+      const snareFundFlux = Math.max(0, rawBass180_350 - this.prevSnareFundEnergy);
+      const snareCrackFlux = Math.max(0, rawSnareCrack2k_5k - this.prevSnareCrackEnergy);
       const trebleFlux = Math.max(0, rawTreble5k_16k - this.prevTrebleEnergy);
 
       this.prevSubEnergy = rawSub20_70;
       this.prevKickEnergy = rawKick70_180;
-      this.prevSnareEnergy = rawVocal900_3800;
+      this.prevSnareFundEnergy = rawBass180_350;
+      this.prevSnareCrackEnergy = rawSnareCrack2k_5k;
       this.prevTrebleEnergy = rawTreble5k_16k;
 
       // 4. Heavy Kick & Rapid Kick Roll Detection (Fast 25ms Damping Window)
       const timeSinceLastKick = now - this.lastKickTime;
       const isFastConsecutive = timeSinceLastKick >= this.KICK_MIN_INTERVAL_MS && timeSinceLastKick < 160;
-
-      // Dynamic Threshold with Slope Spike
       const kickThreshold = isFastConsecutive ? avgLow * 1.06 : avgLow * 1.15;
 
       if ((combinedLow > kickThreshold || kickFlux > 0.04) && combinedLow > 0.035 && timeSinceLastKick >= this.KICK_MIN_INTERVAL_MS) {
@@ -323,7 +336,6 @@ export class StudioBeatEngine {
         this.lastKickTime = now;
         this.state.kickImpact = 1.0;
 
-        // Record roll interval
         this.recentKickIntervals.push(timeSinceLastKick);
         if (this.recentKickIntervals.length > 5) this.recentKickIntervals.shift();
 
@@ -333,7 +345,7 @@ export class StudioBeatEngine {
         }
       }
 
-      // 5. Ghost Kick / Buried Sub-Slide Detection (Dual-Threshold Micro Onset)
+      // 5. Ghost Kick / Buried Sub-Slide
       const timeSinceLastGhost = now - this.lastGhostTime;
       if (!isKickHit && (expandedSub > avgSub * 1.04 || subFlux > 0.02) && timeSinceLastGhost > 45) {
         isGhostKickHit = true;
@@ -341,89 +353,78 @@ export class StudioBeatEngine {
         this.state.ghostKickImpact = Math.min(0.75, expandedSub * 1.6 + subFlux * 2.0);
       }
 
-      // 6. Snare / Mid Claps (900-3800Hz)
+      // 6. Snare Dual-Band Detection (180-380Hz Body + 2.2k-5.5kHz Snap)
       const timeSinceLastSnare = now - this.lastSnareTime;
-      if ((rawVocal900_3800 > avgSnare * 1.15 || snareFlux > 0.04) && rawVocal900_3800 > 0.04 && timeSinceLastSnare >= this.SNARE_MIN_INTERVAL_MS) {
+      const combinedSnareFlux = snareFundFlux * 0.45 + snareCrackFlux * 0.55;
+      const combinedSnarePower = rawBass180_350 * 0.45 + rawSnareCrack2k_5k * 0.55;
+      const avgSnareTotal = avgSnareFund * 0.45 + avgSnareCrack * 0.55;
+
+      if (
+        (combinedSnarePower > avgSnareTotal * 1.16 || combinedSnareFlux > 0.045) &&
+        combinedSnarePower > 0.04 &&
+        timeSinceLastSnare >= this.SNARE_MIN_INTERVAL_MS
+      ) {
         isSnareHit = true;
         this.lastSnareTime = now;
-        this.state.snareFlash = 1.0;
+        this.state.snareImpact = 1.0;
+        this.state.snareStrobe = 1.0;
       }
 
-      // 7. Hi-Hat / Cymbals (5k-16kHz)
+      // 7. Hi-hat / Shimmer Detection
       const timeSinceLastHihat = now - this.lastHihatTime;
-      if ((rawTreble5k_16k > avgHihat * 1.18 || trebleFlux > 0.03) && rawTreble5k_16k > 0.03 && timeSinceLastHihat >= this.HIHAT_MIN_INTERVAL_MS) {
+      if ((rawTreble5k_16k > avgHihat * 1.25 || trebleFlux > 0.05) && rawTreble5k_16k > 0.04 && timeSinceLastHihat >= this.HIHAT_MIN_INTERVAL_MS) {
         isHihatHit = true;
         this.lastHihatTime = now;
         this.state.hihatSparkle = 1.0;
       }
 
-      // 8. Sub-Bass Rumble
-      if (rawSub20_70 > 0.15 || subFlux > 0.03) {
-        isSubHit = true;
-        this.state.subImpact = Math.min(1.0, rawSub20_70 * 1.8 + subFlux * 2.0);
+      isSubHit = rawSub20_70 > avgSub * 1.08 && rawSub20_70 > 0.05;
+      if (isSubHit) {
+        this.state.subImpact = Math.min(1.0, this.state.subImpact + rawSub20_70 * 0.85);
       }
-
-      // 9. Vocal / Lead Synth Energy
-      this.state.vocalPresence = Math.min(1.0, rawVocal900_3800 * 1.8 + rawMid350_900 * 0.6);
-
-      // Interpolation (Smoothing Attack & Decay)
-      const lerp = (curr: number, target: number, attack = 0.7, decay = 0.2) => {
-        const rate = target > curr ? attack : decay;
-        return curr + (target - curr) * rate;
-      };
-
-      this.state.subBass = lerp(this.state.subBass, rawSub20_70, 0.88, 0.25);
-      this.state.kick = lerp(this.state.kick, rawKick70_180, 0.90, 0.25);
-      this.state.upperBass = lerp(this.state.upperBass, rawBass180_350, 0.75, 0.20);
-      this.state.lowMid = lerp(this.state.lowMid, rawMid350_900, 0.60, 0.15);
-      this.state.vocalMid = lerp(this.state.vocalMid, rawVocal900_3800, 0.70, 0.18);
-      this.state.highTreble = lerp(this.state.highTreble, rawTreble5k_16k, 0.75, 0.22);
-      this.state.overallEnergy = lerp(this.state.overallEnergy, rawOverall, 0.65, 0.18);
-
-      // Detect Gentle / Calm Passage (Acoustic / Intro / Outro)
-      this.state.isGentleMode = rawOverall < 0.10 && this.state.subBass < 0.15;
-    } else if (isPlaying) {
-      // High-Quality Synthetic Rhythm Fallback along Ground-Truth BPM Grid
-      const isBeatOnset = beatPhase < 0.12;
-      const isDownbeat = (beatInBar === 1 && isBeatOnset);
-      const isSnareBeat = (beatInBar === 2 || beatInBar === 4) && Math.abs(beatPhase - 0.5) < 0.12;
-
-      if (isBeatOnset && now - this.lastKickTime > 180) {
-        isKickHit = true;
-        this.lastKickTime = now;
-        this.state.kickImpact = isDownbeat ? 1.0 : 0.85;
-      }
-
-      if (isSnareBeat && now - this.lastSnareTime > 180) {
-        isSnareHit = true;
-        this.lastSnareTime = now;
-        this.state.snareFlash = 0.90;
-      }
-
-      this.state.subBass = 0.35 + Math.sin(beatPhase * Math.PI) * 0.45;
-      this.state.subImpact = isDownbeat ? 0.9 : 0.45;
-      this.state.isGentleMode = false;
     } else {
-      this.state.isGentleMode = true;
+      // Fallback ground-truth pulse
+      if (beatPhase < 0.12 && isPlaying) {
+        isKickHit = true;
+        this.state.kickImpact = 0.85;
+      }
+      if (Math.abs(beatPhase - 0.5) < 0.10 && isPlaying) {
+        isSnareHit = true;
+        this.state.snareImpact = 0.85;
+        this.state.snareStrobe = 0.85;
+      }
     }
 
-    // Exponential Damping
-    this.state.kickImpact *= 0.80; // Fast decay for distinct kicks
-    this.state.kickRollIntensity *= 0.85;
-    this.state.ghostKickImpact *= 0.78;
-    this.state.snareFlash *= 0.75;
+    // Decay Envelopes per frame
+    this.state.kickImpact *= 0.84;
+    this.state.subImpact *= 0.90;
+    this.state.ghostKickImpact *= 0.86;
+    this.state.kickRollIntensity *= 0.82;
+    this.state.snareImpact *= 0.80;
+    this.state.snareStrobe *= 0.78;
     this.state.hihatSparkle *= 0.78;
-    this.state.subImpact *= 0.86;
-    this.state.downbeatPulse *= 0.80;
 
+    // Macro Bands
+    this.state.subBass = rawSub20_70;
+    this.state.kick = rawKick70_180;
+    this.state.upperBass = rawBass180_350;
+    this.state.lowMid = rawMid350_900;
+    this.state.vocalMid = rawVocal900_3800;
+    this.state.snareCrack = rawSnareCrack2k_5k;
+    this.state.highTreble = rawTreble5k_16k;
+    this.state.overallEnergy = rawOverall;
+    this.state.trebleEnergy = rawTreble5k_16k;
+
+    this.state.vocalPresence = Math.min(1.0, rawVocal900_3800 * 1.8);
+    this.state.isBeatHit = isKickHit || isSnareHit;
+    this.state.isDownbeat = isKickHit && beatInBar === 1;
     this.state.isKickHit = isKickHit;
     this.state.isGhostKickHit = isGhostKickHit;
     this.state.isKickRoll = isKickRoll;
     this.state.isSnareHit = isSnareHit;
-    this.state.isHihatHit = isHihatHit;
     this.state.isSubHit = isSubHit;
-    this.state.isBeatHit = isKickHit || (beatPhase < 0.10);
-    this.state.isDownbeat = (beatInBar === 1 && beatPhase < 0.12);
+    this.state.isHihatHit = isHihatHit;
+    this.state.isGentleMode = rawOverall < 0.08 && isPlaying;
 
     return this.state;
   }

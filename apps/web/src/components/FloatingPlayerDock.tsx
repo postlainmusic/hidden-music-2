@@ -42,8 +42,7 @@ export const FloatingPlayerDock: React.FC = () => {
     toggleMute,
     toggleBassBoost,
     favoritedTrackIds,
-    toggleFavoriteTrack,
-    getTrackWaveform
+    toggleFavoriteTrack
   } = useAudioStore();
 
   const [expandedMode, setExpandedMode] = useState<"none" | "lyrics" | "queue">("none");
@@ -55,16 +54,17 @@ export const FloatingPlayerDock: React.FC = () => {
   const [isDraggingSeeker, setIsDraggingSeeker] = useState<boolean>(false);
   const [dragSeekTime, setDragSeekTime] = useState<number | null>(null);
 
-  // Direct DOM Refs for 60fps Micro-Performance (Zero React re-render)
+  // Direct DOM Refs for 60fps Zero-GC Audio-Reactive Performance
   const dockContainerRef = useRef<HTMLDivElement | null>(null);
+  const mainDockBarRef = useRef<HTMLDivElement | null>(null);
   const visualizerRef = useRef<HTMLCanvasElement | null>(null);
   const miniCoverRef = useRef<HTMLDivElement | null>(null);
-  const volumeSliderRef = useRef<HTMLDivElement | null>(null);
   const currentTimeTextRef = useRef<HTMLSpanElement | null>(null);
   const durationTextRef = useRef<HTMLSpanElement | null>(null);
   const playedProgressBarRef = useRef<HTMLDivElement | null>(null);
   const bufferedProgressBarRef = useRef<HTMLDivElement | null>(null);
   const sliderInputRef = useRef<HTMLInputElement | null>(null);
+  const topSpecularRef = useRef<HTMLDivElement | null>(null);
 
   const isFav = currentTrack ? favoritedTrackIds.includes(currentTrack.id) : false;
 
@@ -116,7 +116,7 @@ export const FloatingPlayerDock: React.FC = () => {
     return () => unsubscribe();
   }, [isDraggingSeeker]);
 
-  // 60FPS Beat Pulse on Mini Cover & Equalizer Canvas
+  // 60FPS Beat Pulse, Snare Strobe & Audio-Reactive Chớp Giật on Playdock
   useEffect(() => {
     let animId: number;
     const canvas = visualizerRef.current;
@@ -125,23 +125,52 @@ export const FloatingPlayerDock: React.FC = () => {
     const loop = () => {
       const beatState = studioBeatEngine.getBeatState();
 
+      // 1. Playdock Audio-Reactive Strobe & Border Chớp Giật
+      if (mainDockBarRef.current) {
+        if (beatState.isSnareHit || beatState.snareStrobe > 0.35) {
+          // Snare Hit: Blinding Silver-White & Diamond Specular Flash
+          mainDockBarRef.current.style.borderColor = "rgba(255, 255, 255, 0.95)";
+          mainDockBarRef.current.style.boxShadow =
+            "0 20px 60px rgba(0, 0, 0, 0.98), 0 0 35px rgba(255, 255, 255, 0.65), inset 0 0 15px rgba(255, 255, 255, 0.35)";
+          if (topSpecularRef.current) topSpecularRef.current.style.opacity = "1.0";
+        } else if (beatState.isKickHit || beatState.isKickRoll || beatState.kickImpact > 0.35) {
+          // Kick / 808 Hit: Blazing Crimson Red Flash
+          mainDockBarRef.current.style.borderColor = "rgba(239, 68, 68, 0.95)";
+          mainDockBarRef.current.style.boxShadow =
+            "0 20px 60px rgba(0, 0, 0, 0.98), 0 0 35px rgba(239, 68, 68, 0.65), inset 0 0 15px rgba(239, 68, 68, 0.25)";
+          if (topSpecularRef.current) topSpecularRef.current.style.opacity = "0.75";
+        } else if (beatState.subImpact > 0.25) {
+          // Sub-Bass Glow
+          mainDockBarRef.current.style.borderColor = "rgba(185, 28, 28, 0.65)";
+          mainDockBarRef.current.style.boxShadow =
+            "0 20px 50px rgba(0, 0, 0, 0.95), 0 0 25px rgba(185, 28, 28, 0.45)";
+          if (topSpecularRef.current) topSpecularRef.current.style.opacity = "0.5";
+        } else {
+          mainDockBarRef.current.style.borderColor = isPlaying ? "rgba(239, 68, 68, 0.30)" : "rgba(255, 255, 255, 0.14)";
+          mainDockBarRef.current.style.boxShadow =
+            "0 20px 50px rgba(0, 0, 0, 0.95), 0 0 20px rgba(239, 68, 68, 0.12)";
+          if (topSpecularRef.current) topSpecularRef.current.style.opacity = "0.35";
+        }
+      }
+
+      // 2. Mini Cover Beat Reaction
       if (miniCoverRef.current) {
-        if (beatState.isKickHit || beatState.isKickRoll) {
+        if (beatState.isSnareHit) {
+          miniCoverRef.current.style.transform = "scale(1.09)";
+          miniCoverRef.current.style.boxShadow = "0 0 18px rgba(255, 255, 255, 0.9)";
+        } else if (beatState.isKickHit || beatState.isKickRoll) {
           miniCoverRef.current.style.transform = "scale(1.08)";
           miniCoverRef.current.style.boxShadow = "0 0 16px rgba(239, 68, 68, 0.9)";
         } else if (beatState.isSubHit) {
-          miniCoverRef.current.style.transform = "scale(1.05)";
+          miniCoverRef.current.style.transform = "scale(1.04)";
           miniCoverRef.current.style.boxShadow = "0 0 14px rgba(185, 28, 28, 0.75)";
-        } else if (beatState.isSnareHit) {
-          miniCoverRef.current.style.transform = "scale(1.03)";
-          miniCoverRef.current.style.boxShadow = "0 0 14px rgba(255, 255, 255, 0.75)";
         } else {
           miniCoverRef.current.style.transform = "scale(1.0)";
           miniCoverRef.current.style.boxShadow = "0 4px 14px rgba(0,0,0,0.5)";
         }
       }
 
-      // Draw Mini Dynamic Equalizer in Dock Center
+      // 3. Mini Equalizer Spectrum Canvas in Dock Center
       if (ctx && canvas) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const bars = 10;
@@ -154,12 +183,18 @@ export const FloatingPlayerDock: React.FC = () => {
           let h = 3;
           if (isPlaying) {
             if (i < 3) h = Math.max(3, beatState.subImpact * maxH * 0.95);
-            else if (i < 6) h = Math.max(3, beatState.kickImpact * maxH * 0.90);
-            else if (i < 8) h = Math.max(3, beatState.vocalPresence * maxH * 0.85);
+            else if (i < 5) h = Math.max(3, beatState.kickImpact * maxH * 0.90);
+            else if (i < 8) h = Math.max(3, (beatState.snareImpact * 0.6 + beatState.vocalPresence * 0.4) * maxH * 0.85);
             else h = Math.max(3, beatState.trebleEnergy * maxH * 0.80);
           }
 
-          ctx.fillStyle = isPlaying ? (i < 4 ? "#ef4444" : "#ffffff") : "rgba(255, 255, 255, 0.25)";
+          ctx.fillStyle = isPlaying
+            ? i < 4
+              ? "#ef4444"
+              : beatState.isSnareHit
+              ? "#ffffff"
+              : "rgba(255, 255, 255, 0.85)"
+            : "rgba(255, 255, 255, 0.25)";
           ctx.beginPath();
           ctx.roundRect(x, maxH - h, barWidth, h, 1.5);
           ctx.fill();
@@ -176,14 +211,13 @@ export const FloatingPlayerDock: React.FC = () => {
   if (!currentTrack) return null;
 
   const effectiveDuration = duration && duration > 0 ? duration : currentTrack.duration;
-  const waveformPeaks = getTrackWaveform(currentTrack.id);
 
   return (
     <div
       ref={dockContainerRef}
       style={{
         position: "fixed",
-        bottom: "28px",
+        bottom: "24px",
         left: 0,
         right: 0,
         display: "flex",
@@ -195,31 +229,32 @@ export const FloatingPlayerDock: React.FC = () => {
       }}
     >
       {/* ─────────────────────────────────────────────────────────────────────
-          SEAMLESS SLIDING GLASS DRAWER (LYRICS & QUEUE EXPANSION)
+          SEAMLESS UNIFIED SLIDING GLASS DRAWER (ATTACHED DIRECTLY TO DOCK)
       ────────────────────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {expandedMode !== "none" && (
           <motion.div
-            initial={{ opacity: 0, y: 30, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 30, scale: 0.98 }}
-            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0, y: 15, scaleY: 0.95 }}
+            animate={{ opacity: 1, y: 0, scaleY: 1 }}
+            exit={{ opacity: 0, y: 15, scaleY: 0.95 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             style={{
-              position: "absolute",
-              bottom: "82px",
               width: "min(860px, calc(100vw - 40px))",
-              height: "min(460px, 54vh)",
-              borderRadius: "28px",
-              background: "rgba(8, 9, 14, 0.94)",
-              border: "1px solid rgba(239, 68, 68, 0.35)",
-              boxShadow: "0 30px 80px rgba(0, 0, 0, 0.98), 0 0 40px rgba(239, 68, 68, 0.22)",
+              height: "min(440px, 52vh)",
+              borderRadius: "28px 28px 12px 12px",
+              background: "rgba(8, 9, 14, 0.95)",
+              border: "1px solid rgba(239, 68, 68, 0.4)",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+              boxShadow: "0 30px 80px rgba(0, 0, 0, 0.98), 0 0 40px rgba(239, 68, 68, 0.25)",
               backdropFilter: "blur(36px)",
               WebkitBackdropFilter: "blur(36px)",
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
               pointerEvents: "auto",
+              marginBottom: "-6px", // Seamlessly connects to main dock
               zIndex: 70,
+              transformOrigin: "bottom center",
             }}
           >
             {/* Header Tabs: Lyrics vs Queue Switcher */}
@@ -228,7 +263,7 @@ export const FloatingPlayerDock: React.FC = () => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                padding: "14px 24px",
+                padding: "12px 20px",
                 borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
                 background: "rgba(239, 68, 68, 0.04)",
               }}
@@ -304,7 +339,7 @@ export const FloatingPlayerDock: React.FC = () => {
               {expandedMode === "lyrics" ? (
                 <SyncedLyricsView onSeek={(t) => seek(t)} />
               ) : (
-                <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: "4px" }}>
                   {DEFAULT_TRACKS.map((track, idx) => {
                     const isCur = track.id === currentTrack.id;
                     const isTrackFav = favoritedTrackIds.includes(track.id);
@@ -317,7 +352,7 @@ export const FloatingPlayerDock: React.FC = () => {
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "space-between",
-                          padding: "9px 14px",
+                          padding: "8px 14px",
                           borderRadius: "14px",
                           background: isCur ? "rgba(239, 68, 68, 0.18)" : "rgba(255, 255, 255, 0.02)",
                           border: isCur ? "1px solid rgba(239, 68, 68, 0.45)" : "1px solid transparent",
@@ -391,18 +426,16 @@ export const FloatingPlayerDock: React.FC = () => {
       </AnimatePresence>
 
       {/* ─────────────────────────────────────────────────────────────────────
-          MAIN FLOATING PLAYBAR DOCK (LUXURY GLASS CONTAINER)
+          MAIN FLOATING PLAYBAR DOCK (LUXURY GLASS CONTAINER WITH AUDIO PULSE)
       ────────────────────────────────────────────────────────────────────── */}
-      <motion.div
-        initial={{ y: 80, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+      <div
+        ref={mainDockBarRef}
         style={{
           width: "100%",
           maxWidth: "860px",
           padding: "10px 20px",
-          borderRadius: "26px",
-          background: "rgba(10, 11, 16, 0.88)",
+          borderRadius: expandedMode !== "none" ? "12px 12px 26px 26px" : "26px",
+          background: "rgba(10, 11, 16, 0.90)",
           border: "1px solid rgba(255, 255, 255, 0.16)",
           boxShadow: "0 20px 50px rgba(0, 0, 0, 0.95), 0 0 25px rgba(239, 68, 68, 0.18)",
           backdropFilter: "blur(28px)",
@@ -414,31 +447,38 @@ export const FloatingPlayerDock: React.FC = () => {
           pointerEvents: "auto",
           position: "relative",
           overflow: "visible",
+          transition: "border-radius 0.25s ease, border-color 0.08s ease, box-shadow 0.08s ease",
         }}
       >
         {/* Top Specular Reflection Glow Line */}
         <div
+          ref={topSpecularRef}
           style={{
             position: "absolute",
             top: 0,
             left: "15%",
             right: "15%",
             height: "1px",
-            background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent)",
+            background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.75), transparent)",
             pointerEvents: "none",
+            opacity: 0.4,
+            transition: "opacity 0.08s ease",
           }}
         />
 
-        {/* 1. LEFT: TRACK METADATA & AUDIO-REACTIVE MINI ARTWORK */}
+        {/* 1. LEFT: FIXED-WIDTH LOCKED METADATA (220px STRICT) */}
         <div
           onClick={() => setExpandedMode((prev) => (prev === "lyrics" ? "none" : "lyrics"))}
           style={{
             display: "flex",
             alignItems: "center",
             gap: "12px",
-            minWidth: "200px",
-            maxWidth: "240px",
+            width: "220px",
+            minWidth: "220px",
+            maxWidth: "220px",
+            flexShrink: 0,
             cursor: "pointer",
+            overflow: "hidden",
           }}
         >
           <div
@@ -471,7 +511,7 @@ export const FloatingPlayerDock: React.FC = () => {
             )}
           </div>
 
-          <div style={{ overflow: "hidden", minWidth: 0 }}>
+          <div style={{ overflow: "hidden", flex: 1, minWidth: 0 }}>
             <h4
               style={{
                 fontSize: "0.88rem",
@@ -481,6 +521,7 @@ export const FloatingPlayerDock: React.FC = () => {
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 letterSpacing: "0.02em",
+                margin: 0,
               }}
             >
               {currentTrack.title}
@@ -503,6 +544,7 @@ export const FloatingPlayerDock: React.FC = () => {
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
+                  margin: 0,
                 }}
               >
                 {currentTrack.artist}
@@ -526,14 +568,13 @@ export const FloatingPlayerDock: React.FC = () => {
               justifyContent: "center",
               cursor: "pointer",
               flexShrink: 0,
-              marginLeft: "4px",
             }}
           >
             <Heart size={14} color={isFav ? "#ef4444" : "rgba(255,255,255,0.4)"} fill={isFav ? "#ef4444" : "none"} />
           </button>
         </div>
 
-        {/* 2. CENTER: TRANSPORT CONTROLS & CONTINUOUS WAVEFORM SCRUBBER */}
+        {/* 2. CENTER: TRANSPORT CONTROLS & CLEAN CONTINUOUS LINE SCRUBBER */}
         <div
           style={{
             display: "flex",
@@ -541,7 +582,7 @@ export const FloatingPlayerDock: React.FC = () => {
             alignItems: "center",
             gap: "4px",
             flex: 1,
-            maxWidth: "460px",
+            minWidth: 0,
           }}
         >
           {/* Top Control Buttons Row */}
@@ -633,7 +674,7 @@ export const FloatingPlayerDock: React.FC = () => {
             <canvas ref={visualizerRef} width={75} height={18} style={{ marginLeft: "4px" }} />
           </div>
 
-          {/* Timeline & Scrubber with Instant Waveform Peak Overlay */}
+          {/* Clean Continuous Line Scrubber (No Chunk Waveform Ticks) */}
           <div style={{ display: "flex", alignItems: "center", gap: "10px", width: "100%" }}>
             <span
               ref={currentTimeTextRef}
@@ -654,7 +695,7 @@ export const FloatingPlayerDock: React.FC = () => {
                 flex: 1,
                 display: "flex",
                 alignItems: "center",
-                height: "18px",
+                height: "16px",
                 cursor: "pointer",
               }}
               onMouseMove={(e) => {
@@ -689,31 +730,50 @@ export const FloatingPlayerDock: React.FC = () => {
                 </div>
               )}
 
-              {/* Instant Waveform Matrix Bars */}
+              {/* Background Track Groove */}
               <div
                 style={{
                   position: "absolute",
-                  inset: "3px 0",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "1.5px",
-                  opacity: 0.25,
+                  left: 0,
+                  right: 0,
+                  height: "3.5px",
+                  borderRadius: "999px",
+                  background: "rgba(255, 255, 255, 0.12)",
                   pointerEvents: "none",
-                  zIndex: 0,
                 }}
-              >
-                {waveformPeaks.slice(0, 60).map((peak, pIdx) => (
-                  <div
-                    key={pIdx}
-                    style={{
-                      flex: 1,
-                      height: `${Math.max(15, peak * 100)}%`,
-                      borderRadius: "1px",
-                      background: "#ffffff",
-                    }}
-                  />
-                ))}
-              </div>
+              />
+
+              {/* Buffered Stream Progress Bar */}
+              <div
+                ref={bufferedProgressBarRef}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  height: "3.5px",
+                  borderRadius: "999px",
+                  background: "rgba(255, 255, 255, 0.25)",
+                  width: "0%",
+                  pointerEvents: "none",
+                  zIndex: 1,
+                  transition: "width 0.25s ease",
+                }}
+              />
+
+              {/* Active Played Progress Bar */}
+              <div
+                ref={playedProgressBarRef}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  height: "3.5px",
+                  borderRadius: "999px",
+                  background: "linear-gradient(90deg, #ef4444, #f97316)",
+                  width: "0%",
+                  pointerEvents: "none",
+                  boxShadow: "0 0 10px rgba(239, 68, 68, 0.8)",
+                  zIndex: 2,
+                }}
+              />
 
               {/* Native Slider Input */}
               <input
@@ -748,39 +808,7 @@ export const FloatingPlayerDock: React.FC = () => {
                     setDragSeekTime(null);
                   }
                 }}
-                style={{ width: "100%", height: "4px", zIndex: 3, cursor: "pointer", opacity: 0 }}
-              />
-
-              {/* Buffered Stream Progress Bar */}
-              <div
-                ref={bufferedProgressBarRef}
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  height: "4px",
-                  borderRadius: "999px",
-                  background: "rgba(255, 255, 255, 0.22)",
-                  width: "0%",
-                  pointerEvents: "none",
-                  zIndex: 1,
-                  transition: "width 0.25s ease",
-                }}
-              />
-
-              {/* Active Played Progress Bar */}
-              <div
-                ref={playedProgressBarRef}
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  height: "4px",
-                  borderRadius: "999px",
-                  background: "linear-gradient(90deg, #ef4444, #f97316)",
-                  width: "0%",
-                  pointerEvents: "none",
-                  boxShadow: "0 0 10px rgba(239, 68, 68, 0.8)",
-                  zIndex: 2,
-                }}
+                style={{ width: "100%", height: "16px", zIndex: 3, cursor: "pointer", opacity: 0 }}
               />
             </div>
 
@@ -798,13 +826,16 @@ export const FloatingPlayerDock: React.FC = () => {
           </div>
         </div>
 
-        {/* 3. RIGHT: TOOL BUTTONS, PUNCHY BASS BOOST & VOLUME SLIDER */}
+        {/* 3. RIGHT: TOOL BUTTONS & SEAMLESS INTEGRATED VOLUME (220px STRICT) */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: "8px",
-            minWidth: "210px",
+            width: "220px",
+            minWidth: "220px",
+            maxWidth: "220px",
+            flexShrink: 0,
             justifyContent: "flex-end",
             position: "relative",
           }}
@@ -877,8 +908,12 @@ export const FloatingPlayerDock: React.FC = () => {
             <ListMusic size={15} />
           </button>
 
-          {/* Vertical Volume Slider Toggle */}
-          <div style={{ position: "relative" }}>
+          {/* Seamless Integrated Volume Slider Popover */}
+          <div
+            style={{ position: "relative" }}
+            onMouseEnter={() => setShowVolumeSlider(true)}
+            onMouseLeave={() => setShowVolumeSlider(false)}
+          >
             <button
               onClick={() => setShowVolumeSlider((prev) => !prev)}
               onDoubleClick={toggleMute}
@@ -906,50 +941,56 @@ export const FloatingPlayerDock: React.FC = () => {
               )}
             </button>
 
-            {/* Vertical Volume Slider Popup */}
-            {showVolumeSlider && (
-              <div
-                ref={volumeSliderRef}
-                style={{
-                  position: "absolute",
-                  bottom: "44px",
-                  right: "-6px",
-                  padding: "14px 10px",
-                  borderRadius: "20px",
-                  background: "rgba(10, 11, 16, 0.95)",
-                  border: "1px solid rgba(255, 255, 255, 0.2)",
-                  boxShadow: "0 15px 40px rgba(0, 0, 0, 0.9)",
-                  backdropFilter: "blur(24px)",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "10px",
-                  zIndex: 100,
-                }}
-              >
-                <span style={{ fontSize: "0.72rem", fontWeight: 800, color: "#ffffff" }}>
-                  {Math.round((isMuted ? 0 : volume) * 100)}%
-                </span>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={isMuted ? 0 : volume}
-                  onChange={(e) => setVolume(Number(e.target.value))}
+            {/* Seamless Docked Vertical Volume Slider */}
+            <AnimatePresence>
+              {showVolumeSlider && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  transition={{ duration: 0.15 }}
                   style={{
-                    writingMode: "vertical-lr",
-                    direction: "rtl",
-                    width: "6px",
-                    height: "90px",
-                    cursor: "pointer",
+                    position: "absolute",
+                    bottom: "38px",
+                    right: "-2px",
+                    padding: "12px 8px",
+                    borderRadius: "18px",
+                    background: "rgba(10, 11, 16, 0.96)",
+                    border: "1px solid rgba(239, 68, 68, 0.4)",
+                    boxShadow: "0 15px 40px rgba(0, 0, 0, 0.95), 0 0 20px rgba(239, 68, 68, 0.3)",
+                    backdropFilter: "blur(28px)",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "8px",
+                    zIndex: 100,
                   }}
-                />
-              </div>
-            )}
+                >
+                  <span style={{ fontSize: "0.70rem", fontWeight: 800, color: "#ffffff" }}>
+                    {Math.round((isMuted ? 0 : volume) * 100)}%
+                  </span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={isMuted ? 0 : volume}
+                    onChange={(e) => setVolume(Number(e.target.value))}
+                    style={{
+                      writingMode: "vertical-lr",
+                      direction: "rtl",
+                      width: "6px",
+                      height: "85px",
+                      cursor: "pointer",
+                      accentColor: "#ef4444",
+                    }}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };

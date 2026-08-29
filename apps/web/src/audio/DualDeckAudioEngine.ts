@@ -141,10 +141,10 @@ export class DualDeckAudioEngine {
       this.subBassFilter.frequency.value = 70;
       this.subBassFilter.gain.value = this.bassBoostEnabled ? 5.5 : 0.0;
 
-      // 4. Master Analyser (High-resolution 2048 FFT: 21.5Hz per bin for sub-bass isolation)
+      // 4. Master Analyser (Ultra-resolution 4096 FFT: 10.7Hz per bin for true sub/kick/snare isolation)
       this.masterAnalyser = this.audioCtx.createAnalyser();
-      this.masterAnalyser.fftSize = 2048;
-      this.masterAnalyser.smoothingTimeConstant = 0.68;
+      this.masterAnalyser.fftSize = 4096;
+      this.masterAnalyser.smoothingTimeConstant = 0.60;
 
       // Connect Deck A & B to their Gains
       try {
