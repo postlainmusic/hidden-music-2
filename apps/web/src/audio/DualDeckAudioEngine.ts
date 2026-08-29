@@ -115,16 +115,20 @@ export class DualDeckAudioEngine {
   /**
    * Initializes the Web Audio API Graph lazily on first user gesture.
    */
-  public ensureAudioContext(): AudioContext {
-    if (!this.audioCtx && typeof window !== "undefined") {
+  public async ensureAudioContext(): Promise<AudioContext | null> {
+    if (typeof window === "undefined") return null;
+
+    if (!this.audioCtx) {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return null;
+
       this.audioCtx = new AudioContextClass();
 
       // 1. Gains for Deck A & B
       this.gainA = this.audioCtx.createGain();
       this.gainB = this.audioCtx.createGain();
       this.gainA.gain.value = 1.0;
-      this.gainB.gain.value = 0.0;
+      this.gainB.gain.value = 1.0;
 
       // 2. Master Gain
       this.masterGain = this.audioCtx.createGain();
@@ -134,17 +138,9 @@ export class DualDeckAudioEngine {
       this.subBassFilter = this.audioCtx.createBiquadFilter();
       this.subBassFilter.type = "lowshelf";
       this.subBassFilter.frequency.value = 70;
-      this.subBassFilter.gain.value = this.bassBoostEnabled ? 5.0 : 0.0;
+      this.subBassFilter.gain.value = this.bassBoostEnabled ? 5.5 : 0.0;
 
-      // 4. Smart Loudness Normalizer (DynamicsCompressor)
-      this.compressor = this.audioCtx.createDynamicsCompressor();
-      this.compressor.threshold.value = -16;
-      this.compressor.knee.value = 24;
-      this.compressor.ratio.value = 3.5;
-      this.compressor.attack.value = 0.005;
-      this.compressor.release.value = 0.2;
-
-      // 5. Master Analyser (Frequency and Time Domain data for Visualizers)
+      // 4. Master Analyser (Frequency and Time Domain data for Visualizers)
       this.masterAnalyser = this.audioCtx.createAnalyser();
       this.masterAnalyser.fftSize = 256;
       this.masterAnalyser.smoothingTimeConstant = 0.82;
@@ -154,30 +150,35 @@ export class DualDeckAudioEngine {
         this.sourceA = this.audioCtx.createMediaElementSource(this.deckA);
         this.sourceA.connect(this.gainA);
       } catch (err) {
-        console.warn("[DualDeck] Source A connection warning:", err);
+        console.warn("[DualDeck] Source A connection notice:", err);
       }
 
       try {
         this.sourceB = this.audioCtx.createMediaElementSource(this.deckB);
         this.sourceB.connect(this.gainB);
       } catch (err) {
-        console.warn("[DualDeck] Source B connection warning:", err);
+        console.warn("[DualDeck] Source B connection notice:", err);
       }
 
-      // Connect Graph: Gains -> MasterGain -> SubBass -> Compressor -> Analyser -> Destination
-      this.gainA.connect(this.masterGain);
-      this.gainB.connect(this.masterGain);
-      this.masterGain.connect(this.subBassFilter);
-      this.subBassFilter.connect(this.compressor);
-      this.compressor.connect(this.masterAnalyser);
-      this.masterAnalyser.connect(this.audioCtx.destination);
+      // Connect Graph: Gains -> SubBass -> MasterGain -> Analyser -> Destination
+      try {
+        this.gainA.connect(this.subBassFilter);
+        this.gainB.connect(this.subBassFilter);
+        this.subBassFilter.connect(this.masterGain);
+        this.masterGain.connect(this.masterAnalyser);
+        this.masterAnalyser.connect(this.audioCtx.destination);
+      } catch (err) {
+        console.warn("[DualDeck] Graph connection notice:", err);
+      }
     }
 
     if (this.audioCtx && this.audioCtx.state === "suspended") {
-      this.audioCtx.resume().catch(() => {});
+      try {
+        await this.audioCtx.resume();
+      } catch {}
     }
 
-    return this.audioCtx!;
+    return this.audioCtx;
   }
 
   public getAnalyserNode(): AnalyserNode | null {
@@ -273,7 +274,7 @@ export class DualDeckAudioEngine {
     track: AudioEngineTrack,
     options: { crossfade?: boolean; startTime?: number } = {}
   ): Promise<void> {
-    this.ensureAudioContext();
+    await this.ensureAudioContext();
     this.currentTrack = track;
     this.retryCount = 0;
     clearTimeout(this.retryTimeoutId);
@@ -290,6 +291,8 @@ export class DualDeckAudioEngine {
 
       incomingAudio.src = track.audioUrl;
       incomingAudio.currentTime = options.startTime || 0;
+      incomingAudio.volume = this.isMuted ? 0 : this.masterVolume;
+      incomingAudio.muted = this.isMuted;
 
       if (this.audioCtx && incomingGain && outgoingGain) {
         const now = this.audioCtx.currentTime;
@@ -325,17 +328,20 @@ export class DualDeckAudioEngine {
       idleAudio.currentTime = 0;
 
       if (this.audioCtx && this.gainA && this.gainB) {
+        const now = this.audioCtx.currentTime;
         if (this.activeDeckId === "A") {
-          this.gainA.gain.setValueAtTime(1, this.audioCtx.currentTime);
-          this.gainB.gain.setValueAtTime(0, this.audioCtx.currentTime);
+          this.gainA.gain.setValueAtTime(1, now);
+          this.gainB.gain.setValueAtTime(0, now);
         } else {
-          this.gainA.gain.setValueAtTime(0, this.audioCtx.currentTime);
-          this.gainB.gain.setValueAtTime(1, this.audioCtx.currentTime);
+          this.gainA.gain.setValueAtTime(0, now);
+          this.gainB.gain.setValueAtTime(1, now);
         }
       }
 
       currentAudio.src = track.audioUrl;
       currentAudio.currentTime = options.startTime || 0;
+      currentAudio.volume = this.isMuted ? 0 : this.masterVolume;
+      currentAudio.muted = this.isMuted;
 
       try {
         await currentAudio.play();
@@ -361,9 +367,11 @@ export class DualDeckAudioEngine {
   }
 
   public async resume(): Promise<void> {
-    this.ensureAudioContext();
+    await this.ensureAudioContext();
     const currentAudio = this.getActiveAudio();
     if (currentAudio.src) {
+      currentAudio.volume = this.isMuted ? 0 : this.masterVolume;
+      currentAudio.muted = this.isMuted;
       try {
         await currentAudio.play();
         this.isPlaying = true;
