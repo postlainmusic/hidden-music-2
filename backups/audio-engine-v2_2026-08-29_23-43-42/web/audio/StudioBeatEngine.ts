@@ -1,0 +1,352 @@
+/**
+ * StudioBeatEngine.ts
+ * 
+ * Adaptive Multi-Band Beat & Rhythm Intelligence for Hidden Music Vault.
+ * Features:
+ * - Dynamic Multi-Release Compatibility (Any Album / EP / Single)
+ * - Ground-Truth Rhythm Grid Locking (when metadata exists) + Real-time Dynamic Energy Fallback
+ * - Multi-band Transient Extraction (Sub-Bass, Kick, Snare, Hi-hat, Vocals)
+ * - Zero GC / Pre-allocated buffers for 60fps/120fps WebGL/Canvas rendering
+ */
+
+import { getGroundTruthProfile, GroundTruthTrackProfile } from "./hvlGroundTruthRhythmGrid";
+import { dualDeckAudioEngine } from "./DualDeckAudioEngine";
+
+export interface StudioBeatState {
+  // Real-time detected tempo (BPM) & Tonality
+  liveBpm: number;
+  bpmConfidence: number;
+  rootKey: string;
+  firstBeatOffsetMs: number;
+  isGroundTruthLocked: boolean;
+
+  // Continuous Beat Phase Clock
+  beatProgress: number;
+  beatPhase: number;
+  currentBeat: number;
+  currentBar: number;
+  beatInBar: number; // 1, 2, 3, or 4
+
+  // Discrete Frame Triggers
+  isBeatHit: boolean;
+  isDownbeat: boolean;
+  isSubHit: boolean;
+  isKickHit: boolean;
+  isBassHit: boolean;
+  isKickRoll: boolean;
+  isSnareHit: boolean;
+  isHihatHit: boolean;
+
+  // Distinct Envelopes for Visual Layering
+  subImpact: number;
+  kickImpact: number;
+  bassImpact: number;
+  kickRollIntensity: number;
+  snareFlash: number;
+  hihatSparkle: number;
+  downbeatPulse: number;
+  overallEnergy: number;
+
+  // Granular Frequency Bands [0.0 - 1.0]
+  subBass: number;
+  kick: number;
+  upperBass: number;
+  lowMid: number;
+  vocalMid: number;
+  highTreble: number;
+}
+
+export class StudioBeatEngine {
+  private static instance: StudioBeatEngine;
+
+  private frequencyData: Uint8Array<ArrayBuffer> | null = null;
+  private timeDomainData: Uint8Array<ArrayBuffer> | null = null;
+
+  // Rolling Averages for Adaptive Dynamic Thresholding
+  private lowEndHistory: number[] = [];
+  private snareHistory: number[] = [];
+  private hihatHistory: number[] = [];
+  private readonly HISTORY_SIZE = 30;
+
+  // Transient Timestamps
+  private lastKickTime = 0;
+  private lastSnareTime = 0;
+  private lastHihatTime = 0;
+  private lastBeatTime = 0;
+  private readonly KICK_MIN_INTERVAL_MS = 60;
+  private readonly SNARE_MIN_INTERVAL_MS = 140;
+  private readonly HIHAT_MIN_INTERVAL_MS = 45;
+
+  // Active Track Profile
+  private currentTrackProfile: GroundTruthTrackProfile | null = null;
+  private drumStartSec: number = 0;
+
+  // Internal State
+  private state: StudioBeatState = {
+    liveBpm: 120,
+    bpmConfidence: 0.9,
+    rootKey: "C#",
+    firstBeatOffsetMs: 180,
+    isGroundTruthLocked: true,
+
+    beatProgress: 0,
+    beatPhase: 0,
+    currentBeat: 0,
+    currentBar: 0,
+    beatInBar: 1,
+
+    isBeatHit: false,
+    isDownbeat: false,
+    isSubHit: false,
+    isKickHit: false,
+    isBassHit: false,
+    isKickRoll: false,
+    isSnareHit: false,
+    isHihatHit: false,
+
+    subImpact: 0,
+    kickImpact: 0,
+    bassImpact: 0,
+    kickRollIntensity: 0,
+    snareFlash: 0,
+    hihatSparkle: 0,
+    downbeatPulse: 0,
+    overallEnergy: 0,
+
+    subBass: 0,
+    kick: 0,
+    upperBass: 0,
+    lowMid: 0,
+    vocalMid: 0,
+    highTreble: 0,
+  };
+
+  private constructor() {}
+
+  public static getInstance(): StudioBeatEngine {
+    if (!StudioBeatEngine.instance) {
+      StudioBeatEngine.instance = new StudioBeatEngine();
+    }
+    return StudioBeatEngine.instance;
+  }
+
+  public setTrack(trackIdOrTitle: string, fallbackBpm: number = 120): void {
+    this.currentTrackProfile = getGroundTruthProfile(trackIdOrTitle);
+    if (this.currentTrackProfile) {
+      this.state.liveBpm = this.currentTrackProfile.bpm;
+      this.state.rootKey = this.currentTrackProfile.rootKey;
+      this.state.firstBeatOffsetMs = this.currentTrackProfile.firstBeatOffsetMs;
+      this.state.isGroundTruthLocked = true;
+
+      const titleLower = trackIdOrTitle.toLowerCase();
+      if (titleLower.includes("elegie")) this.drumStartSec = 45.0;
+      else if (titleLower.includes("idk")) this.drumStartSec = 13.5;
+      else if (titleLower.includes("ai mới là")) this.drumStartSec = 8.0;
+      else this.drumStartSec = 0.0;
+    } else {
+      // Dynamic fallback for any new Album / EP / Single
+      this.state.liveBpm = fallbackBpm || 120;
+      this.state.rootKey = "A";
+      this.state.firstBeatOffsetMs = 0;
+      this.state.isGroundTruthLocked = false;
+      this.drumStartSec = 0.0;
+    }
+  }
+
+  public getByteFrequencyData(): Uint8Array {
+    const analyser = dualDeckAudioEngine.getAnalyserNode();
+    if (analyser) {
+      if (!this.frequencyData || this.frequencyData.length !== analyser.frequencyBinCount) {
+        this.frequencyData = new Uint8Array(analyser.frequencyBinCount);
+      }
+      analyser.getByteFrequencyData(this.frequencyData);
+      return this.frequencyData;
+    }
+
+    if (!this.frequencyData) {
+      this.frequencyData = new Uint8Array(32);
+    }
+    this.frequencyData.fill(0);
+    return this.frequencyData;
+  }
+
+  public getFrequencyData(): Uint8Array {
+    return this.getByteFrequencyData();
+  }
+
+  public update(): StudioBeatState {
+    return this.getBeatState();
+  }
+
+  public getBeatState(): StudioBeatState {
+    const now = performance.now();
+    const audio = dualDeckAudioEngine.getActiveAudio();
+    const isPlaying = audio && !audio.paused && !audio.ended;
+    const currentTimeSec = audio ? audio.currentTime : 0;
+
+    let rawSub = 0;
+    let rawKick = 0;
+    let rawBass = 0;
+    let rawMid = 0;
+    let rawSnare = 0;
+    let rawTreble = 0;
+    let rawOverall = 0;
+    let hasSignal = false;
+
+    const analyser = dualDeckAudioEngine.getAnalyserNode();
+
+    if (analyser && isPlaying) {
+      if (!this.frequencyData || this.frequencyData.length !== analyser.frequencyBinCount) {
+        this.frequencyData = new Uint8Array(analyser.frequencyBinCount);
+      }
+
+      try {
+        analyser.getByteFrequencyData(this.frequencyData);
+
+        const binCount = analyser.frequencyBinCount;
+        const sampleRate = 44100;
+        const binHz = sampleRate / (binCount * 2);
+
+        const getAverageInRange = (minHz: number, maxHz: number): number => {
+          const startBin = Math.max(0, Math.floor(minHz / binHz));
+          const endBin = Math.min(binCount - 1, Math.ceil(maxHz / binHz));
+          if (startBin >= endBin) return (this.frequencyData![startBin] || 0) / 255;
+
+          let sum = 0;
+          for (let i = startBin; i <= endBin; i++) {
+            sum += this.frequencyData![i];
+          }
+          return sum / ((endBin - startBin + 1) * 255);
+        };
+
+        rawSub = getAverageInRange(20, 65);
+        rawKick = getAverageInRange(65, 160);
+        rawBass = getAverageInRange(160, 320);
+        rawMid = getAverageInRange(320, 1000);
+        rawSnare = getAverageInRange(1000, 3800);
+        rawTreble = getAverageInRange(5000, 16000);
+
+        rawOverall = rawSub * 0.30 + rawKick * 0.25 + rawBass * 0.15 + rawMid * 0.15 + rawTreble * 0.15;
+        if (rawOverall > 0.005) {
+          hasSignal = true;
+        }
+      } catch {}
+    }
+
+    // Continuous Beat Clock
+    const bpm = this.state.liveBpm || 120;
+    const beatPeriod = 60 / bpm;
+    const elapsedSinceFirstBeat = Math.max(0, currentTimeSec - (this.state.firstBeatOffsetMs / 1000));
+    const beatPhase = (elapsedSinceFirstBeat % beatPeriod) / beatPeriod;
+    const totalBeats = Math.floor(elapsedSinceFirstBeat / beatPeriod);
+    const beatInBar = (totalBeats % 4) + 1;
+
+    this.state.beatProgress = beatPhase;
+    this.state.beatPhase = (beatPhase - 0.5) * Math.PI * 2;
+    this.state.currentBeat = totalBeats;
+    this.state.currentBar = Math.floor(totalBeats / 4);
+    this.state.beatInBar = beatInBar;
+
+    let isKickHit = false;
+    let isSnareHit = false;
+    let isSubHit = false;
+    let isHihatHit = false;
+    const isDrummingSection = currentTimeSec >= this.drumStartSec;
+
+    if (hasSignal && isPlaying) {
+      const rawLowEnd = rawSub * 0.60 + rawKick * 0.40;
+
+      this.lowEndHistory.push(rawLowEnd);
+      if (this.lowEndHistory.length > this.HISTORY_SIZE) this.lowEndHistory.shift();
+      const avgLowEnd = this.lowEndHistory.reduce((a, b) => a + b, 0) / this.lowEndHistory.length;
+
+      this.snareHistory.push(rawSnare);
+      if (this.snareHistory.length > this.HISTORY_SIZE) this.snareHistory.shift();
+      const avgSnare = this.snareHistory.reduce((a, b) => a + b, 0) / this.snareHistory.length;
+
+      this.hihatHistory.push(rawTreble);
+      if (this.hihatHistory.length > this.HISTORY_SIZE) this.hihatHistory.shift();
+      const avgHihat = this.hihatHistory.reduce((a, b) => a + b, 0) / this.hihatHistory.length;
+
+      // 1. Kick Drum Transient (65-160Hz)
+      const timeSinceLastKick = now - this.lastKickTime;
+      const isRapidKick = timeSinceLastKick >= this.KICK_MIN_INTERVAL_MS && timeSinceLastKick < 200;
+      const kickThreshold = isRapidKick ? avgLowEnd * 1.15 : avgLowEnd * 1.25;
+
+      if (isDrummingSection && rawLowEnd > kickThreshold && rawLowEnd > 0.08 && timeSinceLastKick >= this.KICK_MIN_INTERVAL_MS) {
+        isKickHit = true;
+        this.lastKickTime = now;
+        this.state.kickImpact = 1.0;
+        if (isRapidKick) {
+          this.state.kickRollIntensity = Math.min(1.0, this.state.kickRollIntensity + 0.35);
+        }
+      }
+
+      // 2. Snare / Mid Transient (1000-3800Hz)
+      const timeSinceLastSnare = now - this.lastSnareTime;
+      if (isDrummingSection && rawSnare > avgSnare * 1.25 && rawSnare > 0.08 && timeSinceLastSnare >= this.SNARE_MIN_INTERVAL_MS) {
+        isSnareHit = true;
+        this.lastSnareTime = now;
+        this.state.snareFlash = 1.0;
+      }
+
+      // 3. Hi-Hat / High Transient (5000-16000Hz)
+      const timeSinceLastHihat = now - this.lastHihatTime;
+      if (rawTreble > avgHihat * 1.30 && rawTreble > 0.06 && timeSinceLastHihat >= this.HIHAT_MIN_INTERVAL_MS) {
+        isHihatHit = true;
+        this.lastHihatTime = now;
+        this.state.hihatSparkle = 1.0;
+      }
+
+      // 4. Sub-Bass Rumbling (20-65Hz)
+      if (rawSub > 0.35) {
+        isSubHit = true;
+        this.state.subImpact = Math.min(1.0, rawSub * 1.3);
+      }
+
+      const lerp = (curr: number, target: number, attack = 0.7, decay = 0.2) => {
+        const rate = target > curr ? attack : decay;
+        return curr + (target - curr) * rate;
+      };
+
+      this.state.subBass = lerp(this.state.subBass, rawSub, 0.85, 0.22);
+      this.state.kick = lerp(this.state.kick, rawKick, 0.88, 0.22);
+      this.state.upperBass = lerp(this.state.upperBass, rawBass, 0.75, 0.20);
+      this.state.lowMid = lerp(this.state.lowMid, rawMid, 0.55, 0.15);
+      this.state.vocalMid = lerp(this.state.vocalMid, rawSnare, 0.55, 0.15);
+      this.state.highTreble = lerp(this.state.highTreble, rawTreble, 0.65, 0.20);
+      this.state.overallEnergy = lerp(this.state.overallEnergy, rawOverall, 0.60, 0.18);
+      this.state.bassImpact = lerp(this.state.bassImpact, rawBass * 1.2, 0.75, 0.18);
+    } else if (isPlaying && isDrummingSection) {
+      if (beatPhase < 0.12 && (now - this.lastBeatTime > 200)) {
+        isKickHit = true;
+        this.lastBeatTime = now;
+        this.state.kickImpact = 0.95;
+      }
+      if (Math.abs(beatPhase - 0.5) < 0.10 && (now - this.lastSnareTime > 200)) {
+        isSnareHit = true;
+        this.lastSnareTime = now;
+        this.state.snareFlash = 0.85;
+      }
+    }
+
+    // Exponential Decay
+    this.state.kickImpact *= 0.84;
+    this.state.kickRollIntensity *= 0.88;
+    this.state.snareFlash *= 0.78;
+    this.state.hihatSparkle *= 0.80;
+    this.state.subImpact *= 0.88;
+    this.state.downbeatPulse *= 0.82;
+
+    this.state.isKickHit = isKickHit;
+    this.state.isSnareHit = isSnareHit;
+    this.state.isHihatHit = isHihatHit;
+    this.state.isSubHit = isSubHit;
+    this.state.isBeatHit = isKickHit || (beatPhase < 0.10);
+    this.state.isDownbeat = (beatInBar === 1 && beatPhase < 0.12);
+
+    return this.state;
+  }
+}
+
+export const studioBeatEngine = StudioBeatEngine.getInstance();
