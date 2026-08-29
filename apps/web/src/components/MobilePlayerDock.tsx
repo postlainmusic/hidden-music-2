@@ -486,10 +486,11 @@ export const MobilePlayerDock: React.FC = () => {
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                margin: "12px 0",
+                margin: "8px 0",
                 position: "relative",
                 minHeight: 0,
-                overflow: "hidden"
+                overflow: activeTab === "cover" ? "visible" : "hidden",
+                width: "100%"
               }}
             >
               {activeTab === "cover" ? (
@@ -499,10 +500,10 @@ export const MobilePlayerDock: React.FC = () => {
                     ref={mobileHalationRef}
                     style={{
                       position: "absolute",
-                      inset: "-35px",
-                      borderRadius: "26px",
+                      inset: "-45px",
+                      borderRadius: "32px",
                       background: "radial-gradient(circle, rgba(239, 68, 68, 0.95) 0%, rgba(185, 28, 28, 0.65) 45%, rgba(127, 29, 29, 0.25) 70%, transparent 85%)",
-                      filter: "blur(40px)",
+                      filter: "blur(50px)",
                       pointerEvents: "none",
                       opacity: 0.35,
                       transition: "opacity 0.08s ease, transform 0.08s ease"
