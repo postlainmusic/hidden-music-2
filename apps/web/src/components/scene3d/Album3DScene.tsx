@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { useAudioStore } from "../../store/audioStore";
 import { audioAnalyserEngine } from "../../audio/AudioAnalyserEngine";
@@ -12,14 +12,9 @@ import {
   GrainHalationFragmentShader,
 } from "./shaders/GrainHalationShaders";
 
-interface Album3DSceneProps {
-  onExit?: () => void;
-}
-
-export const Album3DScene: React.FC<Album3DSceneProps> = ({ onExit }) => {
+export const Album3DScene: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { currentTrack, isPlaying } = useAudioStore();
-  const [moodName, setMoodName] = useState<string>("Atmospheric Flow");
 
   // Determine Mood Tier based on current track genre/title
   const getMoodTier = (genre?: string, title?: string): number => {
@@ -34,13 +29,6 @@ export const Album3DScene: React.FC<Album3DSceneProps> = ({ onExit }) => {
     }
     return 1; // Tier 1: Cosmic / Ambient / Mystical
   };
-
-  useEffect(() => {
-    const tier = getMoodTier(currentTrack?.genre, currentTrack?.title);
-    if (tier === 0) setMoodName("Bioluminescent Mist • Chill & Poetic");
-    else if (tier === 1) setMoodName("Cosmic Nebula • Ambient Universe");
-    else setMoodName("Cybernetic Shockwave • High Energy Warp");
-  }, [currentTrack]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -176,41 +164,16 @@ export const Album3DScene: React.FC<Album3DSceneProps> = ({ onExit }) => {
     // ─────────────────────────────────────────────────────────────
     // 6. INTERACTION STATE & MOUSE PARALLAX
     // ─────────────────────────────────────────────────────────────
-    let isDragging = false;
-    let previousMousePosition = { x: 0, y: 0 };
-    let targetRotation = { x: 0.35, y: 0.6 };
-    let currentRotation = { x: 0.35, y: 0.6 };
     let mouseParallax = { x: 0, y: 0 };
-
-    const handlePointerDown = (e: PointerEvent) => {
-      isDragging = true;
-      previousMousePosition = { x: e.clientX, y: e.clientY };
-    };
 
     const handlePointerMove = (e: PointerEvent) => {
       const normX = (e.clientX / width) * 2 - 1;
       const normY = -(e.clientY / height) * 2 + 1;
-      mouseParallax.x = normX * 0.4;
-      mouseParallax.y = normY * 0.3;
-
-      if (isDragging) {
-        const deltaX = e.clientX - previousMousePosition.x;
-        const deltaY = e.clientY - previousMousePosition.y;
-
-        targetRotation.y += deltaX * 0.008;
-        targetRotation.x += deltaY * 0.008;
-
-        previousMousePosition = { x: e.clientX, y: e.clientY };
-      }
+      mouseParallax.x = normX * 0.35;
+      mouseParallax.y = normY * 0.25;
     };
 
-    const handlePointerUp = () => {
-      isDragging = false;
-    };
-
-    window.addEventListener("pointerdown", handlePointerDown);
     window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
 
     // ─────────────────────────────────────────────────────────────
     // 7. PRE-ALLOCATED SCRATCH BUFFERS & 60FPS RENDER LOOP
@@ -240,13 +203,11 @@ export const Album3DScene: React.FC<Album3DSceneProps> = ({ onExit }) => {
       // Floating oscillation in 3D space
       const floatY = Math.sin(elapsedTime * 1.2) * 0.25 + bands.kick * 0.15;
       const floatX = Math.cos(elapsedTime * 0.8) * 0.2;
-      vinylArtifact.group.position.set(floatX, floatY, 0);
+      vinylArtifact.group.position.set(floatX, floatY, -1.2);
 
-      // Elastic rotation interpolation (Smooth damping)
-      currentRotation.x += (targetRotation.x - currentRotation.x) * 0.08;
-      currentRotation.y += (targetRotation.y - currentRotation.y) * 0.08;
-      vinylArtifact.group.rotation.x = currentRotation.x + mouseParallax.y;
-      vinylArtifact.group.rotation.y = currentRotation.y + mouseParallax.x;
+      // Parallax rotation
+      vinylArtifact.group.rotation.x = 0.2 + mouseParallax.y;
+      vinylArtifact.group.rotation.y = 0.3 + mouseParallax.x;
 
       // Disc pulse on Kick/Bass
       const discScale = 1.0 + bands.kick * 0.08;
@@ -288,9 +249,7 @@ export const Album3DScene: React.FC<Album3DSceneProps> = ({ onExit }) => {
     // ─────────────────────────────────────────────────────────────
     return () => {
       cancelAnimationFrame(animationFrameId);
-      window.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("resize", handleResize);
 
       // Strict resource disposal
@@ -316,73 +275,11 @@ export const Album3DScene: React.FC<Album3DSceneProps> = ({ onExit }) => {
         inset: 0,
         width: "100vw",
         height: "100dvh",
-        zIndex: 50,
+        zIndex: 0,
         backgroundColor: "#050508",
         overflow: "hidden",
-        cursor: "grab",
+        pointerEvents: "none",
       }}
-    >
-      {/* Top Floating Glass Badge: Genre Mood Indicator */}
-      <div
-        style={{
-          position: "absolute",
-          top: "28px",
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 60,
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
-          padding: "10px 22px",
-          borderRadius: "999px",
-          background: "rgba(255, 255, 255, 0.06)",
-          border: "1px solid rgba(255, 255, 255, 0.15)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.6)",
-          color: "#ffffff",
-          fontSize: "0.84rem",
-          fontWeight: 700,
-          letterSpacing: "0.06em",
-          pointerEvents: "none",
-        }}
-      >
-        <span
-          style={{
-            width: "8px",
-            height: "8px",
-            borderRadius: "50%",
-            background: "#10b981",
-            boxShadow: "0 0 10px #10b981",
-          }}
-        />
-        <span>{moodName}</span>
-      </div>
-
-      {/* Exit Button */}
-      {onExit && (
-        <button
-          onClick={onExit}
-          style={{
-            position: "absolute",
-            top: "28px",
-            right: "28px",
-            zIndex: 60,
-            padding: "10px 20px",
-            borderRadius: "999px",
-            background: "rgba(255, 255, 255, 0.1)",
-            border: "1px solid rgba(255, 255, 255, 0.2)",
-            backdropFilter: "blur(20px)",
-            color: "#ffffff",
-            fontSize: "0.85rem",
-            fontWeight: 700,
-            cursor: "pointer",
-            transition: "all 0.2s ease",
-          }}
-        >
-          Trở Về Vault
-        </button>
-      )}
-    </div>
+    />
   );
 };
