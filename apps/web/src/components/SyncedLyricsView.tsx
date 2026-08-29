@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Mic2, Music2 } from "lucide-react";
 import { useAudioStore } from "../store/audioStore";
+import { dualDeckAudioEngine } from "../audio/DualDeckAudioEngine";
 
 export interface LyricLine {
   time: number;
@@ -49,42 +50,51 @@ interface SyncedLyricsViewProps {
 }
 
 export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, className = "" }) => {
-  const { currentTrack, currentTime, isPlaying } = useAudioStore();
+  const { currentTrack, isPlaying } = useAudioStore();
   const [lrcContent, setLrcContent] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(false);
+  const [activeIndex, setActiveIndex] = useState<number>(-1);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const lineRefs = useRef<(HTMLParagraphElement | null)[]>([]);
   const isUserScrollingRef = useRef<boolean>(false);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollTimeoutRef = useRef<any>(null);
 
-  // Graceful LRC lyrics parser
+  // Default lyrics generator for tracks
   useEffect(() => {
     if (!currentTrack) {
       setLrcContent("");
       return;
     }
 
-    // Default synchronized aesthetic preview
-    const defaultLyrics = `[00:00.00] ♪ ${currentTrack.title} - ${currentTrack.artist}\n[00:04.50] Hidden Music Lossless Vault Experience\n[00:12.00] 24-bit / 96kHz High Fidelity Audio Master\n[00:24.00] ♪ [Giai điệu Master FLAC không nén] ♪\n[00:45.00] ♪ [Drop & Kick Bass Roll] ♪`;
+    const defaultLyrics = `[00:00.00] ♪ ${currentTrack.title} - ${currentTrack.artist}\n[00:04.50] Hidden Music Lossless Audio Experience\n[00:12.00] Master Quality M4A High-Fidelity\n[00:24.00] ♪ [Giai điệu Master không nén] ♪\n[00:45.00] ♪ [Drop & Kick Bass Roll] ♪`;
     setLrcContent(defaultLyrics);
-    setLoading(false);
   }, [currentTrack]);
 
   const parsedLyrics = useMemo(() => parseLrc(lrcContent), [lrcContent]);
   const isSynced = useMemo(() => parsedLyrics.some((l) => l.time >= 0), [parsedLyrics]);
 
-  // Find active line index
-  const activeIndex = useMemo(() => {
-    if (!isSynced || parsedLyrics.length === 0) return -1;
-    let idx = -1;
-    for (let i = parsedLyrics.length - 1; i >= 0; i--) {
-      if (currentTime >= parsedLyrics[i].time - 0.25) {
-        idx = i;
-        break;
+  // High-frequency subscription to track progress for real-time line highlighting
+  useEffect(() => {
+    let lastActive = -1;
+
+    const unsubscribe = dualDeckAudioEngine.subscribeProgress((state) => {
+      if (!isSynced || parsedLyrics.length === 0) return;
+
+      let idx = -1;
+      for (let i = parsedLyrics.length - 1; i >= 0; i--) {
+        if (state.currentTime >= parsedLyrics[i].time - 0.25) {
+          idx = i;
+          break;
+        }
       }
-    }
-    return idx;
-  }, [parsedLyrics, currentTime, isSynced]);
+
+      if (idx !== lastActive) {
+        lastActive = idx;
+        setActiveIndex(idx);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [parsedLyrics, isSynced]);
 
   // Auto-scroll to active line
   useEffect(() => {
@@ -98,7 +108,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, clas
     }
   }, [activeIndex]);
 
-  const handleScroll = () => {
+  const handleContainerScroll = () => {
     isUserScrollingRef.current = true;
     if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     scrollTimeoutRef.current = setTimeout(() => {
@@ -106,66 +116,65 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, clas
     }, 2500);
   };
 
+  const handleLineClick = (time: number) => {
+    if (time >= 0 && onSeek) {
+      onSeek(time);
+      isUserScrollingRef.current = false;
+    }
+  };
+
+  if (!currentTrack) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-slate-500 py-12">
+        <Mic2 size={36} className="mb-2 opacity-40" />
+        <p className="text-sm">Chưa có bài hát nào được chọn</p>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={containerRef}
-      onScroll={handleScroll}
-      className={className}
-      style={{
-        width: "100%",
-        height: "100%",
-        overflowY: "auto",
-        padding: "16px 12px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "14px",
-        scrollbarWidth: "none",
-        textAlign: "center"
-      }}
+      onScroll={handleContainerScroll}
+      className={`h-full overflow-y-auto px-6 py-6 scroll-smooth ${className}`}
+      style={{ maskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)" }}
     >
-      {loading ? (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "rgba(255, 255, 255, 0.5)", gap: "8px" }}>
-          <Mic2 size={16} className="animate-pulse" />
-          <span style={{ fontSize: "0.85rem" }}>Đang đồng bộ lời bài hát...</span>
-        </div>
-      ) : parsedLyrics.length === 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", color: "rgba(255, 255, 255, 0.4)" }}>
-          <Music2 size={24} style={{ marginBottom: "8px", opacity: 0.5 }} />
-          <p style={{ fontSize: "0.88rem", fontWeight: 600 }}>Chưa có lời đồng bộ cho bài hát này</p>
-          <p style={{ fontSize: "0.74rem", opacity: 0.6, marginTop: "4px" }}>Thưởng thức bản phối Master 24-bit Lossless</p>
-        </div>
-      ) : (
-        parsedLyrics.map((line, idx) => {
-          const isActive = idx === activeIndex;
-          const isPassed = activeIndex > idx;
+      <div className="flex flex-col items-center space-y-4 max-w-xl mx-auto py-10">
+        {parsedLyrics.length > 0 ? (
+          parsedLyrics.map((line, idx) => {
+            const isActive = idx === activeIndex;
+            const isPast = idx < activeIndex;
 
-          return (
-            <p
-              key={idx}
-              ref={(el) => { lineRefs.current[idx] = el; }}
-              onClick={() => {
-                if (line.time >= 0 && onSeek) {
-                  onSeek(line.time);
-                }
-              }}
-              style={{
-                fontSize: isActive ? "1.08rem" : "0.90rem",
-                fontWeight: isActive ? 800 : 500,
-                color: isActive ? "#ffffff" : isPassed ? "rgba(255, 255, 255, 0.38)" : "rgba(255, 255, 255, 0.65)",
-                textShadow: isActive ? `0 0 20px ${currentTrack?.palette?.primary || "#6366f1"}, 0 0 35px rgba(255, 255, 255, 0.6)` : "none",
-                transform: isActive ? "scale(1.05)" : "scale(1)",
-                transition: "all 0.28s cubic-bezier(0.16, 1, 0.3, 1)",
-                cursor: line.time >= 0 ? "pointer" : "default",
-                padding: "4px 8px",
-                borderRadius: "8px",
-                lineHeight: 1.5
-              }}
-            >
-              {line.text}
-            </p>
-          );
-        })
-      )}
+            return (
+              <p
+                key={idx}
+                ref={(el) => { lineRefs.current[idx] = el; }}
+                onClick={() => handleLineClick(line.time)}
+                className={`text-center transition-all duration-300 select-none ${
+                  line.time >= 0 ? "cursor-pointer hover:text-white" : ""
+                } ${
+                  isActive
+                    ? "text-xl md:text-2xl font-bold text-white scale-105 drop-shadow-[0_0_12px_rgba(255,255,255,0.7)]"
+                    : isPast
+                    ? "text-base md:text-lg text-slate-400 opacity-60 font-medium"
+                    : "text-base md:text-lg text-slate-500 opacity-40 font-normal"
+                }`}
+                style={{
+                  color: isActive ? currentTrack.palette?.primary || "#ffffff" : undefined,
+                  transform: isActive ? "scale(1.05)" : "scale(1.0)"
+                }}
+              >
+                {line.text}
+              </p>
+            );
+          })
+        ) : (
+          <div className="flex flex-col items-center justify-center text-slate-400 py-12">
+            <Music2 size={32} className="mb-3 opacity-50" />
+            <p className="text-sm font-medium">Đang đồng bộ lời bài hát chất lượng cao...</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

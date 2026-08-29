@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAudioStore } from "../store/audioStore";
+import { dualDeckAudioEngine, ProgressState } from "../audio/DualDeckAudioEngine";
 import {
   Play,
   Pause,
@@ -10,7 +11,8 @@ import {
   Heart,
   Sparkles,
   Volume2,
-  VolumeX
+  VolumeX,
+  Zap
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -19,11 +21,10 @@ export const MobilePlayerDock: React.FC = () => {
     currentTrack,
     isPlaying,
     isBuffering,
-    currentTime,
-    bufferedTime,
     duration,
     volume,
     isMuted,
+    bassBoostEnabled,
     favoritedTrackIds,
     togglePlay,
     nextTrack,
@@ -31,6 +32,7 @@ export const MobilePlayerDock: React.FC = () => {
     seek,
     setVolume,
     toggleMute,
+    toggleBassBoost,
     toggleFavoriteTrack,
     getFrequencyData
   } = useAudioStore();
@@ -38,7 +40,49 @@ export const MobilePlayerDock: React.FC = () => {
   const [isFullOpen, setIsFullOpen] = useState(false);
   const [isDraggingSeeker, setIsDraggingSeeker] = useState(false);
   const [dragSeekTime, setDragSeekTime] = useState<number | null>(null);
+
   const visualizerRef = useRef<HTMLCanvasElement | null>(null);
+  const miniProgressBarRef = useRef<HTMLDivElement | null>(null);
+  const fullPlayedProgressBarRef = useRef<HTMLDivElement | null>(null);
+  const fullBufferedProgressBarRef = useRef<HTMLDivElement | null>(null);
+  const fullCurrentTimeRef = useRef<HTMLSpanElement | null>(null);
+  const fullDurationRef = useRef<HTMLSpanElement | null>(null);
+  const fullSliderRef = useRef<HTMLInputElement | null>(null);
+
+  const formatTime = (seconds: number) => {
+    if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) return "0:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
+
+  // Direct Ref High-Frequency Progress Subscription (60fps on mobile without React lag)
+  useEffect(() => {
+    const unsubscribe = dualDeckAudioEngine.subscribeProgress((state: ProgressState) => {
+      if (isDraggingSeeker) return;
+
+      if (miniProgressBarRef.current) {
+        miniProgressBarRef.current.style.width = `${state.progressPercent}%`;
+      }
+      if (fullPlayedProgressBarRef.current) {
+        fullPlayedProgressBarRef.current.style.width = `${state.progressPercent}%`;
+      }
+      if (fullBufferedProgressBarRef.current) {
+        fullBufferedProgressBarRef.current.style.width = `${state.bufferedPercent}%`;
+      }
+      if (fullCurrentTimeRef.current) {
+        fullCurrentTimeRef.current.textContent = formatTime(state.currentTime);
+      }
+      if (fullDurationRef.current) {
+        fullDurationRef.current.textContent = formatTime(state.duration);
+      }
+      if (fullSliderRef.current) {
+        fullSliderRef.current.value = String(state.currentTime);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [isDraggingSeeker]);
 
   // Live Sound Waveform Visualizer on Mini Dock
   useEffect(() => {
@@ -87,20 +131,13 @@ export const MobilePlayerDock: React.FC = () => {
 
   if (!currentTrack) return null;
 
-  const formatTime = (seconds: number) => {
-    if (isNaN(seconds)) return "0:00";
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
-  };
-
-  const progressPercent = duration ? (currentTime / duration) * 100 : 0;
   const isFav = favoritedTrackIds.includes(currentTrack.id);
+  const effectiveDuration = duration || currentTrack.duration || 180;
 
   return (
     <>
       {/* ─────────────────────────────────────────────────────────────────────
-          TIER 1: MINI FLOATING GLASS CAPSULE (56px) AT BOTTOM
+          TIER 1: MINI FLOATING GLASS CAPSULE (58px) AT BOTTOM
       ────────────────────────────────────────────────────────────────────── */}
       <div
         style={{
@@ -153,9 +190,10 @@ export const MobilePlayerDock: React.FC = () => {
             }}
           >
             <div
+              ref={miniProgressBarRef}
               style={{
                 height: "100%",
-                width: `${progressPercent}%`,
+                width: "0%",
                 background: "linear-gradient(90deg, #ffffff, #94a3b8)",
                 boxShadow: "0 0 6px #ffffff"
               }}
@@ -299,7 +337,6 @@ export const MobilePlayerDock: React.FC = () => {
           >
             {/* Header / Dismiss Bar */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
-              {/* Drag Pill Handle */}
               <div
                 style={{
                   width: "40px",
@@ -348,27 +385,31 @@ export const MobilePlayerDock: React.FC = () => {
                   ĐANG PHÁT TỪ VAULT
                 </span>
 
-                <div
+                {/* Punchy Bass Boost Toggle on Mobile */}
+                <button
+                  onClick={toggleBassBoost}
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: "4px",
-                    padding: "4px 10px",
+                    padding: "6px 12px",
                     borderRadius: "999px",
-                    background: "rgba(56, 189, 248, 0.15)",
-                    border: "1px solid rgba(56, 189, 248, 0.4)",
-                    fontSize: "0.68rem",
+                    background: bassBoostEnabled ? "linear-gradient(135deg, #f43f5e, #8b5cf6)" : "rgba(255, 255, 255, 0.08)",
+                    border: bassBoostEnabled ? "1px solid rgba(244, 63, 94, 0.6)" : "1px solid rgba(255, 255, 255, 0.15)",
+                    fontSize: "0.72rem",
                     fontWeight: 800,
-                    color: "#38bdf8"
+                    color: "#ffffff",
+                    cursor: "pointer",
+                    boxShadow: bassBoostEnabled ? "0 0 12px rgba(244, 63, 94, 0.6)" : "none"
                   }}
                 >
-                  <Sparkles size={11} color="#38bdf8" />
-                  <span>M4A</span>
-                </div>
+                  <Zap size={12} fill={bassBoostEnabled ? "#ffffff" : "none"} />
+                  <span>BASS BOOST</span>
+                </button>
               </div>
             </div>
 
-            {/* Middle: Clean Square Album Cover Display (No spinning disc) */}
+            {/* Middle: Clean Square Album Cover */}
             <div
               style={{
                 display: "flex",
@@ -442,17 +483,27 @@ export const MobilePlayerDock: React.FC = () => {
                 </button>
               </div>
 
-              {/* Scrubber Range Bar with Buffered Bar & Smooth Release-to-Seek */}
+              {/* Scrubber Range Bar */}
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                 <div style={{ position: "relative", display: "flex", alignItems: "center", width: "100%" }}>
                   <input
+                    ref={fullSliderRef}
                     type="range"
                     min={0}
-                    max={duration || 100}
-                    value={isDraggingSeeker && dragSeekTime !== null ? dragSeekTime : currentTime}
+                    max={effectiveDuration}
+                    defaultValue={0}
                     onMouseDown={() => setIsDraggingSeeker(true)}
                     onTouchStart={() => setIsDraggingSeeker(true)}
-                    onChange={(e) => setDragSeekTime(Number(e.target.value))}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setDragSeekTime(val);
+                      if (fullCurrentTimeRef.current) {
+                        fullCurrentTimeRef.current.textContent = formatTime(val);
+                      }
+                      if (fullPlayedProgressBarRef.current && effectiveDuration > 0) {
+                        fullPlayedProgressBarRef.current.style.width = `${(val / effectiveDuration) * 100}%`;
+                      }
+                    }}
                     onMouseUp={() => {
                       setIsDraggingSeeker(false);
                       if (dragSeekTime !== null) {
@@ -467,18 +518,19 @@ export const MobilePlayerDock: React.FC = () => {
                         setDragSeekTime(null);
                       }
                     }}
-                    style={{ zIndex: 3, height: "24px", cursor: "pointer" }}
+                    style={{ zIndex: 3, height: "24px", cursor: "pointer", opacity: 0 }}
                   />
 
                   {/* Buffered Translucent Cache Bar */}
                   <div
+                    ref={fullBufferedProgressBarRef}
                     style={{
                       position: "absolute",
                       left: 0,
                       height: "4px",
                       borderRadius: "999px",
                       background: "rgba(255, 255, 255, 0.25)",
-                      width: `${duration > 0 ? (Math.min(duration, bufferedTime) / duration) * 100 : 0}%`,
+                      width: "0%",
                       pointerEvents: "none",
                       zIndex: 1,
                       transition: "width 0.25s ease"
@@ -487,13 +539,14 @@ export const MobilePlayerDock: React.FC = () => {
 
                   {/* Active Played Progress Bar */}
                   <div
+                    ref={fullPlayedProgressBarRef}
                     style={{
                       position: "absolute",
                       left: 0,
                       height: "4px",
                       borderRadius: "999px",
                       background: "#ffffff",
-                      width: `${isDraggingSeeker && dragSeekTime !== null && duration > 0 ? (dragSeekTime / duration) * 100 : progressPercent}%`,
+                      width: "0%",
                       pointerEvents: "none",
                       boxShadow: "0 0 8px rgba(255, 255, 255, 0.8)",
                       zIndex: 2
@@ -502,8 +555,8 @@ export const MobilePlayerDock: React.FC = () => {
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", color: "rgba(255, 255, 255, 0.45)" }}>
-                  <span>{formatTime(isDraggingSeeker && dragSeekTime !== null ? dragSeekTime : currentTime)}</span>
-                  <span>{formatTime(duration)}</span>
+                  <span ref={fullCurrentTimeRef}>0:00</span>
+                  <span ref={fullDurationRef}>{formatTime(effectiveDuration)}</span>
                 </div>
               </div>
 
@@ -599,6 +652,7 @@ export const MobilePlayerDock: React.FC = () => {
                   step={0.01}
                   value={isMuted ? 0 : volume}
                   onChange={(e) => setVolume(Number(e.target.value))}
+                  style={{ width: "100%", height: "4px", cursor: "pointer" }}
                 />
               </div>
             </div>

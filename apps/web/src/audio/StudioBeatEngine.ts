@@ -1,7 +1,19 @@
+/**
+ * StudioBeatEngine.ts
+ * 
+ * Adaptive Multi-Band Beat & Rhythm Intelligence for Hidden Music Vault.
+ * Features:
+ * - Dynamic Multi-Release Compatibility (Any Album / EP / Single)
+ * - Ground-Truth Rhythm Grid Locking (when metadata exists) + Real-time Dynamic Energy Fallback
+ * - Multi-band Transient Extraction (Sub-Bass, Kick, Snare, Hi-hat, Vocals)
+ * - Zero GC / Pre-allocated buffers for 60fps/120fps WebGL/Canvas rendering
+ */
+
 import { getGroundTruthProfile, GroundTruthTrackProfile } from "./hvlGroundTruthRhythmGrid";
+import { dualDeckAudioEngine } from "./DualDeckAudioEngine";
 
 export interface StudioBeatState {
-  // Real-time detected tempo (BPM) & Ground-Truth Tonality
+  // Real-time detected tempo (BPM) & Tonality
   liveBpm: number;
   bpmConfidence: number;
   rootKey: string;
@@ -23,6 +35,7 @@ export interface StudioBeatState {
   isBassHit: boolean;
   isKickRoll: boolean;
   isSnareHit: boolean;
+  isHihatHit: boolean;
 
   // Distinct Envelopes for Visual Layering
   subImpact: number;
@@ -30,10 +43,11 @@ export interface StudioBeatState {
   bassImpact: number;
   kickRollIntensity: number;
   snareFlash: number;
+  hihatSparkle: number;
   downbeatPulse: number;
   overallEnergy: number;
 
-  // Granular Frequency Bands
+  // Granular Frequency Bands [0.0 - 1.0]
   subBass: number;
   kick: number;
   upperBass: number;
@@ -45,28 +59,23 @@ export interface StudioBeatState {
 export class StudioBeatEngine {
   private static instance: StudioBeatEngine;
 
-  private audioCtx: AudioContext | null = null;
-  private analyser: AnalyserNode | null = null;
-  private sourceNode: MediaElementAudioSourceNode | null = null;
-  private currentAudioElement: HTMLAudioElement | null = null;
   private frequencyData: Uint8Array<ArrayBuffer> | null = null;
   private timeDomainData: Uint8Array<ArrayBuffer> | null = null;
 
-  // Rolling Averages for Adaptive Thresholding
+  // Rolling Averages for Adaptive Dynamic Thresholding
   private lowEndHistory: number[] = [];
   private snareHistory: number[] = [];
+  private hihatHistory: number[] = [];
   private readonly HISTORY_SIZE = 30;
-
-  // Fast and Slow Energy Follower
-  private fastEnergy: number = 0;
-  private slowEnergy: number = 0;
 
   // Transient Timestamps
   private lastKickTime = 0;
   private lastSnareTime = 0;
+  private lastHihatTime = 0;
   private lastBeatTime = 0;
-  private readonly KICK_MIN_INTERVAL_MS = 60;  // Supports rapid trap kick rolls
+  private readonly KICK_MIN_INTERVAL_MS = 60;
   private readonly SNARE_MIN_INTERVAL_MS = 140;
+  private readonly HIHAT_MIN_INTERVAL_MS = 45;
 
   // Active Track Profile
   private currentTrackProfile: GroundTruthTrackProfile | null = null;
@@ -93,12 +102,14 @@ export class StudioBeatEngine {
     isBassHit: false,
     isKickRoll: false,
     isSnareHit: false,
+    isHihatHit: false,
 
     subImpact: 0,
     kickImpact: 0,
     bassImpact: 0,
     kickRollIntensity: 0,
     snareFlash: 0,
+    hihatSparkle: 0,
     downbeatPulse: 0,
     overallEnergy: 0,
 
@@ -119,15 +130,7 @@ export class StudioBeatEngine {
     return StudioBeatEngine.instance;
   }
 
-  public attachAudioElement(audioEl: HTMLAudioElement): void {
-    this.currentAudioElement = audioEl;
-  }
-
-  public async resumeContext(): Promise<void> {
-    // Pure no-op: native HTML5 audio element outputs directly to hardware speakers with zero blocking
-  }
-
-  public setTrack(trackIdOrTitle: string): void {
+  public setTrack(trackIdOrTitle: string, fallbackBpm: number = 120): void {
     this.currentTrackProfile = getGroundTruthProfile(trackIdOrTitle);
     if (this.currentTrackProfile) {
       this.state.liveBpm = this.currentTrackProfile.bpm;
@@ -135,49 +138,35 @@ export class StudioBeatEngine {
       this.state.firstBeatOffsetMs = this.currentTrackProfile.firstBeatOffsetMs;
       this.state.isGroundTruthLocked = true;
 
-      // Extract drum start section
       const titleLower = trackIdOrTitle.toLowerCase();
       if (titleLower.includes("elegie")) this.drumStartSec = 45.0;
       else if (titleLower.includes("idk")) this.drumStartSec = 13.5;
       else if (titleLower.includes("ai mới là")) this.drumStartSec = 8.0;
       else this.drumStartSec = 0.0;
+    } else {
+      // Dynamic fallback for any new Album / EP / Single
+      this.state.liveBpm = fallbackBpm || 120;
+      this.state.rootKey = "A";
+      this.state.firstBeatOffsetMs = 0;
+      this.state.isGroundTruthLocked = false;
+      this.drumStartSec = 0.0;
     }
   }
 
   public getByteFrequencyData(): Uint8Array {
+    const analyser = dualDeckAudioEngine.getAnalyserNode();
+    if (analyser) {
+      if (!this.frequencyData || this.frequencyData.length !== analyser.frequencyBinCount) {
+        this.frequencyData = new Uint8Array(analyser.frequencyBinCount);
+      }
+      analyser.getByteFrequencyData(this.frequencyData);
+      return this.frequencyData;
+    }
+
     if (!this.frequencyData) {
       this.frequencyData = new Uint8Array(32);
     }
-
-    const audio = this.currentAudioElement;
-    const isPlaying = audio && !audio.paused && !audio.ended;
-
-    if (isPlaying) {
-      const energy = this.state.overallEnergy || 0.5;
-      const kickImp = this.state.kickImpact || 0;
-      const snareImp = this.state.snareFlash || 0;
-
-      for (let i = 0; i < 32; i++) {
-        // Synthesize vibrant, beat-reactive spectrum bars based on ground-truth frequency bands
-        let bandVal = 0;
-        if (i < 6) {
-          bandVal = (this.state.subBass * 200) + (kickImp * 55);
-        } else if (i < 14) {
-          bandVal = (this.state.kick * 180) + (this.state.upperBass * 60);
-        } else if (i < 24) {
-          bandVal = (this.state.lowMid * 160) + (snareImp * 70);
-        } else {
-          bandVal = (this.state.vocalMid * 140) + (this.state.highTreble * 100);
-        }
-
-        // Add subtle harmonic modulation
-        const wobble = Math.sin(performance.now() * 0.01 + i * 0.4) * 15;
-        this.frequencyData[i] = Math.min(255, Math.max(10, Math.round(bandVal * energy + wobble)));
-      }
-    } else {
-      this.frequencyData.fill(0);
-    }
-
+    this.frequencyData.fill(0);
     return this.frequencyData;
   }
 
@@ -191,7 +180,7 @@ export class StudioBeatEngine {
 
   public getBeatState(): StudioBeatState {
     const now = performance.now();
-    const audio = this.currentAudioElement;
+    const audio = dualDeckAudioEngine.getActiveAudio();
     const isPlaying = audio && !audio.paused && !audio.ended;
     const currentTimeSec = audio ? audio.currentTime : 0;
 
@@ -204,12 +193,18 @@ export class StudioBeatEngine {
     let rawOverall = 0;
     let hasSignal = false;
 
-    if (this.analyser && this.frequencyData && isPlaying) {
-      try {
-        this.analyser.getByteFrequencyData(this.frequencyData);
+    const analyser = dualDeckAudioEngine.getAnalyserNode();
 
-        const binCount = this.analyser.frequencyBinCount;
-        const sampleRate = this.audioCtx ? this.audioCtx.sampleRate : 44100;
+    if (analyser && isPlaying) {
+      if (!this.frequencyData || this.frequencyData.length !== analyser.frequencyBinCount) {
+        this.frequencyData = new Uint8Array(analyser.frequencyBinCount);
+      }
+
+      try {
+        analyser.getByteFrequencyData(this.frequencyData);
+
+        const binCount = analyser.frequencyBinCount;
+        const sampleRate = 44100;
         const binHz = sampleRate / (binCount * 2);
 
         const getAverageInRange = (minHz: number, maxHz: number): number => {
@@ -229,17 +224,17 @@ export class StudioBeatEngine {
         rawBass = getAverageInRange(160, 320);
         rawMid = getAverageInRange(320, 1000);
         rawSnare = getAverageInRange(1000, 3800);
-        rawTreble = getAverageInRange(3800, 16000);
+        rawTreble = getAverageInRange(5000, 16000);
 
-        rawOverall = rawSub * 0.35 + rawKick * 0.25 + rawBass * 0.15 + rawMid * 0.15 + rawTreble * 0.1;
+        rawOverall = rawSub * 0.30 + rawKick * 0.25 + rawBass * 0.15 + rawMid * 0.15 + rawTreble * 0.15;
         if (rawOverall > 0.005) {
           hasSignal = true;
         }
       } catch {}
     }
 
-    // Fallback beat timing generator when signal is quiet or initializing
-    const bpm = this.currentTrackProfile ? this.currentTrackProfile.bpm : 120;
+    // Continuous Beat Clock
+    const bpm = this.state.liveBpm || 120;
     const beatPeriod = 60 / bpm;
     const elapsedSinceFirstBeat = Math.max(0, currentTimeSec - (this.state.firstBeatOffsetMs / 1000));
     const beatPhase = (elapsedSinceFirstBeat % beatPeriod) / beatPeriod;
@@ -255,6 +250,7 @@ export class StudioBeatEngine {
     let isKickHit = false;
     let isSnareHit = false;
     let isSubHit = false;
+    let isHihatHit = false;
     const isDrummingSection = currentTimeSec >= this.drumStartSec;
 
     if (hasSignal && isPlaying) {
@@ -268,7 +264,11 @@ export class StudioBeatEngine {
       if (this.snareHistory.length > this.HISTORY_SIZE) this.snareHistory.shift();
       const avgSnare = this.snareHistory.reduce((a, b) => a + b, 0) / this.snareHistory.length;
 
-      // 1. Transient Kick Drum Trigger (65-160Hz) with adaptive flux
+      this.hihatHistory.push(rawTreble);
+      if (this.hihatHistory.length > this.HISTORY_SIZE) this.hihatHistory.shift();
+      const avgHihat = this.hihatHistory.reduce((a, b) => a + b, 0) / this.hihatHistory.length;
+
+      // 1. Kick Drum Transient (65-160Hz)
       const timeSinceLastKick = now - this.lastKickTime;
       const isRapidKick = timeSinceLastKick >= this.KICK_MIN_INTERVAL_MS && timeSinceLastKick < 200;
       const kickThreshold = isRapidKick ? avgLowEnd * 1.15 : avgLowEnd * 1.25;
@@ -282,7 +282,7 @@ export class StudioBeatEngine {
         }
       }
 
-      // 2. Snare / High Transient Trigger (1000-3800Hz)
+      // 2. Snare / Mid Transient (1000-3800Hz)
       const timeSinceLastSnare = now - this.lastSnareTime;
       if (isDrummingSection && rawSnare > avgSnare * 1.25 && rawSnare > 0.08 && timeSinceLastSnare >= this.SNARE_MIN_INTERVAL_MS) {
         isSnareHit = true;
@@ -290,7 +290,15 @@ export class StudioBeatEngine {
         this.state.snareFlash = 1.0;
       }
 
-      // 3. Sub-bass Rumbling Trigger (20-65Hz)
+      // 3. Hi-Hat / High Transient (5000-16000Hz)
+      const timeSinceLastHihat = now - this.lastHihatTime;
+      if (rawTreble > avgHihat * 1.30 && rawTreble > 0.06 && timeSinceLastHihat >= this.HIHAT_MIN_INTERVAL_MS) {
+        isHihatHit = true;
+        this.lastHihatTime = now;
+        this.state.hihatSparkle = 1.0;
+      }
+
+      // 4. Sub-Bass Rumbling (20-65Hz)
       if (rawSub > 0.35) {
         isSubHit = true;
         this.state.subImpact = Math.min(1.0, rawSub * 1.3);
@@ -306,11 +314,10 @@ export class StudioBeatEngine {
       this.state.upperBass = lerp(this.state.upperBass, rawBass, 0.75, 0.20);
       this.state.lowMid = lerp(this.state.lowMid, rawMid, 0.55, 0.15);
       this.state.vocalMid = lerp(this.state.vocalMid, rawSnare, 0.55, 0.15);
-      this.state.highTreble = lerp(this.state.highTreble, rawTreble, 0.60, 0.18);
+      this.state.highTreble = lerp(this.state.highTreble, rawTreble, 0.65, 0.20);
       this.state.overallEnergy = lerp(this.state.overallEnergy, rawOverall, 0.60, 0.18);
       this.state.bassImpact = lerp(this.state.bassImpact, rawBass * 1.2, 0.75, 0.18);
     } else if (isPlaying && isDrummingSection) {
-      // Synthetic beat lock when audio context is silent or offline
       if (beatPhase < 0.12 && (now - this.lastBeatTime > 200)) {
         isKickHit = true;
         this.lastBeatTime = now;
@@ -323,15 +330,17 @@ export class StudioBeatEngine {
       }
     }
 
-    // Exponential Decay for punchy snap
+    // Exponential Decay
     this.state.kickImpact *= 0.84;
     this.state.kickRollIntensity *= 0.88;
     this.state.snareFlash *= 0.78;
+    this.state.hihatSparkle *= 0.80;
     this.state.subImpact *= 0.88;
     this.state.downbeatPulse *= 0.82;
 
     this.state.isKickHit = isKickHit;
     this.state.isSnareHit = isSnareHit;
+    this.state.isHihatHit = isHihatHit;
     this.state.isSubHit = isSubHit;
     this.state.isBeatHit = isKickHit || (beatPhase < 0.10);
     this.state.isDownbeat = (beatInBar === 1 && beatPhase < 0.12);

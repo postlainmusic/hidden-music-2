@@ -1,6 +1,7 @@
 import React from "react";
 import { Track, useAudioStore } from "../store/audioStore";
-import { Play, Pause, BarChart2, Loader2 } from "lucide-react";
+import { dualDeckAudioEngine } from "../audio/DualDeckAudioEngine";
+import { Play, Pause, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface TrackCardProps {
@@ -9,7 +10,7 @@ interface TrackCardProps {
 }
 
 export const TrackCard: React.FC<TrackCardProps> = ({ track, index }) => {
-  const { currentTrack, isPlaying, isBuffering, playTrack, togglePlay } = useAudioStore();
+  const { currentTrack, isPlaying, isBuffering, playTrack, togglePlay, getTrackWaveform } = useAudioStore();
   const isCurrent = currentTrack?.id === track.id;
   const isCurrentPlaying = isCurrent && isPlaying;
   const isCurrentBuffering = isCurrent && isBuffering;
@@ -19,8 +20,12 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, index }) => {
     if (isCurrent) {
       togglePlay();
     } else {
-      playTrack(track);
+      playTrack(track, { crossfade: true });
     }
+  };
+
+  const handleHoverWarmup = () => {
+    dualDeckAudioEngine.warmupTrack(track.audioUrl);
   };
 
   const formatTime = (secs: number) => {
@@ -29,17 +34,19 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, index }) => {
     return `${mins}:${remainingSecs < 10 ? "0" : ""}${remainingSecs}`;
   };
 
+  const waveformPeaks = getTrackWaveform(track.id, track.genre, track.duration);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.08, duration: 0.4, ease: "easeOut" }}
+      transition={{ delay: index * 0.04, duration: 0.35, ease: "easeOut" }}
       className="glass-card"
       style={{
         padding: "16px",
         display: "flex",
         flexDirection: "column",
-        gap: "14px",
+        gap: "12px",
         cursor: "pointer",
         position: "relative",
         overflow: "hidden",
@@ -47,6 +54,8 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, index }) => {
         background: isCurrent ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.035)"
       }}
       onClick={handlePlayClick}
+      onMouseEnter={handleHoverWarmup}
+      onTouchStart={handleHoverWarmup}
     >
       {/* Cover Art Container */}
       <div
@@ -80,7 +89,6 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, index }) => {
             background: isCurrent
               ? "linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.7) 100%)"
               : "rgba(0,0,0,0.25)",
-            backdropFilter: isCurrent ? "none" : "blur(0px)",
             transition: "all 0.3s ease",
             display: "flex",
             alignItems: "center",
@@ -120,86 +128,110 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, index }) => {
             style={{
               position: "absolute",
               top: "10px",
-              right: "10px",
+              left: "10px",
               padding: "4px 8px",
+              fontSize: "0.7rem",
+              fontWeight: 800,
+              background: "rgba(0, 0, 0, 0.65)",
+              borderColor: track.palette.primary,
+              color: "#ffffff",
               display: "flex",
               alignItems: "center",
               gap: "4px",
-              fontSize: "0.7rem",
-              fontWeight: 700,
-              background: "rgba(0,0,0,0.6)",
-              borderColor: "rgba(255,255,255,0.3)"
+              boxShadow: "0 4px 12px rgba(0,0,0,0.5)"
             }}
           >
-            {isCurrentBuffering ? (
-              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-                <Loader2 size={12} color="var(--accent-secondary)" />
-              </motion.div>
-            ) : (
-              <BarChart2 size={12} color="var(--accent-secondary)" />
-            )}
-            <span>{isCurrentBuffering ? "BUFFERING..." : isCurrentPlaying ? "PLAYING" : "PAUSED"}</span>
+            <span
+              style={{
+                width: "6px",
+                height: "6px",
+                borderRadius: "50%",
+                background: "#10b981",
+                boxShadow: "0 0 6px #10b981"
+              }}
+            />
+            <span>{isCurrentPlaying ? "PLAYING" : "PAUSED"}</span>
           </div>
         )}
       </div>
 
-      {/* Information */}
-      <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-          <h4
+      {/* Metadata & Instant Mini Waveform */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "8px" }}>
+          <h3
             style={{
-              fontSize: "1rem",
-              fontWeight: 700,
-              color: "#ffffff",
+              fontSize: "0.95rem",
+              fontWeight: 800,
+              color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.9)",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              letterSpacing: "0.01em"
+            }}
+          >
+            {track.title}
+          </h3>
+          <span
+            style={{
+              fontSize: "0.75rem",
+              color: "rgba(255, 255, 255, 0.45)",
+              fontWeight: 600,
+              flexShrink: 0
+            }}
+          >
+            {formatTime(track.duration)}
+          </span>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <p
+            style={{
+              fontSize: "0.78rem",
+              color: "rgba(255, 255, 255, 0.55)",
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis"
             }}
           >
-            {track.title}
-          </h4>
-          <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", flexShrink: 0 }}>
-            {formatTime(track.duration)}
-          </span>
+            {track.artist}
+          </p>
+
+          {track.bpm && (
+            <span
+              style={{
+                fontSize: "0.68rem",
+                fontWeight: 700,
+                color: "rgba(255, 255, 255, 0.35)",
+                letterSpacing: "0.04em"
+              }}
+            >
+              {track.bpm} BPM
+            </span>
+          )}
         </div>
 
-        <p
+        {/* Instant Mini Waveform Preview (24 bars) */}
+        <div
           style={{
-            fontSize: "0.84rem",
-            color: "var(--text-secondary)",
-            marginTop: "3px",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis"
+            height: "12px",
+            display: "flex",
+            alignItems: "center",
+            gap: "2px",
+            opacity: isCurrent ? 0.85 : 0.35,
+            marginTop: "2px"
           }}
         >
-          {track.artist}
-        </p>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "10px" }}>
-          <span
-            style={{
-              fontSize: "0.7rem",
-              padding: "3px 8px",
-              borderRadius: "6px",
-              background: "rgba(255, 255, 255, 0.06)",
-              color: "var(--text-secondary)",
-              border: "1px solid rgba(255, 255, 255, 0.08)"
-            }}
-          >
-            {track.genre}
-          </span>
-          <span
-            style={{
-              fontSize: "0.7rem",
-              padding: "3px 8px",
-              borderRadius: "6px",
-              background: "rgba(255, 255, 255, 0.04)",
-              color: "var(--text-muted)"
-            }}
-          >
-            {track.album}
-          </span>
+          {waveformPeaks.slice(0, 24).map((p, pIdx) => (
+            <div
+              key={pIdx}
+              style={{
+                flex: 1,
+                height: `${Math.max(15, p * 100)}%`,
+                borderRadius: "1px",
+                background: isCurrent ? track.palette.primary : "#ffffff"
+              }}
+            />
+          ))}
         </div>
       </div>
     </motion.div>
