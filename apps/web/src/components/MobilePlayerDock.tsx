@@ -365,7 +365,7 @@ export const MobilePlayerDock: React.FC = () => {
               </div>
             </div>
 
-            {/* Middle: Vinyl Cover Display */}
+            {/* Middle: Clean Square Album Cover Display (No spinning disc) */}
             <div
               style={{
                 display: "flex",
@@ -376,68 +376,27 @@ export const MobilePlayerDock: React.FC = () => {
                 position: "relative"
               }}
             >
-              <motion.div
-                animate={{ rotate: isPlaying ? 360 : 0 }}
-                transition={{ repeat: Infinity, duration: 18, ease: "linear" }}
+              <div
                 style={{
                   width: "min(72vw, 270px)",
                   height: "min(72vw, 270px)",
-                  borderRadius: "50%",
-                  padding: "6px",
-                  background: "radial-gradient(circle, #27272a 0%, #09090b 100%)",
-                  boxShadow: "0 24px 60px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.2)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  borderRadius: "24px",
+                  overflow: "hidden",
+                  boxShadow: "0 24px 60px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.15)",
                   position: "relative"
                 }}
               >
-                {/* Vinyl Grooves pattern */}
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: "12px",
-                    borderRadius: "50%",
-                    border: "1px dashed rgba(255, 255, 255, 0.15)",
-                    pointerEvents: "none"
-                  }}
-                />
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: "28px",
-                    borderRadius: "50%",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
-                    pointerEvents: "none"
-                  }}
-                />
-
                 <img
                   src={currentTrack.coverUrl}
                   alt={currentTrack.title}
                   style={{
-                    width: "55%",
-                    height: "55%",
-                    borderRadius: "50%",
+                    width: "100%",
+                    height: "100%",
                     objectFit: "cover",
-                    boxShadow: "0 0 16px rgba(0, 0, 0, 0.8)",
-                    border: "2px solid rgba(255, 255, 255, 0.4)"
+                    display: "block"
                   }}
                 />
-
-                {/* Center Spindle Hole */}
-                <div
-                  style={{
-                    position: "absolute",
-                    width: "18px",
-                    height: "18px",
-                    borderRadius: "50%",
-                    background: "#000000",
-                    border: "2px solid rgba(255, 255, 255, 0.5)",
-                    boxShadow: "inset 0 0 4px #000"
-                  }}
-                />
-              </motion.div>
+              </div>
             </div>
 
             {/* Bottom Controls Area */}

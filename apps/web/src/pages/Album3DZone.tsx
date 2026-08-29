@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Play, Pause, Heart, RotateCcw } from "lucide-react";
 import { useAudioStore, Track, DEFAULT_TRACKS } from "../store/audioStore";
-import { Album3DScene } from "../components/scene3d/Album3DScene";
-import { MeshGradientBackground } from "../components/MeshGradientBackground";
 import { FloatingPlayerDock } from "../components/FloatingPlayerDock";
 import { MobilePlayerDock } from "../components/MobilePlayerDock";
 import { useIsMobile } from "../hooks/useIsMobile";
@@ -26,44 +24,43 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
   // Mobile Flip State (290x290 in-place square flip)
   const [isMobileFlipped, setIsMobileFlipped] = useState<boolean>(false);
   
-  // Audio-reactive visual states
-  const [kickScale, setKickScale] = useState<number>(1.0);
-  const [discRotation, setDiscRotation] = useState<number>(0);
+  // Audio-reactive visual states (Transient Punch & Specular Halo)
+  const [kickImpact, setKickImpact] = useState<number>(0);
+  const [snareFlash, setSnareFlash] = useState<number>(0);
+  const [ambientEnergy, setAmbientEnergy] = useState<number>(0);
   const [tilt, setTilt] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const cardRef = useRef<HTMLDivElement | null>(null);
 
-  // 60fps Loop for Cover Beat Bounce & Vinyl Disc Rotation
+  // 60fps Loop for Transient Beat Detection & Ambient Depth
   useEffect(() => {
     let animId: number;
 
-    const updateVisuals = () => {
-      const bands = audioAnalyserEngine.getBands();
-      
+    const updateAudioEffects = () => {
       if (isPlaying) {
-        // Kick & Sub-Bass bounce
-        const targetScale = 1.0 + bands.kick * 0.05 + bands.subBass * 0.03;
-        setKickScale((prev) => prev + (targetScale - prev) * 0.35);
-
-        // Smooth Vinyl Disc Rotation
-        setDiscRotation((prev) => (prev + 1.2 + bands.overallEnergy * 1.5) % 360);
+        const bands = audioAnalyserEngine.getBands();
+        setKickImpact(bands.kickImpact);
+        setSnareFlash(bands.snareFlash);
+        setAmbientEnergy(bands.subBass * 0.4 + bands.kick * 0.4 + bands.lowMid * 0.2);
       } else {
-        setKickScale((prev) => prev + (1.0 - prev) * 0.15);
+        setKickImpact((prev) => prev * 0.85);
+        setSnareFlash((prev) => prev * 0.85);
+        setAmbientEnergy((prev) => prev * 0.85);
       }
 
-      animId = requestAnimationFrame(updateVisuals);
+      animId = requestAnimationFrame(updateAudioEffects);
     };
 
-    animId = requestAnimationFrame(updateVisuals);
+    animId = requestAnimationFrame(updateAudioEffects);
     return () => cancelAnimationFrame(animId);
   }, [isPlaying]);
 
-  // 3D Parallax Tilt Handler
+  // 3D Parallax Tilt Handler (Desktop only)
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isMobile) return;
     const { innerWidth, innerHeight } = window;
-    const x = (e.clientX / innerWidth - 0.5) * 20; // -10 to +10 deg
-    const y = (e.clientY / innerHeight - 0.5) * -20;
+    const x = (e.clientX / innerWidth - 0.5) * 16;
+    const y = (e.clientY / innerHeight - 0.5) * -16;
     setTilt({ x: y, y: x });
   };
 
@@ -100,6 +97,9 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
     glow: "rgba(99, 102, 241, 0.45)",
   };
 
+  // Physical card scale: Snappy kick punch with clean rest period
+  const currentScale = 1.0 + kickImpact * 0.06;
+
   return (
     <div
       onMouseMove={handleMouseMove}
@@ -107,20 +107,69 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
         position: "relative",
         minHeight: "100dvh",
         width: "100vw",
-        backgroundColor: "#050508",
+        backgroundColor: "#000000",
         overflow: "hidden",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
       }}
     >
-      {/* 1. Fluid Ambient Mesh Aurora Glow */}
-      <MeshGradientBackground />
+      {/* ─────────────────────────────────────────────────────────────────────
+          1. CINEMATIC VOLUMETRIC AMBIENT DEPTH (No WebGL, Ultra-Lightweight)
+      ────────────────────────────────────────────────────────────────────── */}
+      {/* Center Deep Ambient Radial Glow breathing with track palette */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: `radial-gradient(ellipse at center, ${palette.primary}33 0%, ${palette.accent}18 45%, #000000 80%)`,
+          opacity: isPlaying ? 0.35 + ambientEnergy * 0.45 : 0.20,
+          transition: "opacity 0.25s ease-out",
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      />
 
-      {/* 2. Full-Screen High-Vibrancy WebGL 3D Audio-Reactive Background with Shockwaves */}
-      <Album3DScene />
+      {/* Dynamic Red Shockwave Ambient Flash on Kick/Bass Impacts */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "radial-gradient(circle at center, rgba(239, 68, 68, 0.28) 0%, rgba(225, 29, 72, 0.12) 40%, transparent 75%)",
+          opacity: kickImpact * 0.85,
+          pointerEvents: "none",
+          zIndex: 0,
+          transition: "opacity 0.08s ease-out",
+        }}
+      />
 
-      {/* 3. Minimalist Top Bar: Back to Vault */}
+      {/* Snare Specular Halo Flash across the screen */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "radial-gradient(circle at center, rgba(255, 255, 255, 0.18) 0%, rgba(240, 245, 255, 0.06) 45%, transparent 70%)",
+          opacity: snareFlash * 0.9,
+          pointerEvents: "none",
+          zIndex: 0,
+          transition: "opacity 0.06s ease-out",
+        }}
+      />
+
+      {/* Cinematic Dark Vignette */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "radial-gradient(circle at center, transparent 35%, rgba(0, 0, 0, 0.85) 100%)",
+          pointerEvents: "none",
+          zIndex: 1,
+        }}
+      />
+
+      {/* ─────────────────────────────────────────────────────────────────────
+          2. MINIMALIST TOP BAR: BACK TO VAULT
+      ────────────────────────────────────────────────────────────────────── */}
       <div
         style={{
           position: "fixed",
@@ -153,7 +202,9 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
         </button>
       </div>
 
-      {/* 4. Dead-Center Interactive Album Cover + Peeking Vinyl Disc */}
+      {/* ─────────────────────────────────────────────────────────────────────
+          3. CENTER-STAGE ALBUM COVER & DYNAMIC VOLUMETRIC GLOW AURA
+      ────────────────────────────────────────────────────────────────────── */}
       <div
         ref={cardRef}
         style={{
@@ -162,78 +213,56 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
           width: `${cardSize}px`,
           height: `${cardSize}px`,
           perspective: 1000,
-          transform: `scale(${kickScale}) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
-          transition: "transform 0.12s ease-out",
+          transform: `scale(${currentScale}) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
+          transition: "transform 0.10s cubic-bezier(0.16, 1, 0.3, 1)",
         }}
       >
-        {/* Dynamic Audio-Reactive Ambient Glow Drop-Shadow */}
+        {/* A. Broad Volumetric Synesthesia Aura (Glows & changes color with track) */}
         <div
           style={{
             position: "absolute",
-            inset: "-20px",
-            borderRadius: "40px",
-            background: `radial-gradient(circle, ${palette.glow} 0%, transparent 70%)`,
-            filter: "blur(30px)",
-            opacity: isPlaying ? 0.95 : 0.45,
-            transition: "opacity 0.3s ease",
+            inset: "-40px",
+            borderRadius: "60px",
+            background: `radial-gradient(circle, ${palette.primary}88 0%, ${palette.secondary}44 45%, transparent 70%)`,
+            filter: "blur(45px)",
+            opacity: isPlaying ? 0.75 + ambientEnergy * 0.35 : 0.35,
+            transition: "opacity 0.25s ease, background 0.6s ease",
             zIndex: 1,
             pointerEvents: "none",
           }}
         />
 
-        {/* Physical Vinyl Disc (Slides out to the right on Desktop) */}
-        {!isMobile && (
-          <div
-            style={{
-              position: "absolute",
-              top: "10px",
-              right: isPlaying ? "-85px" : "-50px",
-              width: `${cardSize - 20}px`,
-              height: `${cardSize - 20}px`,
-              borderRadius: "50%",
-              background: "radial-gradient(circle, #1c1d24 0%, #0d0e12 55%, #181920 100%)",
-              boxShadow: "0 15px 40px rgba(0, 0, 0, 0.9), inset 0 0 0 2px rgba(255, 255, 255, 0.08)",
-              zIndex: 2,
-              transform: `rotate(${discRotation}deg)`,
-              transition: "right 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              overflow: "hidden",
-              pointerEvents: "none",
-            }}
-          >
-            {/* Fine Concentric Vinyl Grooves */}
-            <div
-              style={{
-                position: "absolute",
-                inset: "18px",
-                borderRadius: "50%",
-                border: "1px dashed rgba(255, 255, 255, 0.12)",
-                boxShadow: "inset 0 0 0 12px rgba(0,0,0,0.5), inset 0 0 0 28px rgba(255,255,255,0.03)",
-              }}
-            />
-            {/* Center Label Inlaid Artwork */}
-            <div
-              style={{
-                width: "90px",
-                height: "90px",
-                borderRadius: "50%",
-                overflow: "hidden",
-                border: "2px solid rgba(255, 255, 255, 0.3)",
-                boxShadow: "0 0 12px rgba(0,0,0,0.8)",
-              }}
-            >
-              <img
-                src={currentTrack?.coverUrl || "https://media.postlain.com/covers/HVL_Album_Cover.jpg"}
-                alt="Vinyl Label"
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
-            </div>
-          </div>
-        )}
+        {/* B. Punchy CRIMSON RED Aura Shockwave on Bass/Kick Hits */}
+        <div
+          style={{
+            position: "absolute",
+            inset: "-55px",
+            borderRadius: "70px",
+            background: "radial-gradient(circle, rgba(239, 68, 68, 0.95) 0%, rgba(225, 29, 72, 0.65) 45%, transparent 75%)",
+            filter: "blur(40px)",
+            opacity: kickImpact > 0.05 ? kickImpact * 0.95 : 0,
+            zIndex: 2,
+            pointerEvents: "none",
+            transition: "opacity 0.06s ease-out",
+          }}
+        />
 
-        {/* Main Cover Container (Supports 3D In-Place Flip on Mobile) */}
+        {/* C. Radiant Specular White/Silver Halo on Snare Hits */}
+        <div
+          style={{
+            position: "absolute",
+            inset: "-25px",
+            borderRadius: "50px",
+            background: "radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(200, 220, 255, 0.45) 50%, transparent 75%)",
+            filter: "blur(20px)",
+            opacity: snareFlash > 0.05 ? snareFlash * 0.9 : 0,
+            zIndex: 3,
+            pointerEvents: "none",
+            transition: "opacity 0.05s ease-out",
+          }}
+        />
+
+        {/* D. Main Cover Container (Supports 3D In-Place Flip on Mobile) */}
         <motion.div
           onClick={handleMobileCardClick}
           animate={{ rotateY: isMobile && isMobileFlipped ? 180 : 0 }}
@@ -247,7 +276,7 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
             zIndex: 10,
           }}
         >
-          {/* Front Face: High-Res Album Cover Artwork with Liquid Glass Rim */}
+          {/* Front Face: High-Res Album Cover with Dynamic Color/Red Edge Specular */}
           <div
             style={{
               position: "absolute",
@@ -256,10 +285,14 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
               WebkitBackfaceVisibility: "hidden",
               borderRadius: borderRadius,
               overflow: "hidden",
-              border: `1px solid ${isPlaying ? palette.primary : "rgba(255, 255, 255, 0.25)"}`,
-              boxShadow: `0 30px 80px rgba(0, 0, 0, 0.95), 0 0 24px ${palette.glow}`,
+              border: kickImpact > 0.35
+                ? "1.5px solid rgba(239, 68, 68, 0.9)"
+                : `1px solid ${isPlaying ? palette.primary : "rgba(255, 255, 255, 0.25)"}`,
+              boxShadow: kickImpact > 0.35
+                ? "0 30px 90px rgba(0, 0, 0, 0.95), 0 0 35px rgba(239, 68, 68, 0.75)"
+                : `0 30px 90px rgba(0, 0, 0, 0.95), 0 0 25px ${palette.glow}`,
               background: "#121318",
-              transition: "border-color 0.4s ease, box-shadow 0.4s ease",
+              transition: "border-color 0.08s ease, box-shadow 0.08s ease",
             }}
           >
             <img
@@ -293,7 +326,7 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
                   transform: "translateX(-50%)",
                   padding: "5px 12px",
                   borderRadius: "999px",
-                  background: "rgba(0, 0, 0, 0.72)",
+                  background: "rgba(0, 0, 0, 0.75)",
                   border: "1px solid rgba(255, 255, 255, 0.25)",
                   color: "#ffffff",
                   fontSize: "0.68rem",
@@ -325,7 +358,7 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
                 overflow: "hidden",
                 border: "1px solid rgba(255, 255, 255, 0.22)",
                 boxShadow: "0 30px 80px rgba(0, 0, 0, 0.95)",
-                background: "rgba(10, 11, 16, 0.92)",
+                background: "rgba(10, 11, 16, 0.94)",
                 backdropFilter: "blur(32px)",
                 WebkitBackdropFilter: "blur(32px)",
                 display: "flex",
@@ -453,7 +486,9 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
         </motion.div>
       </div>
 
-      {/* 5. Bottom Playbar Dock */}
+      {/* ─────────────────────────────────────────────────────────────────────
+          4. BOTTOM PLAYBAR DOCK
+      ────────────────────────────────────────────────────────────────────── */}
       {isMobile ? <MobilePlayerDock /> : <FloatingPlayerDock />}
     </div>
   );
