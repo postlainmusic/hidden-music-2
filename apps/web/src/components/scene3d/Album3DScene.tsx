@@ -6,10 +6,6 @@ import {
   GenreParticleVertexShader,
   GenreParticleFragmentShader,
 } from "./shaders/GenreParticleShaders";
-import {
-  GrainHalationVertexShader,
-  GrainHalationFragmentShader,
-} from "./shaders/GrainHalationShaders";
 
 export const Album3DScene: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -40,40 +36,87 @@ export const Album3DScene: React.FC = () => {
     const isMobile = width < 768;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#050508");
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(0, 0, isMobile ? 11.0 : 8.5);
+    camera.position.set(0, 0, isMobile ? 10.5 : 8.5);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
+      alpha: true, // Transparent canvas so ambient mesh shows through seamlessly
       powerPreference: "high-performance",
-      stencil: false,
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.35;
     container.appendChild(renderer.domElement);
 
     // ─────────────────────────────────────────────────────────────
-    // 2. STUDIO LIGHTING RIG
+    // 2. DYNAMIC 3D NEBULA BACKGROUND PLANE
     // ─────────────────────────────────────────────────────────────
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
-    scene.add(ambientLight);
+    const bgGeo = new THREE.PlaneGeometry(30, 20);
+    const bgMat = new THREE.ShaderMaterial({
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        uniform float uKick;
+        uniform float uSubBass;
+        uniform int uMoodTier;
+        varying vec2 vUv;
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 3.0);
-    keyLight.position.set(5, 8, 6);
-    scene.add(keyLight);
+        void main() {
+          vec2 uv = vUv - vec2(0.5);
+          float dist = length(uv);
 
-    const rimLight = new THREE.DirectionalLight(0x8b5cf6, 4.5);
-    rimLight.position.set(-6, -4, -4);
-    scene.add(rimLight);
+          vec3 colA = vec3(0.04, 0.05, 0.12);
+          vec3 colB = vec3(0.12, 0.08, 0.22);
+          vec3 colC = vec3(0.02, 0.02, 0.04);
+
+          if (uMoodTier == 0) {
+            // Chill / Poetic: Indigo & Soft Lavender Mist
+            colA = vec3(0.08, 0.10, 0.24);
+            colB = vec3(0.18, 0.12, 0.32);
+          } else if (uMoodTier == 1) {
+            // Cosmic / Ambient: Deep Sapphire & Emerald Nebula
+            colA = vec3(0.05, 0.15, 0.28);
+            colB = vec3(0.06, 0.22, 0.18);
+          } else {
+            // Trap / Cyber: Laser Violet & Obsidian Shockwave
+            colA = vec3(0.18, 0.05, 0.30);
+            colB = vec3(0.08, 0.18, 0.32);
+          }
+
+          float wave = sin(uv.x * 3.0 + uTime * 0.4) * cos(uv.y * 2.5 + uTime * 0.3);
+          vec3 mixed = mix(colA, colB, wave * 0.5 + 0.5);
+          mixed = mix(mixed, colC, smoothstep(0.1, 0.85, dist));
+
+          // Audio Kick pulse in center
+          mixed += colA * (uKick * 0.35 + uSubBass * 0.25) * smoothstep(0.6, 0.0, dist);
+
+          gl_FragColor = vec4(mixed, 0.88);
+        }
+      `,
+      uniforms: {
+        uTime: { value: 0 },
+        uKick: { value: 0 },
+        uSubBass: { value: 0 },
+        uMoodTier: { value: getMoodTier(currentTrack?.genre, currentTrack?.title) },
+      },
+      depthWrite: false,
+    });
+
+    const bgMesh = new THREE.Mesh(bgGeo, bgMat);
+    bgMesh.position.set(0, 0, -5.0);
+    scene.add(bgMesh);
 
     // ─────────────────────────────────────────────────────────────
     // 3. GENRE-DRIVEN AUDIO REACTIVE PARTICLE SYSTEM (15,000 PARTICLES)
     // ─────────────────────────────────────────────────────────────
-    const particleCount = isMobile ? 9000 : 15000;
+    const particleCount = isMobile ? 6000 : 15000;
     const particleGeo = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     const scales = new Float32Array(particleCount);
@@ -81,7 +124,7 @@ export const Album3DScene: React.FC = () => {
     const phases = new Float32Array(particleCount);
 
     for (let i = 0; i < particleCount; i++) {
-      const radius = 1.0 + Math.pow(Math.random(), 1.3) * 16.0;
+      const radius = 1.0 + Math.pow(Math.random(), 1.25) * 15.0;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(Math.random() * 2 - 1);
 
@@ -123,7 +166,7 @@ export const Album3DScene: React.FC = () => {
     // ─────────────────────────────────────────────────────────────
     // 4. CENTRAL GLOWING AUDIO-REACTIVE SHOCKWAVE AURA RING
     // ─────────────────────────────────────────────────────────────
-    const ringGeo = new THREE.RingGeometry(2.2, 4.6, 64);
+    const ringGeo = new THREE.RingGeometry(2.0, 4.8, 64);
     const ringMat = new THREE.ShaderMaterial({
       vertexShader: `
         varying vec2 vUv;
@@ -142,10 +185,10 @@ export const Album3DScene: React.FC = () => {
         void main() {
           vec2 centered = vUv - vec2(0.5);
           float dist = length(centered) * 2.0;
-          float ring = smoothstep(0.4, 0.7, dist) * smoothstep(1.0, 0.75, dist);
-          float pulse = (0.2 + uKick * 0.8 + uSubBass * 0.5);
-          float alpha = ring * pulse * 0.65;
-          gl_FragColor = vec4(uColor + vec3(uKick * 0.3), alpha);
+          float ring = smoothstep(0.35, 0.65, dist) * smoothstep(1.0, 0.70, dist);
+          float pulse = (0.35 + uKick * 0.95 + uSubBass * 0.6);
+          float alpha = ring * pulse * 0.75;
+          gl_FragColor = vec4(uColor + vec3(uKick * 0.4), alpha);
         }
       `,
       uniforms: {
@@ -165,38 +208,7 @@ export const Album3DScene: React.FC = () => {
     scene.add(auraRing);
 
     // ─────────────────────────────────────────────────────────────
-    // 5. CINEMATIC 35MM POST-PROCESSING (GRAIN, HALATION, BLOOM)
-    // ─────────────────────────────────────────────────────────────
-    const renderTarget = new THREE.WebGLRenderTarget(width, height, {
-      minFilter: THREE.LinearFilter,
-      magFilter: THREE.LinearFilter,
-      format: THREE.RGBAFormat,
-    });
-
-    const postCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-    const postScene = new THREE.Scene();
-    const postGeo = new THREE.PlaneGeometry(2, 2);
-
-    const postMaterial = new THREE.ShaderMaterial({
-      vertexShader: GrainHalationVertexShader,
-      fragmentShader: GrainHalationFragmentShader,
-      uniforms: {
-        tDiffuse: { value: renderTarget.texture },
-        uTime: { value: 0 },
-        uGrainIntensity: { value: 0.05 },
-        uHalationIntensity: { value: 0.55 },
-        uChromaticAberration: { value: 0.0 },
-        uVignetteIntensity: { value: 0.8 },
-      },
-      depthWrite: false,
-      depthTest: false,
-    });
-
-    const postQuad = new THREE.Mesh(postGeo, postMaterial);
-    postScene.add(postQuad);
-
-    // ─────────────────────────────────────────────────────────────
-    // 6. 60FPS RENDER LOOP WITH REAL-TIME AUDIO BAND REACTIVITY
+    // 5. 60FPS RENDER LOOP (REAL-TIME AUDIO SPECTRUM UPDATES)
     // ─────────────────────────────────────────────────────────────
     let animationFrameId: number;
     const clock = new THREE.Clock();
@@ -206,39 +218,37 @@ export const Album3DScene: React.FC = () => {
 
       const elapsedTime = clock.getElapsedTime();
       const bands = audioAnalyserEngine.getBands();
+      const moodTier = getMoodTier(currentTrack?.genre, currentTrack?.title);
 
-      // Update Particle Shaders Uniforms
+      // Background Nebula Shader Update
+      bgMat.uniforms.uTime.value = elapsedTime;
+      bgMat.uniforms.uKick.value = bands.kick;
+      bgMat.uniforms.uSubBass.value = bands.subBass;
+      bgMat.uniforms.uMoodTier.value = moodTier;
+
+      // Particle Shader Uniforms Update
       particleMaterial.uniforms.uTime.value = elapsedTime;
       particleMaterial.uniforms.uSubBass.value = bands.subBass;
       particleMaterial.uniforms.uKick.value = bands.kick;
       particleMaterial.uniforms.uVocalMid.value = bands.vocalMid;
       particleMaterial.uniforms.uHighTreble.value = bands.highTreble;
-      particleMaterial.uniforms.uMoodTier.value = getMoodTier(currentTrack?.genre, currentTrack?.title);
+      particleMaterial.uniforms.uMoodTier.value = moodTier;
 
-      // Update Aura Ring
+      // Aura Shockwave Ring Update
       ringMat.uniforms.uTime.value = elapsedTime;
       ringMat.uniforms.uKick.value = bands.kick;
       ringMat.uniforms.uSubBass.value = bands.subBass;
-      const ringScale = 1.0 + bands.kick * 0.45 + bands.subBass * 0.25;
+      const ringScale = 1.0 + bands.kick * 0.5 + bands.subBass * 0.3;
       auraRing.scale.set(ringScale, ringScale, 1.0);
       auraRing.rotation.z += 0.008;
 
-      // Sub-Bass Driven Chromatic Aberration Shockwave
-      postMaterial.uniforms.uTime.value = elapsedTime;
-      postMaterial.uniforms.uChromaticAberration.value = bands.subBass * 0.85;
-
-      // Render Scene to Target, then render Post Quad to Screen
-      renderer.setRenderTarget(renderTarget);
       renderer.render(scene, camera);
-
-      renderer.setRenderTarget(null);
-      renderer.render(postScene, postCamera);
     };
 
     animate();
 
     // ─────────────────────────────────────────────────────────────
-    // 7. RESIZE LISTENER
+    // 6. RESIZE LISTENER
     // ─────────────────────────────────────────────────────────────
     const handleResize = () => {
       if (!container) return;
@@ -246,29 +256,27 @@ export const Album3DScene: React.FC = () => {
       const h = container.clientHeight || window.innerHeight;
 
       camera.aspect = w / h;
-      camera.position.z = w < 768 ? 11.0 : 8.5;
+      camera.position.z = w < 768 ? 10.5 : 8.5;
       camera.updateProjectionMatrix();
 
       renderer.setSize(w, h);
-      renderTarget.setSize(w, h);
     };
 
     window.addEventListener("resize", handleResize);
 
     // ─────────────────────────────────────────────────────────────
-    // 8. CLEANUP & VRAM DISPOSAL
+    // 7. CLEANUP & VRAM DISPOSAL (AGENTS.MD COMPLIANCE)
     // ─────────────────────────────────────────────────────────────
     return () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener("resize", handleResize);
 
+      bgGeo.dispose();
+      bgMat.dispose();
       particleGeo.dispose();
       particleMaterial.dispose();
       ringGeo.dispose();
       ringMat.dispose();
-      postGeo.dispose();
-      postMaterial.dispose();
-      renderTarget.dispose();
       renderer.dispose();
 
       if (container.contains(renderer.domElement)) {
@@ -286,7 +294,6 @@ export const Album3DScene: React.FC = () => {
         width: "100vw",
         height: "100dvh",
         zIndex: 0,
-        backgroundColor: "#050508",
         overflow: "hidden",
         pointerEvents: "none",
       }}
