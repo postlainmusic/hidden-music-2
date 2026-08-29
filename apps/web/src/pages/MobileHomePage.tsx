@@ -38,9 +38,10 @@ const formatDuration = (seconds: number) => {
 
 interface MobileHomePageProps {
   onExploreClick?: () => void;
+  onOpen3D?: () => void;
 }
 
-export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }) => {
+export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, onOpen3D }) => {
   const { currentTrack, playTrack, favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
   
   // Active Section: 0 = Section 1, 1 = Section 2, 2 = Section 3
@@ -727,22 +728,50 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
                 Không gian 3D đang được kết nối. Âm nhạc sẽ được giải mã lossless khi bạn bước vào không gian trải nghiệm.
               </p>
 
-              <button
-                onClick={() => setSelectedAlbumModal(null)}
-                style={{
-                  width: "100%",
-                  padding: "14px",
-                  fontSize: "0.9rem",
-                  fontWeight: 700,
-                  borderRadius: "14px",
-                  background: "#ffffff",
-                  color: "#000000",
-                  border: "none",
-                  cursor: "pointer"
-                }}
-              >
-                Đã hiểu
-              </button>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <button
+                  onClick={() => {
+                    setSelectedAlbumModal(null);
+                    if (onOpen3D) onOpen3D();
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "14px",
+                    fontSize: "0.9rem",
+                    fontWeight: 800,
+                    borderRadius: "14px",
+                    background: "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)",
+                    color: "#ffffff",
+                    border: "none",
+                    cursor: "pointer",
+                    boxShadow: "0 0 20px rgba(99, 102, 241, 0.45)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px"
+                  }}
+                >
+                  <Sparkles size={16} />
+                  <span>BƯỚC VÀO 3D SPACE</span>
+                </button>
+
+                <button
+                  onClick={() => setSelectedAlbumModal(null)}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                    borderRadius: "12px",
+                    background: "rgba(255, 255, 255, 0.08)",
+                    color: "rgba(255, 255, 255, 0.7)",
+                    border: "none",
+                    cursor: "pointer"
+                  }}
+                >
+                  Đóng
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
