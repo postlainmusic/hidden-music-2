@@ -70,19 +70,18 @@ export const App: React.FC = () => {
     }
   }, [isPlaying, effectiveAudioUrl]);
 
-  // Anti-Hang Buffer Watchdog: If audio is waiting/stalled for > 3.5s while playing, auto-unfreeze
+  // Anti-Hang Buffer Watchdog: If audio is waiting for > 2.5s while playing, clear spinner safely
   useEffect(() => {
     if (!isBuffering || !isPlaying) return;
     const timer = setTimeout(() => {
       const audio = audioRef.current;
       if (audio && isPlaying) {
-        console.warn("Audio buffer watchdog: resolving spinner visual hang");
         useAudioStore.setState({ isBuffering: false });
         if (audio.paused) {
           audio.play().catch(() => {});
         }
       }
-    }, 3500);
+    }, 2500);
     return () => clearTimeout(timer);
   }, [isBuffering, isPlaying]);
 
@@ -189,7 +188,6 @@ export const App: React.FC = () => {
           }
         }}
         onStalled={() => {
-          console.warn("Audio stream stalled, checking active playback state...");
           const audio = audioRef.current;
           if (audio && isPlaying && audio.paused) {
             audio.play().catch(() => {});
@@ -219,8 +217,7 @@ export const App: React.FC = () => {
           }
         }}
         onEnded={() => nextTrack()}
-        onError={(e) => {
-          console.warn("Audio error:", e);
+        onError={() => {
           useAudioStore.setState({ isBuffering: false });
         }}
         style={{ display: "none" }}
