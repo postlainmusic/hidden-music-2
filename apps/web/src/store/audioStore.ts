@@ -116,7 +116,7 @@ export const DEFAULT_TRACKS: Track[] = [
     album: "HVL",
     duration: 195,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/08.%20%C4%90%E1%BA%A1o%20C%E1%BB%A7a%20Anh%20V%E1%BB%ABa.m4a`,
+    audioUrl: `${R2_BASE}/audio/08.%20%C4%90ao%20C%E1%BB%A7a%20Anh%20V%E1%BB%ABa.m4a`,
     videoUrl: `${R2_BASE}/videos/08.%20%C4%90%E1%BA%A1o%20C%E1%BB%A7a%20Anh%20V%E1%BB%ABa%20-%20MCK.mkv`,
     palette: { primary: "#eab308", secondary: "#ef4444", accent: "#f97316", glow: "rgba(234, 179, 8, 0.45)" },
     genre: "Trap"
@@ -272,7 +272,7 @@ export const DEFAULT_TRACKS: Track[] = [
     album: "HVL",
     duration: 190,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/21.%20Che%20Ph%C3%B9.m4a`,
+    audioUrl: `${R2_BASE}/audio/21.%20Che%20Ph%E1%BB%A7.m4a`,
     videoUrl: `${R2_BASE}/videos/21.%20Che%20Ph%C3%B9%20-%20MCK.mkv`,
     palette: { primary: "#a855f7", secondary: "#f43f5e", accent: "#3b82f6", glow: "rgba(168, 85, 247, 0.45)" },
     genre: "Hip-Hop"
@@ -284,7 +284,7 @@ export const DEFAULT_TRACKS: Track[] = [
     album: "HVL",
     duration: 215,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/22.%20Oanh%20M%20-%20Thuoc.m4a`,
+    audioUrl: `${R2_BASE}/audio/22.%20Oanh%20M%20%3D%20Thuoc.m4a`,
     videoUrl: `${R2_BASE}/videos/22.%20Oanh%20M%20-%20Thuoc%20-%20MCK.mkv`,
     palette: { primary: "#06b6d4", secondary: "#6366f1", accent: "#10b981", glow: "rgba(6, 182, 212, 0.45)" },
     genre: "Trap"
@@ -296,7 +296,7 @@ export const DEFAULT_TRACKS: Track[] = [
     album: "HVL",
     duration: 188,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/23.%20Gh%C3%A9t%20Xog%20L%E1%BA%A1i%20Thik.m4a`,
+    audioUrl: `${R2_BASE}/audio/23.%20Ghet%20Xog%20Lai%20Thik.m4a`,
     videoUrl: `${R2_BASE}/videos/23.%20Gh%C3%A9t%20Xog%20L%E1%BA%A1i%20Thik%20-%20MCK.mkv`,
     palette: { primary: "#ec4899", secondary: "#f43f5e", accent: "#fb923c", glow: "rgba(236, 72, 153, 0.45)" },
     genre: "Pop Rap"
