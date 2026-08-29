@@ -554,6 +554,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     dualDeckAudioEngine.subscribeBuffering((isBuffering) => {
       set({ isBuffering });
     });
+
+    // Setup real HTML5 audio playback state sync
+    dualDeckAudioEngine.subscribePlaybackState((isPlaying) => {
+      set({ isPlaying });
+    });
   },
 
   playTrack: (track: Track, options: { crossfade?: boolean } = {}) => {

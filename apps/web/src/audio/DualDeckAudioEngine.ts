@@ -72,6 +72,7 @@ export class DualDeckAudioEngine {
   private trackStartedAt: number = 0;
   private progressSubscribers: Set<ProgressCallback> = new Set();
   private bufferingSubscribers: Set<BufferingCallback> = new Set();
+  private playbackStateSubscribers: Set<(isPlaying: boolean) => void> = new Set();
   private onTrackEndCallbacks: Set<TrackEndCallback> = new Set();
 
   private constructor() {
@@ -187,6 +188,20 @@ export class DualDeckAudioEngine {
   }
 
   private setupEventListeners(audio: HTMLAudioElement, deckId: DeckId): void {
+    audio.addEventListener("play", () => {
+      if (this.activeDeckId === deckId) {
+        this.isPlaying = true;
+        this.playbackStateSubscribers.forEach((cb) => cb(true));
+      }
+    });
+
+    audio.addEventListener("pause", () => {
+      if (this.activeDeckId === deckId) {
+        this.isPlaying = false;
+        this.playbackStateSubscribers.forEach((cb) => cb(false));
+      }
+    });
+
     audio.addEventListener("waiting", () => {
       if (this.activeDeckId === deckId) {
         this.setBuffering(true);
@@ -307,6 +322,14 @@ export class DualDeckAudioEngine {
     options: { crossfade?: boolean; startTime?: number } = {}
   ): Promise<void> {
     await this.ensureAudioContext();
+    if (this.audioCtx && this.audioCtx.state === "suspended") {
+      try {
+        await this.audioCtx.resume();
+      } catch (err) {
+        console.warn("[DualDeck] AudioContext resume warning:", err);
+      }
+    }
+
     this.currentTrack = track;
     this.trackStartedAt = Date.now();
     this.retryCount = 0;
@@ -322,7 +345,11 @@ export class DualDeckAudioEngine {
       const incomingGain = nextDeckId === "A" ? this.gainA : this.gainB;
       const outgoingGain = this.activeDeckId === "A" ? this.gainA : this.gainB;
 
-      incomingAudio.src = track.audioUrl;
+      // Always reload if source URL changes or re-instantiating track
+      if (incomingAudio.src !== track.audioUrl) {
+        incomingAudio.src = track.audioUrl;
+        incomingAudio.load();
+      }
       incomingAudio.currentTime = options.startTime || 0;
       incomingAudio.volume = this.isMuted ? 0 : this.masterVolume;
       incomingAudio.muted = this.isMuted;
@@ -344,13 +371,27 @@ export class DualDeckAudioEngine {
         this.activeDeckId = nextDeckId;
         this.isPlaying = true;
         this.startProgressLoop();
+        this.playbackStateSubscribers.forEach((cb) => cb(true));
 
         setTimeout(() => {
-          outgoingAudio.pause();
-          outgoingAudio.currentTime = 0;
+          if (this.activeDeckId === nextDeckId) {
+            outgoingAudio.pause();
+            outgoingAudio.currentTime = 0;
+          }
         }, this.crossfadeDuration * 1000 + 100);
       } catch (err) {
-        console.warn("[DualDeck] Crossfade playback error:", err);
+        console.warn("[DualDeck] Crossfade playback error, applying instant direct playback fallback:", err);
+        try {
+          incomingAudio.load();
+          incomingAudio.currentTime = options.startTime || 0;
+          await incomingAudio.play();
+          this.activeDeckId = nextDeckId;
+          this.isPlaying = true;
+          this.startProgressLoop();
+          this.playbackStateSubscribers.forEach((cb) => cb(true));
+        } catch (err2) {
+          console.error("[DualDeck] Critical play recovery failed:", err2);
+        }
       }
     } else {
       // Instant Random Jump (<30ms)
@@ -371,7 +412,10 @@ export class DualDeckAudioEngine {
         }
       }
 
-      currentAudio.src = track.audioUrl;
+      if (currentAudio.src !== track.audioUrl) {
+        currentAudio.src = track.audioUrl;
+        currentAudio.load();
+      }
       currentAudio.currentTime = options.startTime || 0;
       currentAudio.volume = this.isMuted ? 0 : this.masterVolume;
       currentAudio.muted = this.isMuted;
@@ -380,8 +424,19 @@ export class DualDeckAudioEngine {
         await currentAudio.play();
         this.isPlaying = true;
         this.startProgressLoop();
+        this.playbackStateSubscribers.forEach((cb) => cb(true));
       } catch (err) {
-        console.warn("[DualDeck] Instant play error:", err);
+        console.warn("[DualDeck] Instant play error, retrying with reload:", err);
+        try {
+          currentAudio.load();
+          currentAudio.currentTime = options.startTime || 0;
+          await currentAudio.play();
+          this.isPlaying = true;
+          this.startProgressLoop();
+          this.playbackStateSubscribers.forEach((cb) => cb(true));
+        } catch (err2) {
+          console.error("[DualDeck] Instant play fallback failed:", err2);
+        }
       }
     }
 
@@ -552,6 +607,11 @@ export class DualDeckAudioEngine {
   public subscribeBuffering(callback: BufferingCallback): () => void {
     this.bufferingSubscribers.add(callback);
     return () => this.bufferingSubscribers.delete(callback);
+  }
+
+  public subscribePlaybackState(callback: (isPlaying: boolean) => void): () => void {
+    this.playbackStateSubscribers.add(callback);
+    return () => this.playbackStateSubscribers.delete(callback);
   }
 
   public onTrackEnd(callback: TrackEndCallback): () => void {
