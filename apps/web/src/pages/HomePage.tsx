@@ -39,10 +39,11 @@ const formatDuration = (seconds: number) => {
 
 interface HomePageProps {
   onExploreClick?: () => void;
+  onOpen3D?: () => void;
 }
 
-export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
-  const { currentTrack, playTrack, togglePlay, favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
+export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) => {
+  const { currentTrack, playTrack, favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
   
   // Section Navigation: 0 = Section 1 (Tracklist), 1 = Section 2 (Carousel), 2 = Section 3 (Explore)
   const [activeSection, setActiveSection] = useState<number>(0);
@@ -75,15 +76,16 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
   };
 
   const handleAlbumClick = (_albumName?: string) => {
-    if (!currentTrack) {
-      playTrack(DEFAULT_TRACKS[0]);
-    } else {
-      togglePlay();
+    if (onOpen3D) {
+      onOpen3D();
     }
   };
 
   const handleTrackSelect = (track: Track) => {
     playTrack(track);
+    if (onOpen3D) {
+      onOpen3D();
+    }
   };
 
   // Section 1 ➔ Section 2 (Tracks fade out 0.3s -> Album glides center 1.0s -> Wings open 0.4s)

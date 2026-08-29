@@ -1,18 +1,17 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Album3DScene } from "./components/scene3d/Album3DScene";
+import { MeshGradientBackground } from "./components/MeshGradientBackground";
 import { GlassNavbar } from "./components/GlassNavbar";
-import { FloatingPlayerDock } from "./components/FloatingPlayerDock";
-import { MobilePlayerDock } from "./components/MobilePlayerDock";
 import { VaultGate } from "./components/VaultGate";
 import { HomePage } from "./pages/HomePage";
 import { MobileHomePage } from "./pages/MobileHomePage";
+import { Album3DZone } from "./pages/Album3DZone";
 import { audioAnalyserEngine } from "./audio/AudioAnalyserEngine";
 import { useAudioStore } from "./store/audioStore";
 import { useIsMobile } from "./hooks/useIsMobile";
 
 export const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [activeTab, setActiveTab] = useState<"vault" | "explore">("vault");
+  const [activeTab, setActiveTab] = useState<"vault" | "explore" | "3d">("vault");
   const { currentTrack, isPlaying, volume, isMuted, currentUser, setAudioElement, nextTrack, initAudioEngine } = useAudioStore();
   const isMobile = useIsMobile();
 
@@ -53,24 +52,33 @@ export const App: React.FC = () => {
   }, [isPlaying, currentTrack?.audioUrl]);
 
   return (
-    <div style={{ position: "relative", minHeight: "100dvh", width: "100vw", overflowX: "hidden", backgroundColor: "#050508" }}>
-      {/* 1. Primary 3D WebGL Audio-Reactive Particle Universe with 35mm Cinematic Post-Processing (zIndex: 0) */}
-      <Album3DScene />
-
-      {/* 2. Mandatory Google Login Vault Gate */}
+    <div style={{ position: "relative", minHeight: "100dvh", width: "100vw", overflowX: "hidden", backgroundColor: "#000000" }}>
+      {/* 1. Mandatory Google Login Vault Gate */}
       {!currentUser ? (
-        <VaultGate />
-      ) : (
         <>
-          {/* Frosted Glass Corner-to-Corner Navigation */}
-          <GlassNavbar activeTab={activeTab} onTabChange={setActiveTab} />
+          <MeshGradientBackground />
+          <VaultGate />
+        </>
+      ) : activeTab === "3d" ? (
+        /* 2. Full 3D Immersion Zone (WebGL Universe + Album Cover + 30 Tracks + Playbar) */
+        <Album3DZone onBackToVault={() => setActiveTab("vault")} />
+      ) : (
+        /* 3. Standard Vault & Explore Browse Experience */
+        <>
+          <MeshGradientBackground />
+          <GlassNavbar activeTab={activeTab === "explore" ? "explore" : "vault"} onTabChange={setActiveTab} />
 
-          {/* Tab Content */}
           {activeTab === "vault" ? (
             isMobile ? (
-              <MobileHomePage onExploreClick={() => setActiveTab("explore")} />
+              <MobileHomePage
+                onExploreClick={() => setActiveTab("explore")}
+                onOpen3D={() => setActiveTab("3d")}
+              />
             ) : (
-              <HomePage onExploreClick={() => setActiveTab("explore")} />
+              <HomePage
+                onExploreClick={() => setActiveTab("explore")}
+                onOpen3D={() => setActiveTab("3d")}
+              />
             )
           ) : (
             <div
@@ -92,35 +100,48 @@ export const App: React.FC = () => {
               <p style={{ color: "rgba(255, 255, 255, 0.5)", maxWidth: "480px", marginBottom: "32px", lineHeight: 1.6 }}>
                 Không gian âm nhạc mở rộng đang được kết nối với hệ sinh thái streaming độc quyền.
               </p>
-              <button
-                onClick={() => setActiveTab("vault")}
-                style={{
-                  padding: "12px 28px",
-                  borderRadius: "999px",
-                  background: "#ffffff",
-                  color: "#000000",
-                  fontWeight: 700,
-                  border: "none",
-                  cursor: "pointer"
-                }}
-              >
-                Quay lại Vault
-              </button>
+              <div style={{ display: "flex", gap: "16px" }}>
+                <button
+                  onClick={() => setActiveTab("3d")}
+                  style={{
+                    padding: "12px 28px",
+                    borderRadius: "999px",
+                    background: "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)",
+                    color: "#ffffff",
+                    fontWeight: 700,
+                    border: "none",
+                    cursor: "pointer",
+                    boxShadow: "0 0 24px rgba(99, 102, 241, 0.5)"
+                  }}
+                >
+                  Vào 3D Album Zone
+                </button>
+                <button
+                  onClick={() => setActiveTab("vault")}
+                  style={{
+                    padding: "12px 28px",
+                    borderRadius: "999px",
+                    background: "#ffffff",
+                    color: "#000000",
+                    fontWeight: 700,
+                    border: "none",
+                    cursor: "pointer"
+                  }}
+                >
+                  Quay lại Vault
+                </button>
+              </div>
             </div>
           )}
-
-          {/* 3. Primary Audio Playbar Dock (Mounted permanently at bottom) */}
-          {isPlaying && (isMobile ? <MobilePlayerDock /> : <FloatingPlayerDock />)}
         </>
       )}
 
-      {/* 4. Primary Global HTML5 Lossless Audio Engine (Proven Byte-Range Seeking Lifecycle) */}
+      {/* 4. Primary Global HTML5 Lossless Audio Engine (Zero-CORS Issue Native Playback) */}
       <audio
         ref={audioRef}
         src={currentTrack?.audioUrl || undefined}
         preload="metadata"
         playsInline
-        crossOrigin="anonymous"
         onPlay={() => useAudioStore.setState({ isPlaying: true })}
         onPause={() => useAudioStore.setState({ isPlaying: false })}
         onWaiting={() => useAudioStore.setState({ isBuffering: true })}

@@ -38,10 +38,11 @@ const formatDuration = (seconds: number) => {
 
 interface MobileHomePageProps {
   onExploreClick?: () => void;
+  onOpen3D?: () => void;
 }
 
-export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }) => {
-  const { currentTrack, playTrack, togglePlay, favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
+export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, onOpen3D }) => {
+  const { currentTrack, playTrack, favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
   
   // Active Section: 0 = Section 1, 1 = Section 2, 2 = Section 3
   const [activeSection, setActiveSection] = useState<number>(0);
@@ -164,6 +165,9 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
 
   const handleTrackSelect = (track: Track) => {
     playTrack(track);
+    if (onOpen3D) {
+      onOpen3D();
+    }
   };
 
   const currentMarbleStep = MARBLE_STEPS[revolverIndex] ?? 0;
@@ -357,10 +361,8 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick }
               }}
               whileTap={isSection2 ? { scale: 0.98 } : {}}
               onClick={() => {
-                if (!currentTrack) {
-                  playTrack(DEFAULT_TRACKS[0]);
-                } else {
-                  togglePlay();
+                if (onOpen3D) {
+                  onOpen3D();
                 }
               }}
               animate={{
