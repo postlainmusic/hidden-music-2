@@ -20,12 +20,13 @@ interface RevolverSlot {
   coverUrl?: string;
 }
 
+// HVL đặt ở TÂM GIỮA (Index 2 - Điểm thứ 3 trên thanh 5 điểm)
 const REVOLVER_SLOTS: RevolverSlot[] = [
-  { id: "hvl", slotNumber: 1, title: "HVL (99%)", artist: "MCK • 30 Tracks", isReal: true, coverUrl: "/covers/HVL_Album_Cover.webp" }, // Index 0 (Bìa 1 - Tâm)
-  { id: "slot-2", slotNumber: 2, title: "VAULT SLOT 02", artist: "Lossless Ready", isReal: false }, // Index 1 (Bìa 2)
-  { id: "slot-3", slotNumber: 3, title: "VAULT SLOT 03", artist: "Lossless Ready", isReal: false }, // Index 2 (Bìa 3 - Sát rìa phải)
-  { id: "slot-4", slotNumber: 4, title: "VAULT SLOT 04", artist: "Lossless Ready", isReal: false }, // Index 3 (Bìa 4 - Sát rìa trái)
-  { id: "slot-5", slotNumber: 5, title: "VAULT SLOT 05", artist: "Lossless Ready", isReal: false }, // Index 4 (Bìa 5)
+  { id: "slot-4", slotNumber: 4, title: "VAULT SLOT 04", artist: "Lossless Ready", isReal: false }, // Index 0 (Trái 2)
+  { id: "slot-5", slotNumber: 5, title: "VAULT SLOT 05", artist: "Lossless Ready", isReal: false }, // Index 1 (Trái 1)
+  { id: "hvl", slotNumber: 1, title: "HVL (99%)", artist: "MCK • 30 Tracks", isReal: true, coverUrl: "/covers/HVL_Album_Cover.webp" }, // Index 2 (TÂM GIỮA)
+  { id: "slot-2", slotNumber: 2, title: "VAULT SLOT 02", artist: "Lossless Ready", isReal: false }, // Index 3 (Phải 1)
+  { id: "slot-3", slotNumber: 3, title: "VAULT SLOT 03", artist: "Lossless Ready", isReal: false }, // Index 4 (Phải 2)
 ];
 
 const formatDuration = (seconds: number) => {
@@ -50,12 +51,13 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
   const [isCenteringForVault, setIsCenteringForVault] = useState<boolean>(false);
 
-  // Section 2 Revolver Index (0..4)
-  const [revolverIndex, setRevolverIndex] = useState<number>(0);
+  // Section 2 Revolver Index: Khởi tạo 2 (HVL ở chính giữa thanh)
+  const [revolverIndex, setRevolverIndex] = useState<number>(2);
   const [dragOffset, setDragOffset] = useState<number>(0);
 
   const touchStartY = useRef<number>(0);
   const touchStartX = useRef<number>(0);
+  const hasTouchMovedRef = useRef<boolean>(false);
   const isTouchInsideCarousel = useRef<boolean>(false);
 
   const toggleFavorite = (e: React.MouseEvent, trackId: string) => {
@@ -63,8 +65,14 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
     toggleFavoriteTrack(trackId);
   };
 
-  const handleAlbumClick = () => {
+  const handleAlbumClick = (slot?: RevolverSlot) => {
     if (isTransitioning || isCenteringForVault) return;
+    if (hasTouchMovedRef.current) return;
+
+    // Chặn các slot không phải HVL vào 3D Vault
+    if (slot && !slot.isReal) {
+      return;
+    }
 
     if (activeSection === 0 && sec1Stage === "revealed") {
       setIsCenteringForVault(true);
@@ -84,6 +92,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
   };
 
   const handleTrackSelect = (track: Track) => {
+    if (hasTouchMovedRef.current) return;
     playTrack(track);
     if (onOpen3D) {
       onOpen3D();
@@ -105,7 +114,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
         setSec1Stage("center");
 
         setTimeout(() => {
-          setRevolverIndex(0);
+          setRevolverIndex(2); // HVL ở trung tâm
           setActiveSection(1);
           setTimeout(() => setIsTransitioning(false), 450);
         }, 650);
@@ -128,7 +137,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
       setIsTransitioning(true);
       setActiveSection(0);
       setSec1Stage("center");
-      setRevolverIndex(0);
+      setRevolverIndex(2);
       setTimeout(() => setIsTransitioning(false), 600);
     } else if (activeSection === 0 && sec1Stage === "revealed") {
       setIsTransitioning(true);
@@ -137,11 +146,12 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
     }
   };
 
-  // Touch Gesture Handling
+  // Touch Gesture Handling với Touch Move Threshold
   useEffect(() => {
     const handleTouchStart = (e: TouchEvent) => {
       touchStartY.current = e.touches[0].clientY;
       touchStartX.current = e.touches[0].clientX;
+      hasTouchMovedRef.current = false;
 
       if (activeSection === 1) {
         const target = e.target as HTMLElement | null;
@@ -152,6 +162,14 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
         }
       } else {
         isTouchInsideCarousel.current = false;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const dx = Math.abs(e.touches[0].clientX - touchStartX.current);
+      const dy = Math.abs(e.touches[0].clientY - touchStartY.current);
+      if (dx > 8 || dy > 8) {
+        hasTouchMovedRef.current = true;
       }
     };
 
@@ -174,10 +192,12 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
     };
 
     window.addEventListener("touchstart", handleTouchStart, { passive: true });
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
     window.addEventListener("touchend", handleTouchEnd, { passive: true });
 
     return () => {
       window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchmove", handleTouchMove);
       window.removeEventListener("touchend", handleTouchEnd);
     };
   }, [activeSection, sec1Stage, isTransitioning, isCenteringForVault]);
@@ -233,7 +253,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
               key={`${slot.id}-${offset}`}
               initial={{ opacity: 0 }}
               onClick={() => {
-                if (isSection2) {
+                if (isSection2 && !hasTouchMovedRef.current) {
                   setRevolverIndex((prev) => (prev + offset + totalSlots) % totalSlots);
                 }
               }}
@@ -291,7 +311,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
                   setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
                 }
               }}
-              onClick={handleAlbumClick}
+              onClick={() => handleAlbumClick(slot)}
               animate={{
                 y: activeSection === 0 && sec1Stage === "revealed" && !isCenteringForVault ? -145 : 0,
                 scale: activeSection === 0 && sec1Stage === "revealed" && !isCenteringForVault ? 0.78 : 1.0,
@@ -309,7 +329,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
                 height: "min(68vw, 260px)",
                 borderRadius: "24px",
                 overflow: "hidden",
-                cursor: "pointer",
+                cursor: slot.isReal ? "pointer" : "default",
                 boxShadow: "0 20px 60px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)",
                 border: "1px solid rgba(255, 255, 255, 0.3)",
                 background: "#18181b",
@@ -382,7 +402,13 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
                   <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>
                     {formatDuration(track.duration)}
                   </span>
-                  <button onClick={(e) => toggleFavorite(e, track.id)} style={{ background: "transparent", border: "none", padding: "2px" }}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(e, track.id);
+                    }}
+                    style={{ background: "transparent", border: "none", padding: "2px" }}
+                  >
                     <Heart size={14} color={isFav ? "#ffffff" : "rgba(255,255,255,0.35)"} fill={isFav ? "#ffffff" : "none"} />
                   </button>
                 </div>
@@ -391,7 +417,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
           })}
         </motion.div>
 
-        {/* SECTION 2: 5-POINT INTERACTIVE CAPSULE ON MOBILE */}
+        {/* SECTION 2: 5-POINT INTERACTIVE CAPSULE ON MOBILE (HVL Ở TÂM ĐIỂM SỐ 3) */}
         <motion.div
           animate={{
             opacity: activeSection === 1 ? 1 : 0,
@@ -497,7 +523,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%", maxWidth: "260px" }}>
           <button
-            onClick={() => handleAlbumClick()}
+            onClick={() => handleAlbumClick(REVOLVER_SLOTS[2])}
             style={{
               padding: "12px 24px",
               borderRadius: "999px",

@@ -21,12 +21,13 @@ interface RevolverSlot {
   coverUrl?: string;
 }
 
+// HVL đặt ở TÂM GIỮA (Index 2 - Điểm thứ 3 trên thanh 5 điểm)
 const REVOLVER_SLOTS: RevolverSlot[] = [
-  { id: "hvl", slotNumber: 1, title: "HVL (99%)", artist: "MCK • 30 Tracks", isReal: true, coverUrl: "/covers/HVL_Album_Cover.webp" }, // Index 0 (Bìa 1 - Tâm)
-  { id: "slot-2", slotNumber: 2, title: "VAULT SLOT 02", artist: "Lossless Ready", isReal: false }, // Index 1 (Bìa 2)
-  { id: "slot-3", slotNumber: 3, title: "VAULT SLOT 03", artist: "Lossless Ready", isReal: false }, // Index 2 (Bìa 3 - Sát rìa phải)
-  { id: "slot-4", slotNumber: 4, title: "VAULT SLOT 04", artist: "Lossless Ready", isReal: false }, // Index 3 (Bìa 4 - Sát rìa trái)
-  { id: "slot-5", slotNumber: 5, title: "VAULT SLOT 05", artist: "Lossless Ready", isReal: false }, // Index 4 (Bìa 5)
+  { id: "slot-4", slotNumber: 4, title: "VAULT SLOT 04", artist: "Lossless Ready", isReal: false }, // Index 0 (Sát trái)
+  { id: "slot-5", slotNumber: 5, title: "VAULT SLOT 05", artist: "Lossless Ready", isReal: false }, // Index 1 (Trái)
+  { id: "hvl", slotNumber: 1, title: "HVL (99%)", artist: "MCK • 30 Tracks", isReal: true, coverUrl: "/covers/HVL_Album_Cover.webp" }, // Index 2 (TÂM GIỮA)
+  { id: "slot-2", slotNumber: 2, title: "VAULT SLOT 02", artist: "Lossless Ready", isReal: false }, // Index 3 (Phải)
+  { id: "slot-3", slotNumber: 3, title: "VAULT SLOT 03", artist: "Lossless Ready", isReal: false }, // Index 4 (Sát phải)
 ];
 
 const formatDuration = (seconds: number) => {
@@ -51,13 +52,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
   const [isCenteringForVault, setIsCenteringForVault] = useState<boolean>(false);
 
-  // Section 2 Carousel Revolver Index (0..4)
-  const [revolverIndex, setRevolverIndex] = useState<number>(0);
+  // Section 2 Carousel Revolver Index: Khởi tạo 2 (HVL ở chính giữa thanh)
+  const [revolverIndex, setRevolverIndex] = useState<number>(2);
   const [dragOffset, setDragOffset] = useState<number>(0);
 
   const isScrollingRef = useRef(false);
   const touchStartYRef = useRef(0);
   const touchStartXRef = useRef(0);
+  const hasTouchMovedRef = useRef<boolean>(false);
   const isTouchInsideCarousel = useRef<boolean>(false);
 
   const toggleFavorite = (e: React.MouseEvent, trackId: string) => {
@@ -67,10 +69,16 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
 
   // ─────────────────────────────────────────────────────────────────────────
   // CLICK ALBUM COVER REACTIVE FLOW:
-  // Nếu bìa đang lệch trái (như ảnh 3) -> Trả về Center từ từ -> Nghỉ 250ms -> Vào 3D Vault
+  // Chỉ slot.isReal (HVL) mới được vào 3D Vault! Các slot khác không redirect nhầm.
   // ─────────────────────────────────────────────────────────────────────────
-  const handleAlbumClick = (albumName?: string) => {
+  const handleAlbumClick = (slot?: RevolverSlot) => {
     if (isTransitioning || isCenteringForVault) return;
+    if (hasTouchMovedRef.current) return;
+
+    // Chặn tuyệt đối slot 2, 3, 4, 5 không vào Vault của HVL
+    if (slot && !slot.isReal) {
+      return;
+    }
 
     if (activeSection === 0 && sec1Stage === "revealed") {
       setIsCenteringForVault(true);
@@ -90,6 +98,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
   };
 
   const handleTrackSelect = (track: Track) => {
+    if (hasTouchMovedRef.current) return;
     playTrack(track);
     if (onOpen3D) {
       onOpen3D();
@@ -116,7 +125,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
         setSec1Stage("center"); // Trả bìa về tâm
 
         setTimeout(() => {
-          setRevolverIndex(0);
+          setRevolverIndex(2); // HVL ở trung tâm
           setActiveSection(1); // Mở 2 cánh carousel
           setTimeout(() => setIsTransitioning(false), 450);
         }, 650);
@@ -146,7 +155,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
       setIsTransitioning(true);
       setActiveSection(0);
       setSec1Stage("center");
-      setRevolverIndex(0);
+      setRevolverIndex(2);
       setTimeout(() => setIsTransitioning(false), 600);
     } else if (activeSection === 0 && sec1Stage === "revealed") {
       // Sec1 Revealed -> Sec1 Center (Thu 5 bài, trả bìa về giữa)
@@ -156,7 +165,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
     }
   };
 
-  // Wheel, Keydown, and Touch Event Handling
+  // Wheel, Keydown, and Touch Event Handling (Với Touch Threshold chống click nhầm khi vuốt)
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -206,6 +215,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
     const handleTouchStart = (e: TouchEvent) => {
       touchStartYRef.current = e.touches[0].clientY;
       touchStartXRef.current = e.touches[0].clientX;
+      hasTouchMovedRef.current = false;
 
       if (activeSection === 1) {
         const target = e.target as HTMLElement | null;
@@ -216,6 +226,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
         }
       } else {
         isTouchInsideCarousel.current = false;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const dx = Math.abs(e.touches[0].clientX - touchStartXRef.current);
+      const dy = Math.abs(e.touches[0].clientY - touchStartYRef.current);
+      if (dx > 8 || dy > 8) {
+        hasTouchMovedRef.current = true;
       }
     };
 
@@ -240,12 +258,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
     window.addEventListener("wheel", handleWheel, { passive: false });
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("touchstart", handleTouchStart, { passive: true });
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
     window.addEventListener("touchend", handleTouchEnd, { passive: true });
 
     return () => {
       window.removeEventListener("wheel", handleWheel);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchmove", handleTouchMove);
       window.removeEventListener("touchend", handleTouchEnd);
     };
   }, [activeSection, sec1Stage, isTransitioning, isCenteringForVault]);
@@ -320,7 +340,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
               key={`${slot.id}-${offset}`}
               initial={{ opacity: 0 }}
               onClick={() => {
-                if (isSection2) {
+                if (isSection2 && !hasTouchMovedRef.current) {
                   setRevolverIndex((prev) => (prev + offset + totalSlots) % totalSlots);
                 }
               }}
@@ -444,10 +464,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
                   setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
                 }
               }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={slot.isReal ? { scale: 1.02 } : {}}
+              whileTap={isSection2 ? { scale: 0.98 } : {}}
               onClick={() => {
-                handleAlbumClick(slot.title);
+                handleAlbumClick(slot);
               }}
               animate={{
                 x: centerCardX,
@@ -465,7 +485,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
                 height: "330px",
                 borderRadius: "30px",
                 overflow: "hidden",
-                cursor: "pointer",
+                cursor: slot.isReal ? "pointer" : "default",
                 boxShadow: "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)",
                 border: slot.isReal
                   ? "1px solid rgba(255, 255, 255, 0.3)"
@@ -658,7 +678,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
           })}
         </motion.div>
 
-        {/* ── SECTION 2: 5-POINT INTERACTIVE MAGNETIC ROLLING MARBLE CAPSULE ── */}
+        {/* ── SECTION 2: 5-POINT INTERACTIVE MAGNETIC ROLLING MARBLE CAPSULE (HVL Ở TÂM ĐIỂM SỐ 3) ── */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{
@@ -689,7 +709,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
             zIndex: 20
           }}
         >
-          {/* 5 Interactive Clickable Slots */}
+          {/* 5 Interactive Clickable Slots: Slot 4 (0), Slot 5 (1), HVL (2), Slot 2 (3), Slot 3 (4) */}
           {[0, 1, 2, 3, 4].map((slotIdx) => {
             const isSelected = revolverIndex === slotIdx;
             return (
@@ -778,7 +798,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
         </p>
         <div style={{ display: "flex", gap: "16px" }}>
           <button
-            onClick={() => handleAlbumClick()}
+            onClick={() => handleAlbumClick(REVOLVER_SLOTS[2])}
             style={{
               padding: "14px 32px",
               borderRadius: "999px",
