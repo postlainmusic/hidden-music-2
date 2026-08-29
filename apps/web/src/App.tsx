@@ -6,14 +6,28 @@ import { HomePage } from "./pages/HomePage";
 import { MobileHomePage } from "./pages/MobileHomePage";
 import { Album3DZone } from "./pages/Album3DZone";
 import { studioBeatEngine } from "./audio/StudioBeatEngine";
-import { useAudioStore } from "./store/audioStore";
+import { useAudioStore, getEffectiveAudioUrl } from "./store/audioStore";
 import { useIsMobile } from "./hooks/useIsMobile";
 
 export const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [activeTab, setActiveTab] = useState<"vault" | "explore" | "3d">("vault");
-  const { currentTrack, isPlaying, volume, isMuted, currentUser, setAudioElement, nextTrack, initAudioEngine } = useAudioStore();
+  const {
+    currentTrack,
+    isPlaying,
+    isBuffering,
+    audioQuality,
+    setAudioQuality,
+    volume,
+    isMuted,
+    currentUser,
+    setAudioElement,
+    nextTrack,
+    initAudioEngine
+  } = useAudioStore();
   const isMobile = useIsMobile();
+
+  const effectiveAudioUrl = currentTrack ? getEffectiveAudioUrl(currentTrack, audioQuality) : "";
 
   useEffect(() => {
     initAudioEngine();
@@ -40,7 +54,7 @@ export const App: React.FC = () => {
   // Proven HTML5 Audio Player Controller (Play/Pause/Track switch)
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !currentTrack?.audioUrl) return;
+    if (!audio || !effectiveAudioUrl) return;
 
     if (isPlaying) {
       studioBeatEngine.resumeContext();
@@ -56,7 +70,23 @@ export const App: React.FC = () => {
     } else {
       audio.pause();
     }
-  }, [isPlaying, currentTrack?.audioUrl]);
+  }, [isPlaying, effectiveAudioUrl]);
+
+  // Anti-Hang Buffer Watchdog: If audio is waiting/stalled for > 3.5s while playing, auto-unfreeze
+  useEffect(() => {
+    if (!isBuffering || !isPlaying) return;
+    const timer = setTimeout(() => {
+      const audio = audioRef.current;
+      if (audio && isPlaying) {
+        console.warn("Audio buffer watchdog: resolving spinner visual hang");
+        useAudioStore.setState({ isBuffering: false });
+        if (audio.paused) {
+          audio.play().catch(() => {});
+        }
+      }
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, [isBuffering, isPlaying]);
 
   return (
     <div style={{ position: "relative", minHeight: "100dvh", width: "100vw", overflowX: "hidden", backgroundColor: "#000000" }}>
@@ -146,16 +176,27 @@ export const App: React.FC = () => {
       {/* 4. Primary Global HTML5 Lossless Audio Engine */}
       <audio
         ref={audioRef}
-        src={currentTrack?.audioUrl || undefined}
+        src={effectiveAudioUrl || undefined}
         crossOrigin="anonymous"
-        preload="auto"
+        preload="metadata"
         playsInline
         onPlay={() => {
           studioBeatEngine.resumeContext();
           useAudioStore.setState({ isPlaying: true, isBuffering: false });
         }}
-        onPause={() => useAudioStore.setState({ isPlaying: false })}
-        onWaiting={() => useAudioStore.setState({ isBuffering: true })}
+        onPause={() => useAudioStore.setState({ isPlaying: false, isBuffering: false })}
+        onWaiting={() => {
+          if (isPlaying) {
+            useAudioStore.setState({ isBuffering: true });
+          }
+        }}
+        onStalled={() => {
+          console.warn("Audio stream stalled, checking active playback state...");
+          const audio = audioRef.current;
+          if (audio && isPlaying && audio.paused) {
+            audio.play().catch(() => {});
+          }
+        }}
         onSeeking={() => useAudioStore.setState({ isBuffering: true })}
         onSeeked={() => useAudioStore.setState({ isBuffering: false })}
         onPlaying={() => useAudioStore.setState({ isPlaying: true, isBuffering: false })}
@@ -181,8 +222,11 @@ export const App: React.FC = () => {
         }}
         onEnded={() => nextTrack()}
         onError={(e) => {
-          console.warn("Audio element playback error:", e);
+          console.warn("Audio element playback error, checking MP3 fallback:", e);
           useAudioStore.setState({ isBuffering: false });
+          if (audioQuality === "flac") {
+            setAudioQuality("mp3");
+          }
         }}
         style={{ display: "none" }}
       />

@@ -388,6 +388,16 @@ export const DEFAULT_TRACKS: Track[] = [
   }
 ];
 
+export type AudioQuality = "flac" | "mp3";
+
+export const getEffectiveAudioUrl = (track: Track, quality: AudioQuality): string => {
+  if (!track?.audioUrl) return "";
+  if (quality === "mp3") {
+    return track.audioUrl.replace(/\.flac$/i, ".mp3");
+  }
+  return track.audioUrl;
+};
+
 interface UserSession {
   id: string;
   name: string;
@@ -401,6 +411,7 @@ interface AudioState {
   queue: Track[];
   isPlaying: boolean;
   isBuffering: boolean;
+  audioQuality: AudioQuality;
   currentTime: number;
   duration: number;
   volume: number;
@@ -412,6 +423,7 @@ interface AudioState {
 
   // Actions
   setAudioElement: (el: HTMLAudioElement | null) => void;
+  setAudioQuality: (quality: AudioQuality) => void;
   playTrack: (track: Track) => void;
   togglePlay: () => void;
   nextTrack: () => void;
@@ -465,6 +477,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   queue: DEFAULT_TRACKS,
   isPlaying: false,
   isBuffering: false,
+  audioQuality: "flac",
   currentTime: 0,
   duration: DEFAULT_TRACKS[0].duration,
   volume: 0.85,
@@ -479,6 +492,21 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     if (el) {
       el.volume = get().volume;
       el.muted = get().isMuted;
+    }
+  },
+
+  setAudioQuality: (quality: AudioQuality) => {
+    const { currentTrack } = get();
+    set({ audioQuality: quality, isBuffering: false });
+    if (audioElement && currentTrack) {
+      const curTime = audioElement.currentTime;
+      const wasPlaying = !audioElement.paused;
+      const newUrl = getEffectiveAudioUrl(currentTrack, quality);
+      audioElement.src = newUrl;
+      audioElement.currentTime = curTime;
+      if (wasPlaying) {
+        audioElement.play().catch(() => {});
+      }
     }
   },
 

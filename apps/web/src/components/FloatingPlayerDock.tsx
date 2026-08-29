@@ -31,6 +31,8 @@ export const FloatingPlayerDock: React.FC = () => {
     queue,
     isPlaying,
     isBuffering,
+    audioQuality,
+    setAudioQuality,
     currentTime,
     duration,
     volume,
@@ -635,7 +637,26 @@ export const FloatingPlayerDock: React.FC = () => {
         </div>
 
         {/* 3. RIGHT: TOOL BUTTONS & VERTICAL VOLUME SLIDER */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: "190px", justifyContent: "flex-end", position: "relative" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: "210px", justifyContent: "flex-end", position: "relative" }}>
+          {/* Audio Quality Toggle Pill */}
+          <button
+            onClick={() => setAudioQuality(audioQuality === "flac" ? "mp3" : "flac")}
+            title={`Chất lượng phát: ${audioQuality.toUpperCase()} (Bấm để đổi sang ${audioQuality === "flac" ? "MP3 320k" : "FLAC Lossless"})`}
+            style={{
+              padding: "4px 8px",
+              borderRadius: "8px",
+              background: audioQuality === "flac" ? "rgba(56, 189, 248, 0.15)" : "rgba(251, 146, 60, 0.15)",
+              border: audioQuality === "flac" ? "1px solid rgba(56, 189, 248, 0.45)" : "1px solid rgba(251, 146, 60, 0.45)",
+              color: audioQuality === "flac" ? "#38bdf8" : "#fb923c",
+              fontSize: "0.68rem",
+              fontWeight: 800,
+              cursor: "pointer",
+              transition: "all 0.2s ease"
+            }}
+          >
+            {audioQuality.toUpperCase()}
+          </button>
+
           {/* Synced Lyrics Toggle Button */}
           <button
             onClick={() => setExpandedMode((prev) => (prev === "lyrics" ? "none" : "lyrics"))}

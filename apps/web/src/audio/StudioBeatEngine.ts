@@ -158,9 +158,13 @@ export class StudioBeatEngine {
     }
   }
 
-  public resumeContext(): void {
+  public async resumeContext(): Promise<void> {
     if (this.audioCtx && this.audioCtx.state === "suspended") {
-      this.audioCtx.resume().catch(() => {});
+      try {
+        await this.audioCtx.resume();
+      } catch (err) {
+        console.warn("StudioBeatEngine audioCtx resume notice:", err);
+      }
     }
   }
 

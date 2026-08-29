@@ -38,7 +38,16 @@ const formatDuration = (seconds: number) => {
 };
 
 export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
-  const { currentTrack, isPlaying, playTrack, togglePlay, favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
+  const {
+    currentTrack,
+    isPlaying,
+    playTrack,
+    togglePlay,
+    favoritedTrackIds,
+    toggleFavoriteTrack,
+    audioQuality,
+    setAudioQuality
+  } = useAudioStore();
   const isMobile = useIsMobile();
   
   // Mobile In-Place Flip State (290x290 square)
@@ -389,29 +398,33 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
           justifyContent: "flex-end",
         }}
       >
-        {/* Lossless 24-bit/96kHz Master Capsule */}
-        <div
+        {/* Interactive Audio Quality Switcher (FLAC 24-Bit / MP3 320K) */}
+        <button
+          onClick={() => setAudioQuality(audioQuality === "flac" ? "mp3" : "flac")}
+          title="Bấm để chuyển đổi giữa FLAC 24/96kHz Master và MP3 320kbps Stream"
           style={{
             display: "inline-flex",
             alignItems: "center",
             gap: "6px",
             padding: "6px 14px",
             borderRadius: "999px",
-            background: "rgba(10, 15, 30, 0.65)",
-            border: "1px solid rgba(56, 189, 248, 0.35)",
+            background: audioQuality === "flac" ? "rgba(10, 15, 30, 0.75)" : "rgba(30, 20, 10, 0.75)",
+            border: audioQuality === "flac" ? "1px solid rgba(56, 189, 248, 0.5)" : "1px solid rgba(251, 146, 60, 0.5)",
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
-            color: "#38bdf8",
+            color: audioQuality === "flac" ? "#38bdf8" : "#fb923c",
             fontSize: "0.74rem",
             fontWeight: 800,
             letterSpacing: "0.04em",
             textTransform: "uppercase",
-            boxShadow: "0 0 15px rgba(56, 189, 248, 0.15)",
+            boxShadow: audioQuality === "flac" ? "0 0 15px rgba(56, 189, 248, 0.2)" : "0 0 15px rgba(251, 146, 60, 0.2)",
+            cursor: "pointer",
+            transition: "all 0.2s ease"
           }}
         >
           <Activity size={13} />
-          <span>FLAC 24/96kHz Master</span>
-        </div>
+          <span>{audioQuality === "flac" ? "FLAC 24/96kHz Master" : "MP3 320kbps Fast Stream"}</span>
+        </button>
 
         {/* Live Ground-Truth BPM & Root Key Badge */}
         <div
