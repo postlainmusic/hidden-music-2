@@ -25,6 +25,7 @@ export const App: React.FC = () => {
     initAudioEngine
   } = useAudioStore();
   const isMobile = useIsMobile();
+  const [canPrebuffer, setCanPrebuffer] = useState(false);
 
   // Next-Track Pre-buffer calculation for 0ms transitions (AGENTS.md Rule 2)
   const nextTrackUrl = React.useMemo(() => {
@@ -57,7 +58,7 @@ export const App: React.FC = () => {
     }
   }, [volume, isMuted]);
 
-  // Single Unified Media Engine Controller (Play/Pause/Track switch)
+  // Single Unified Media Engine Controller (Play/Pause/Track switch with Network Request Abort)
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -69,8 +70,15 @@ export const App: React.FC = () => {
 
     const targetUrl = currentTrack.audioUrl;
     if (audio.src !== targetUrl) {
+      // 1. Immediately abort and cancel previous in-flight network range streams
       audio.pause();
+      audio.removeAttribute("src");
+      audio.load(); // Forces Chromium Media Pipeline to terminate previous connection immediately!
+      setCanPrebuffer(false);
+
+      // 2. Set new target stream URL
       audio.src = targetUrl;
+      audio.load();
     }
 
     if (isPlaying) {
@@ -207,6 +215,9 @@ export const App: React.FC = () => {
         onCanPlayThrough={() => useAudioStore.setState({ isBuffering: false })}
         onTimeUpdate={(e) => {
           const cur = e.currentTarget.currentTime;
+          if (cur >= 5) {
+            setCanPrebuffer(true);
+          }
           useAudioStore.setState({
             currentTime: cur,
             isBuffering: false,
@@ -234,8 +245,8 @@ export const App: React.FC = () => {
         style={{ display: "none" }}
       />
 
-      {/* 5. Silent Next-Track Pre-Buffer Engine for 0ms Transitions (AGENTS.md Rule 2) */}
-      {nextTrackUrl && (
+      {/* 5. Smart Deferred Next-Track Pre-Buffer Engine for 0ms Transitions (AGENTS.md Rule 2) */}
+      {canPrebuffer && nextTrackUrl && (
         <audio
           key={nextTrackUrl}
           src={nextTrackUrl}
