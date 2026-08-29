@@ -1,10 +1,15 @@
 # 🏛️ PROJECT CONSTITUTION & AI OPERATING DIRECTIVES
 
-> **MANDATORY**: All agents and assistants operating in this repository must strictly adhere to the following 3-tier foundation rules across architecture, visual design, 3D rendering, and audio streaming.
+> **MANDATORY**: All agents and assistants operating in this repository must strictly adhere to the following 4-tier foundation rules across architecture, visual design, 3D rendering, audio streaming, and skill discipline.
 
 ---
 
-## 1. ⚙️ ARCHITECTURAL STANDARDS
+## 1. ⚙️ ARCHITECTURAL STANDARDS & SYSTEM INVARIANTS
+
+### Universal Invariants (Bất Biến Hệ Thống)
+- **Layering & Canvas Invariant**: Background Canvas (`MeshGradientBackground` / WebGL) MUST remain at `zIndex: 0`. All pages and main containers MUST have `background: transparent`.
+- **Static-First CSS Invariant**: All elements appearing after $t > 0$ MUST declare static inline CSS `style={{ opacity: 0, pointerEvents: "none" }}` to eliminate initial hydration flash (FOUC).
+- **Geometric Bounding Invariant**: Horizontal layouts MUST be center-balanced with $W_{\text{total}} \le 85\%$ viewport width ($W \le 880\text{px}$ on desktop) to prevent horizontal overflow on $900\text{px}-1366\text{px}$ screens.
 
 ### Next.js 16 & React 19 Engineering
 - **Strict Component Boundaries**: Explicitly declare `'use client'` at the top of interactive components. Keep leaf nodes client-side to minimize bundle size.
@@ -43,15 +48,22 @@
 
 ---
 
-## 3. 🤖 AGENT ORCHESTRATION & AUTO-PUSH POLICY
+## 3. 🛡️ MANDATORY SKILL DISCIPLINE (ZERO IMPROVISATION)
 
-- **Mandatory Root Evaluation**: Every agent turn MUST first read [PROJECT_MANAGER.md](file:///c:/Users/Admin/Documents/GitHub/hidden-music-2/PROJECT_MANAGER.md) and [AGENTS.md](file:///c:/Users/Admin/Documents/GitHub/hidden-music-2/AGENTS.md) at repository root to evaluate overall health, review Graphify knowledge flows, and dispatch specialized domain skills (`ui-ux-pro-max`, `performance-optimization`, `debugging-and-error-recovery`).
-- **Interactive Question & Planning Protocol**:
-  - **Major Architectural & High-Risk Changes**: Solicit user confirmation via interactive modal questions and formal `implementation_plan.md`.
-  - **Minor, Detailed, or Direct Feature Tweaks**: Execute directly without blocking modal plans; optionally confirm lightweight intent directly in text response.
+- **Mandatory Skill Reading**: Before writing any code, the agent MUST explicitly call `view_file` on the corresponding `SKILL.md` file from `.agents/skills/`.
+  - UI/UX ➔ `.agents/skills/ui-ux-pro-max/SKILL.md` + `frontend-ui-engineering/SKILL.md`
+  - Non-trivial decisions ➔ `.agents/skills/doubt-driven-development/SKILL.md`
+  - Audio/Performance ➔ `.agents/skills/performance-optimization/SKILL.md`
+  - Debugging ➔ `.agents/skills/debugging-and-error-recovery/SKILL.md`
+- **Follow SOP Checklists**: Skills are workflows, not suggestions. Execute the checklists step-by-step.
+
+---
+
+## 4. 🤖 AGENT ORCHESTRATION & AUTO-PUSH POLICY
+
+- **Mandatory Root Evaluation**: Every agent turn MUST first read [PROJECT_MANAGER.md](file:///c:/Users/Admin/Documents/GitHub/hidden-music-2/PROJECT_MANAGER.md) and [AGENTS.md](file:///c:/Users/Admin/Documents/GitHub/hidden-music-2/AGENTS.md) at repository root.
 - **Autonomous Delivery (Auto-Push)**:
   1. Build Web: `npm run build:web`
   2. Deploy Pages: `npx wrangler pages deploy apps/web/dist --project-name=hidden-music-web`
   3. Deploy Worker API: `cd apps/api; npx wrangler deploy` (when API changes)
   4. Git Sync: `git add . && git commit -m "..." && git push origin main`
-
