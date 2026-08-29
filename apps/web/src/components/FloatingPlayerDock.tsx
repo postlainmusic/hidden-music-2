@@ -284,7 +284,13 @@ export const FloatingPlayerDock: React.FC = () => {
           gap: "16px",
           pointerEvents: "auto",
           position: "relative",
-          overflow: "hidden"
+          overflow: "hidden",
+          borderRadius: "26px",
+          border: `1px solid ${isPlaying ? currentTrack.palette.primary + "66" : "rgba(255, 255, 255, 0.12)"}`,
+          boxShadow: isPlaying
+            ? `0 20px 50px rgba(0,0,0,0.85), 0 0 28px ${currentTrack.palette.glow}`
+            : "0 20px 50px rgba(0,0,0,0.8), 0 0 1px 1px rgba(255, 255, 255, 0.08)",
+          transition: "border-color 0.4s ease, box-shadow 0.4s ease"
         }}
       >
         {/* Subtle Top Specular Glow Line */}
