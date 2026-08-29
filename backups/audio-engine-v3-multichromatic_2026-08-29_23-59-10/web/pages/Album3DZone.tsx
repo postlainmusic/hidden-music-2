@@ -176,31 +176,31 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
       // ─────────────────────────────────────────────────────────────
       // 2. CONCENTRIC RADIAL SHOCKWAVE SYSTEM (KICK ROLLS & DROPS)
       // ─────────────────────────────────────────────────────────────
-      // Spawn Ripple on Kick / Roll / Snare
+      // Spawn Ripple on Kick / Roll / Sub / Snare
       if (isPlaying) {
-        if (beatState.isKickHit && now - lastSpawnTime > 40) {
+        if ((beatState.isKickHit || beatState.isKickRoll) && now - lastSpawnTime > 35) {
           lastSpawnTime = now;
           ripples.push({
             x: centerX,
             y: centerY,
-            radius: isMobile ? 120 : 170,
-            maxRadius: Math.max(width, height) * 0.75,
-            alpha: Math.min(0.85, 0.45 + kickImpact * 0.40),
-            speed: isMobile ? 6 : 9,
+            radius: isMobile ? 130 : 180,
+            maxRadius: Math.max(width, height) * 0.85,
+            alpha: Math.min(0.95, 0.55 + kickImpact * 0.40),
+            speed: isMobile ? 7 : 11,
             color: beatState.isKickRoll ? { r: 244, g: 63, b: 94 } : { r: 239, g: 68, b: 68 },
-            width: beatState.isKickRoll ? 3 : 2
+            width: beatState.isKickRoll ? 3.5 : 2.5
           });
-        } else if (beatState.isGhostKickHit && now - lastSpawnTime > 80) {
+        } else if ((beatState.isSubHit || beatState.isGhostKickHit) && now - lastSpawnTime > 60) {
           lastSpawnTime = now;
           ripples.push({
             x: centerX,
             y: centerY,
-            radius: isMobile ? 120 : 170,
-            maxRadius: Math.max(width, height) * 0.50,
-            alpha: 0.35 * ghostKickImpact,
-            speed: isMobile ? 4 : 6,
-            color: { r: 139, g: 92, b: 246 },
-            width: 1.5
+            radius: isMobile ? 130 : 180,
+            maxRadius: Math.max(width, height) * 0.65,
+            alpha: Math.min(0.75, 0.35 + subImpact * 0.40),
+            speed: isMobile ? 5 : 8,
+            color: { r: 147, g: 51, b: 234 },
+            width: 2.0
           });
         }
       }
@@ -514,13 +514,13 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
           ref={subAuraRef}
           style={{
             position: "absolute",
-            inset: "-40px",
+            inset: "-60px",
             borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(139, 92, 246, 0.6) 0%, rgba(79, 70, 229, 0.3) 45%, transparent 75%)",
-            filter: "blur(32px)",
+            background: "radial-gradient(circle, rgba(147, 51, 234, 0.85) 0%, rgba(99, 102, 241, 0.45) 45%, transparent 75%)",
+            filter: "blur(48px)",
             pointerEvents: "none",
-            opacity: 0.2,
-            transition: "opacity 0.1s ease, transform 0.1s ease",
+            opacity: 0.3,
+            transition: "opacity 0.08s ease, transform 0.08s ease",
           }}
         />
 
@@ -529,13 +529,13 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
           ref={kickAuraRef}
           style={{
             position: "absolute",
-            inset: "-20px",
+            inset: "-35px",
             borderRadius: borderRadius,
-            background: "radial-gradient(circle, rgba(244, 63, 94, 0.75) 0%, rgba(251, 146, 60, 0.35) 50%, transparent 80%)",
-            filter: "blur(24px)",
+            background: "radial-gradient(circle, rgba(244, 63, 94, 0.95) 0%, rgba(251, 146, 60, 0.55) 45%, transparent 80%)",
+            filter: "blur(32px)",
             pointerEvents: "none",
             opacity: 0,
-            transition: "opacity 0.05s ease",
+            transition: "opacity 0.04s ease",
           }}
         />
 

@@ -141,10 +141,10 @@ export class DualDeckAudioEngine {
       this.subBassFilter.frequency.value = 70;
       this.subBassFilter.gain.value = this.bassBoostEnabled ? 5.5 : 0.0;
 
-      // 4. Master Analyser (Frequency and Time Domain data for Visualizers)
+      // 4. Master Analyser (High-resolution 2048 FFT: 21.5Hz per bin for sub-bass isolation)
       this.masterAnalyser = this.audioCtx.createAnalyser();
-      this.masterAnalyser.fftSize = 256;
-      this.masterAnalyser.smoothingTimeConstant = 0.82;
+      this.masterAnalyser.fftSize = 2048;
+      this.masterAnalyser.smoothingTimeConstant = 0.68;
 
       // Connect Deck A & B to their Gains
       try {
@@ -183,9 +183,6 @@ export class DualDeckAudioEngine {
   }
 
   public getAnalyserNode(): AnalyserNode | null {
-    if (!this.masterAnalyser) {
-      this.ensureAudioContext();
-    }
     return this.masterAnalyser;
   }
 

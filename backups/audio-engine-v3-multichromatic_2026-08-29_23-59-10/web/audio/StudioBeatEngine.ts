@@ -151,18 +151,11 @@ export class StudioBeatEngine {
       this.state.rootKey = this.currentTrackProfile.rootKey;
       this.state.firstBeatOffsetMs = this.currentTrackProfile.firstBeatOffsetMs;
       this.state.isGroundTruthLocked = true;
-
-      const titleLower = trackIdOrTitle.toLowerCase();
-      if (titleLower.includes("elegie")) this.drumStartSec = 45.0;
-      else if (titleLower.includes("idk")) this.drumStartSec = 13.5;
-      else if (titleLower.includes("ai mới là")) this.drumStartSec = 8.0;
-      else this.drumStartSec = 0.0;
     } else {
       this.state.liveBpm = fallbackBpm || 120;
       this.state.rootKey = "A";
       this.state.firstBeatOffsetMs = 0;
       this.state.isGroundTruthLocked = false;
-      this.drumStartSec = 0.0;
     }
 
     // Reset transient histories
@@ -285,17 +278,16 @@ export class StudioBeatEngine {
     let isSnareHit = false;
     let isSubHit = false;
     let isHihatHit = false;
-    const isDrummingSection = currentTimeSec >= this.drumStartSec;
 
     if (hasSignal && isPlaying) {
       // 1. Nonlinear Expansion on Sub-Band (E^1.6) to separate buried ghost sub/kicks
-      const expandedSub = Math.pow(rawSub20_70, 1.6);
+      const expandedSub = Math.pow(rawSub20_70, 1.4);
       this.subIsolatedHistory.push(expandedSub);
       if (this.subIsolatedHistory.length > this.HISTORY_SIZE) this.subIsolatedHistory.shift();
       const avgSub = this.subIsolatedHistory.reduce((a, b) => a + b, 0) / this.subIsolatedHistory.length;
 
       // 2. Rolling History for Kick & Transient Flux
-      const combinedLow = rawSub20_70 * 0.55 + rawKick70_180 * 0.45;
+      const combinedLow = rawSub20_70 * 0.50 + rawKick70_180 * 0.50;
       this.lowEndHistory.push(combinedLow);
       if (this.lowEndHistory.length > this.HISTORY_SIZE) this.lowEndHistory.shift();
       const avgLow = this.lowEndHistory.reduce((a, b) => a + b, 0) / this.lowEndHistory.length;
@@ -324,9 +316,9 @@ export class StudioBeatEngine {
       const isFastConsecutive = timeSinceLastKick >= this.KICK_MIN_INTERVAL_MS && timeSinceLastKick < 160;
 
       // Dynamic Threshold with Slope Spike
-      const kickThreshold = isFastConsecutive ? avgLow * 1.10 : avgLow * 1.25;
+      const kickThreshold = isFastConsecutive ? avgLow * 1.06 : avgLow * 1.15;
 
-      if (isDrummingSection && (combinedLow > kickThreshold || kickFlux > 0.08) && combinedLow > 0.07 && timeSinceLastKick >= this.KICK_MIN_INTERVAL_MS) {
+      if ((combinedLow > kickThreshold || kickFlux > 0.04) && combinedLow > 0.035 && timeSinceLastKick >= this.KICK_MIN_INTERVAL_MS) {
         isKickHit = true;
         this.lastKickTime = now;
         this.state.kickImpact = 1.0;
@@ -337,21 +329,21 @@ export class StudioBeatEngine {
 
         if (isFastConsecutive) {
           isKickRoll = true;
-          this.state.kickRollIntensity = Math.min(1.0, this.state.kickRollIntensity + 0.35);
+          this.state.kickRollIntensity = Math.min(1.0, this.state.kickRollIntensity + 0.45);
         }
       }
 
       // 5. Ghost Kick / Buried Sub-Slide Detection (Dual-Threshold Micro Onset)
       const timeSinceLastGhost = now - this.lastGhostTime;
-      if (!isKickHit && expandedSub > avgSub * 1.18 && subFlux > 0.04 && timeSinceLastGhost > 60) {
+      if (!isKickHit && (expandedSub > avgSub * 1.04 || subFlux > 0.02) && timeSinceLastGhost > 45) {
         isGhostKickHit = true;
         this.lastGhostTime = now;
-        this.state.ghostKickImpact = Math.min(0.65, expandedSub * 1.2);
+        this.state.ghostKickImpact = Math.min(0.75, expandedSub * 1.6 + subFlux * 2.0);
       }
 
       // 6. Snare / Mid Claps (900-3800Hz)
       const timeSinceLastSnare = now - this.lastSnareTime;
-      if (isDrummingSection && (rawVocal900_3800 > avgSnare * 1.25 || snareFlux > 0.07) && rawVocal900_3800 > 0.06 && timeSinceLastSnare >= this.SNARE_MIN_INTERVAL_MS) {
+      if ((rawVocal900_3800 > avgSnare * 1.15 || snareFlux > 0.04) && rawVocal900_3800 > 0.04 && timeSinceLastSnare >= this.SNARE_MIN_INTERVAL_MS) {
         isSnareHit = true;
         this.lastSnareTime = now;
         this.state.snareFlash = 1.0;
@@ -359,20 +351,20 @@ export class StudioBeatEngine {
 
       // 7. Hi-Hat / Cymbals (5k-16kHz)
       const timeSinceLastHihat = now - this.lastHihatTime;
-      if ((rawTreble5k_16k > avgHihat * 1.25 || trebleFlux > 0.05) && rawTreble5k_16k > 0.04 && timeSinceLastHihat >= this.HIHAT_MIN_INTERVAL_MS) {
+      if ((rawTreble5k_16k > avgHihat * 1.18 || trebleFlux > 0.03) && rawTreble5k_16k > 0.03 && timeSinceLastHihat >= this.HIHAT_MIN_INTERVAL_MS) {
         isHihatHit = true;
         this.lastHihatTime = now;
         this.state.hihatSparkle = 1.0;
       }
 
       // 8. Sub-Bass Rumble
-      if (rawSub20_70 > 0.28) {
+      if (rawSub20_70 > 0.15 || subFlux > 0.03) {
         isSubHit = true;
-        this.state.subImpact = Math.min(1.0, rawSub20_70 * 1.35);
+        this.state.subImpact = Math.min(1.0, rawSub20_70 * 1.8 + subFlux * 2.0);
       }
 
       // 9. Vocal / Lead Synth Energy
-      this.state.vocalPresence = Math.min(1.0, rawVocal900_3800 * 1.5 + rawMid350_900 * 0.5);
+      this.state.vocalPresence = Math.min(1.0, rawVocal900_3800 * 1.8 + rawMid350_900 * 0.6);
 
       // Interpolation (Smoothing Attack & Decay)
       const lerp = (curr: number, target: number, attack = 0.7, decay = 0.2) => {
@@ -389,7 +381,28 @@ export class StudioBeatEngine {
       this.state.overallEnergy = lerp(this.state.overallEnergy, rawOverall, 0.65, 0.18);
 
       // Detect Gentle / Calm Passage (Acoustic / Intro / Outro)
-      this.state.isGentleMode = rawOverall < 0.14 && this.state.subBass < 0.22;
+      this.state.isGentleMode = rawOverall < 0.10 && this.state.subBass < 0.15;
+    } else if (isPlaying) {
+      // High-Quality Synthetic Rhythm Fallback along Ground-Truth BPM Grid
+      const isBeatOnset = beatPhase < 0.12;
+      const isDownbeat = (beatInBar === 1 && isBeatOnset);
+      const isSnareBeat = (beatInBar === 2 || beatInBar === 4) && Math.abs(beatPhase - 0.5) < 0.12;
+
+      if (isBeatOnset && now - this.lastKickTime > 180) {
+        isKickHit = true;
+        this.lastKickTime = now;
+        this.state.kickImpact = isDownbeat ? 1.0 : 0.85;
+      }
+
+      if (isSnareBeat && now - this.lastSnareTime > 180) {
+        isSnareHit = true;
+        this.lastSnareTime = now;
+        this.state.snareFlash = 0.90;
+      }
+
+      this.state.subBass = 0.35 + Math.sin(beatPhase * Math.PI) * 0.45;
+      this.state.subImpact = isDownbeat ? 0.9 : 0.45;
+      this.state.isGentleMode = false;
     } else {
       this.state.isGentleMode = true;
     }
