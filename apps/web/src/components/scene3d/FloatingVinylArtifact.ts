@@ -2,10 +2,10 @@ import * as THREE from "three";
 
 export interface VinylArtifactNodes {
   group: THREE.Group;
+  discGroup: THREE.Group;
   discMesh: THREE.Mesh;
   sleeveMesh: THREE.Mesh;
   labelMesh: THREE.Mesh;
-  grooveMesh: THREE.Mesh;
   materials: THREE.Material[];
   geometries: THREE.BufferGeometry[];
   textures: THREE.Texture[];
@@ -13,59 +13,71 @@ export interface VinylArtifactNodes {
 }
 
 /**
- * Creates the high-fidelity 3D Vinyl Artifact with high-contrast PBR materials
+ * Creates the luxury 3D Floating Vinyl Artifact with high-contrast PBR materials
+ * Oriented dynamically towards camera with anisotropic sheen and center artwork
  */
 export const createFloatingVinylArtifact = (coverUrl: string): VinylArtifactNodes => {
   const group = new THREE.Group();
+  const discGroup = new THREE.Group();
   const materials: THREE.Material[] = [];
   const geometries: THREE.BufferGeometry[] = [];
   const textures: THREE.Texture[] = [];
 
-  // 1. Procedural Anisotropic Vinyl Groove Texture Generator
+  // 1. Procedural High-Contrast Anisotropic Vinyl Groove Texture
   const canvas = document.createElement("canvas");
   canvas.width = 1024;
   canvas.height = 1024;
   const ctx = canvas.getContext("2d");
   if (ctx) {
-    ctx.fillStyle = "#0a0a0c";
+    // Pure obsidian vinyl base
+    ctx.fillStyle = "#0c0d12";
     ctx.fillRect(0, 0, 1024, 1024);
 
-    // Draw fine concentric micro-grooves
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-    ctx.lineWidth = 1;
-    for (let r = 160; r < 490; r += 2.5) {
+    // Fine concentric micro-grooves
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+    ctx.lineWidth = 1.2;
+    for (let r = 160; r < 490; r += 2.2) {
       ctx.beginPath();
       ctx.arc(512, 512, r, 0, Math.PI * 2);
       ctx.stroke();
     }
+
+    // Radial specular highlights for realistic anisotropic reflections
+    const grad = ctx.createRadialGradient(512, 512, 160, 512, 512, 490);
+    grad.addColorStop(0, "rgba(255, 255, 255, 0.15)");
+    grad.addColorStop(0.5, "rgba(255, 255, 255, 0.02)");
+    grad.addColorStop(1, "rgba(255, 255, 255, 0.12)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1024, 1024);
   }
   const grooveTexture = new THREE.CanvasTexture(canvas);
   grooveTexture.wrapS = THREE.RepeatWrapping;
   grooveTexture.wrapT = THREE.RepeatWrapping;
   textures.push(grooveTexture);
 
-  // 2. High-Poly Vinyl Disc Geometry & PBR Material
-  const discGeo = new THREE.CylinderGeometry(2.4, 2.4, 0.04, 64);
+  // 2. High-Poly Vinyl Disc (Front-facing tilt)
+  const discGeo = new THREE.CylinderGeometry(2.3, 2.3, 0.04, 64);
   geometries.push(discGeo);
 
   const discMat = new THREE.MeshPhysicalMaterial({
-    color: new THREE.Color("#121318"),
-    roughness: 0.18,
-    metalness: 0.85,
+    color: new THREE.Color("#181920"),
+    roughness: 0.16,
+    metalness: 0.88,
     clearcoat: 1.0,
-    clearcoatRoughness: 0.1,
+    clearcoatRoughness: 0.08,
     bumpMap: grooveTexture,
-    bumpScale: 0.008,
-    reflectivity: 0.95,
+    bumpScale: 0.012,
+    reflectivity: 0.98,
   });
   materials.push(discMat);
 
   const discMesh = new THREE.Mesh(discGeo, discMat);
+  discMesh.rotation.x = Math.PI / 2; // Face the camera directly
   discMesh.castShadow = true;
   discMesh.receiveShadow = true;
-  group.add(discMesh);
+  discGroup.add(discMesh);
 
-  // 3. Center Label (Inlaid Album Artwork)
+  // 3. Center Label Inlaid with Real Album Cover Artwork
   const textureLoader = new THREE.TextureLoader();
   const labelTexture = textureLoader.load(coverUrl);
   textures.push(labelTexture);
@@ -75,36 +87,49 @@ export const createFloatingVinylArtifact = (coverUrl: string): VinylArtifactNode
 
   const labelMat = new THREE.MeshStandardMaterial({
     map: labelTexture,
-    roughness: 0.35,
-    metalness: 0.1,
+    roughness: 0.25,
+    metalness: 0.05,
   });
   materials.push(labelMat);
 
   const labelMesh = new THREE.Mesh(labelGeo, labelMat);
-  group.add(labelMesh);
+  labelMesh.rotation.x = Math.PI / 2;
+  discGroup.add(labelMesh);
 
-  // 4. Outer Frosted Acrylic Slipcase (High-Contrast Glass Border)
-  const sleeveGeo = new THREE.BoxGeometry(5.2, 0.08, 5.2);
+  // Add the rotating disc group to root
+  discGroup.position.set(0.6, 0.2, 0.1);
+  group.add(discGroup);
+
+  // 4. Outer Frosted Liquid Glass Slipcase (Tilted slightly behind disc)
+  const sleeveGeo = new THREE.BoxGeometry(4.8, 4.8, 0.12);
   geometries.push(sleeveGeo);
 
+  // Sleeve cover texture
+  const sleeveFrontTexture = textureLoader.load(coverUrl);
+  textures.push(sleeveFrontTexture);
+
   const sleeveMat = new THREE.MeshPhysicalMaterial({
-    color: new THREE.Color("#ffffff"),
-    roughness: 0.1,
+    map: sleeveFrontTexture,
+    roughness: 0.12,
     metalness: 0.1,
-    transmission: 0.88, // Liquid glass refraction
-    thickness: 1.2,
+    transmission: 0.65, // Liquid glass sheen
+    thickness: 0.8,
     ior: 1.52,
     transparent: true,
-    opacity: 0.35,
-    reflectivity: 0.9,
+    opacity: 0.88,
+    reflectivity: 0.95,
     clearcoat: 1.0,
   });
   materials.push(sleeveMat);
 
   const sleeveMesh = new THREE.Mesh(sleeveGeo, sleeveMat);
-  sleeveMesh.position.set(-1.2, -0.08, 0);
-  sleeveMesh.rotation.y = 0.15;
+  sleeveMesh.position.set(-0.8, -0.1, -0.2);
+  sleeveMesh.rotation.z = -0.06;
   group.add(sleeveMesh);
+
+  // Global artistic tilt for optimal cinematic viewing angle
+  group.rotation.x = 0.15;
+  group.rotation.y = -0.22;
 
   const dispose = () => {
     geometries.forEach((g) => g.dispose());
@@ -114,10 +139,10 @@ export const createFloatingVinylArtifact = (coverUrl: string): VinylArtifactNode
 
   return {
     group,
+    discGroup,
     discMesh,
     sleeveMesh,
     labelMesh,
-    grooveMesh: discMesh,
     materials,
     geometries,
     textures,

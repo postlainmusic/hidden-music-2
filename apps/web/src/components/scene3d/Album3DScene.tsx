@@ -39,12 +39,14 @@ export const Album3DScene: React.FC = () => {
     // ─────────────────────────────────────────────────────────────
     const width = container.clientWidth || window.innerWidth;
     const height = container.clientHeight || window.innerHeight;
+    const isMobile = width < 768;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#050508");
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(0, 1.2, 8.5);
+    // Adjusted camera distance for mobile vs desktop
+    camera.position.set(0, 0.5, isMobile ? 10.5 : 8.0);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -54,27 +56,27 @@ export const Album3DScene: React.FC = () => {
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 1.15;
     container.appendChild(renderer.domElement);
 
     // ─────────────────────────────────────────────────────────────
     // 2. STUDIO LIGHTING RIG
     // ─────────────────────────────────────────────────────────────
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 2.4);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2.6);
     keyLight.position.set(5, 8, 6);
     scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight(0x8b5cf6, 3.5);
+    const rimLight = new THREE.DirectionalLight(0x8b5cf6, 4.0);
     rimLight.position.set(-6, -4, -4);
     scene.add(rimLight);
 
     // ─────────────────────────────────────────────────────────────
     // 3. GENRE-DRIVEN AUDIO REACTIVE PARTICLE SYSTEM (20,000 PARTICLES)
     // ─────────────────────────────────────────────────────────────
-    const particleCount = 20000;
+    const particleCount = isMobile ? 12000 : 20000;
     const particleGeo = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     const scales = new Float32Array(particleCount);
@@ -82,8 +84,7 @@ export const Album3DScene: React.FC = () => {
     const phases = new Float32Array(particleCount);
 
     for (let i = 0; i < particleCount; i++) {
-      // Golden Spiral distribution in 3D sphere
-      const radius = 1.5 + Math.pow(Math.random(), 1.5) * 14.0;
+      const radius = 1.2 + Math.pow(Math.random(), 1.4) * 15.0;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(Math.random() * 2 - 1);
 
@@ -91,7 +92,7 @@ export const Album3DScene: React.FC = () => {
       positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
       positions[i * 3 + 2] = radius * Math.cos(phi);
 
-      scales[i] = Math.random() * 1.5 + 0.8;
+      scales[i] = Math.random() * 1.6 + 0.8;
       randomVecs[i * 3] = (Math.random() - 0.5) * 2;
       randomVecs[i * 3 + 1] = (Math.random() - 0.5) * 2;
       randomVecs[i * 3 + 2] = (Math.random() - 0.5) * 2;
@@ -130,6 +131,10 @@ export const Album3DScene: React.FC = () => {
     );
     scene.add(vinylArtifact.group);
 
+    // Position artifact offset slightly to left on desktop, centered on mobile
+    const baseArtifactX = isMobile ? 0 : -1.4;
+    vinylArtifact.group.position.set(baseArtifactX, 0, 0);
+
     // ─────────────────────────────────────────────────────────────
     // 5. CINEMATIC 35MM POST-PROCESSING (GRAIN, HALATION, BLOOM)
     // ─────────────────────────────────────────────────────────────
@@ -149,9 +154,9 @@ export const Album3DScene: React.FC = () => {
       uniforms: {
         tDiffuse: { value: renderTarget.texture },
         uTime: { value: 0 },
-        uGrainIntensity: { value: 0.08 },      // Subtle 35mm film grain
-        uHalationIntensity: { value: 0.65 },   // Warm edge glow
-        uChromaticAberration: { value: 0.0 },  // Dynamically driven by Sub-Bass
+        uGrainIntensity: { value: 0.08 },
+        uHalationIntensity: { value: 0.65 },
+        uChromaticAberration: { value: 0.0 },
         uVignetteIntensity: { value: 0.95 },
       },
       depthWrite: false,
@@ -195,23 +200,23 @@ export const Album3DScene: React.FC = () => {
       particleMaterial.uniforms.uHighTreble.value = bands.highTreble;
       particleMaterial.uniforms.uMoodTier.value = getMoodTier(currentTrack?.genre, currentTrack?.title);
 
-      // Free-Floating Vinyl Motion & Audio-Reactive Rotation
+      // Spin the vinyl disc around its center axis when music plays
       if (isPlaying) {
-        vinylArtifact.discMesh.rotation.y += 0.035 + bands.overallEnergy * 0.025;
+        vinylArtifact.discGroup.rotation.y += 0.025 + bands.overallEnergy * 0.03;
       }
       
       // Floating oscillation in 3D space
-      const floatY = Math.sin(elapsedTime * 1.2) * 0.25 + bands.kick * 0.15;
-      const floatX = Math.cos(elapsedTime * 0.8) * 0.2;
-      vinylArtifact.group.position.set(floatX, floatY, -1.2);
+      const floatY = Math.sin(elapsedTime * 1.1) * 0.22 + bands.kick * 0.12;
+      const floatX = baseArtifactX + Math.cos(elapsedTime * 0.7) * 0.18;
+      vinylArtifact.group.position.set(floatX, floatY, 0);
 
       // Parallax rotation
-      vinylArtifact.group.rotation.x = 0.2 + mouseParallax.y;
-      vinylArtifact.group.rotation.y = 0.3 + mouseParallax.x;
+      vinylArtifact.group.rotation.x = 0.15 + mouseParallax.y * 0.4;
+      vinylArtifact.group.rotation.y = -0.22 + mouseParallax.x * 0.4;
 
-      // Disc pulse on Kick/Bass
-      const discScale = 1.0 + bands.kick * 0.08;
-      vinylArtifact.discMesh.scale.set(discScale, discScale, discScale);
+      // Pulse disc size on Kick
+      const discScale = 1.0 + bands.kick * 0.06;
+      vinylArtifact.discMesh.scale.set(discScale, 1.0, discScale);
 
       // Sub-Bass Driven Chromatic Aberration Shockwave
       postMaterial.uniforms.uTime.value = elapsedTime;
@@ -236,6 +241,7 @@ export const Album3DScene: React.FC = () => {
       const h = container.clientHeight || window.innerHeight;
 
       camera.aspect = w / h;
+      camera.position.z = w < 768 ? 10.5 : 8.0;
       camera.updateProjectionMatrix();
 
       renderer.setSize(w, h);
@@ -252,7 +258,6 @@ export const Album3DScene: React.FC = () => {
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("resize", handleResize);
 
-      // Strict resource disposal
       vinylArtifact.dispose();
       particleGeo.dispose();
       particleMaterial.dispose();
