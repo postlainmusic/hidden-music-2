@@ -205,7 +205,7 @@ export const Album3DScene: React.FC = () => {
       animationFrameId = requestAnimationFrame(animate);
 
       const elapsedTime = clock.getElapsedTime();
-      const bands = audioAnalyserEngine.getBands(isPlaying);
+      const bands = audioAnalyserEngine.getBands();
 
       // Update Particle Shaders Uniforms
       particleMaterial.uniforms.uTime.value = elapsedTime;
@@ -219,13 +219,13 @@ export const Album3DScene: React.FC = () => {
       ringMat.uniforms.uTime.value = elapsedTime;
       ringMat.uniforms.uKick.value = bands.kick;
       ringMat.uniforms.uSubBass.value = bands.subBass;
-      const ringScale = 1.0 + bands.kick * 0.25 + Math.sin(elapsedTime * 2.0) * 0.05;
+      const ringScale = 1.0 + bands.kick * 0.45 + bands.subBass * 0.25;
       auraRing.scale.set(ringScale, ringScale, 1.0);
-      auraRing.rotation.z += 0.005;
+      auraRing.rotation.z += 0.008;
 
       // Sub-Bass Driven Chromatic Aberration Shockwave
       postMaterial.uniforms.uTime.value = elapsedTime;
-      postMaterial.uniforms.uChromaticAberration.value = bands.subBass * 0.75;
+      postMaterial.uniforms.uChromaticAberration.value = bands.subBass * 0.85;
 
       // Render Scene to Target, then render Post Quad to Screen
       renderer.setRenderTarget(renderTarget);

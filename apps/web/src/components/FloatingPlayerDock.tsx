@@ -61,9 +61,13 @@ export const FloatingPlayerDock: React.FC = () => {
         gradient.addColorStop(1, currentTrack?.palette?.primary || "#6366f1");
 
         ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.roundRect(x, y, barWidth, barHeight, 2);
-        ctx.fill();
+        if (typeof ctx.roundRect === "function") {
+          ctx.beginPath();
+          ctx.roundRect(x, y, barWidth, barHeight, 2);
+          ctx.fill();
+        } else {
+          ctx.fillRect(x, y, barWidth, barHeight);
+        }
       }
 
       animId = requestAnimationFrame(draw);
