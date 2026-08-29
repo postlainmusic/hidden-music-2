@@ -31,6 +31,20 @@ export const App: React.FC = () => {
       setAudioElement(audioRef.current);
       studioBeatEngine.attachAudioElement(audioRef.current);
     }
+
+    // Global User Gesture Unlocker for AudioContext
+    const unlockAudio = () => {
+      studioBeatEngine.resumeContext();
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
+    };
+    window.addEventListener("pointerdown", unlockAudio, { passive: true });
+    window.addEventListener("keydown", unlockAudio, { passive: true });
+
+    return () => {
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
+    };
   }, [initAudioEngine, setAudioElement]);
 
   useEffect(() => {
@@ -234,7 +248,11 @@ export const App: React.FC = () => {
           }
         }}
         onEnded={() => nextTrack()}
-        onError={() => {
+        onError={(e) => {
+          const err = e.currentTarget.error;
+          if (err) {
+            console.error("HTML5 Media Error Code:", err.code, "Message:", err.message);
+          }
           useAudioStore.setState({ isBuffering: false });
         }}
         style={{ display: "none" }}
