@@ -1,4 +1,4 @@
-// 🌌 GLSL Vertex & Fragment Shaders for Genre/Mood-Driven Particle Systems
+// 🌌 GLSL Vertex & Fragment Shaders for Genre/Mood-Driven Particle Systems (High-Vibrancy)
 
 export const GenreParticleVertexShader = `
   uniform float uTime;
@@ -73,54 +73,53 @@ export const GenreParticleVertexShader = `
     // TIER 0: CHILL / POETIC / MELANCHOLIC (Sinuous Bioluminescent Mist)
     // ─────────────────────────────────────────────────────────────
     if (uMoodTier == 0) {
-      float wave = sin(pos.x * 0.4 + uTime * 0.8 + aPhase) * cos(pos.y * 0.3 + uTime * 0.6);
-      pos.z += wave * (1.2 + uVocalMid * 2.5);
-      pos.y += snoise(pos * 0.2 + vec3(0.0, uTime * 0.2, 0.0)) * (0.8 + uSubBass * 1.5);
+      float wave = sin(pos.x * 0.35 + uTime * 1.2 + aPhase) * cos(pos.y * 0.3 + uTime * 0.8);
+      pos.z += wave * (1.8 + uVocalMid * 3.5);
+      pos.y += snoise(pos * 0.2 + vec3(0.0, uTime * 0.4, 0.0)) * (1.2 + uSubBass * 2.8);
       
-      // Color: Deep Indigo & Lavender Violet into Silver Fog
-      vec3 colA = vec3(0.18, 0.22, 0.55); // Night blue
-      vec3 colB = vec3(0.62, 0.45, 0.88); // Lavender glow
-      vColor = mix(colA, colB, sin(distFromCenter * 0.2 + uTime * 0.5) * 0.5 + 0.5);
-      vAlpha = (0.35 + uVocalMid * 0.55) * smoothstep(12.0, 1.0, distFromCenter);
+      // Color: Deep Indigo & Lavender Violet into Silver Starlight
+      vec3 colA = vec3(0.38, 0.42, 0.95);
+      vec3 colB = vec3(0.85, 0.55, 1.00);
+      vColor = mix(colA, colB, sin(distFromCenter * 0.25 + uTime * 0.8) * 0.5 + 0.5);
+      vAlpha = (0.75 + uVocalMid * 0.35);
     }
     // ─────────────────────────────────────────────────────────────
-    // TIER 1: COSMIC / MYSTICAL / AMBIENT (Gravitational Nebula Sea)
+    // TIER 1: COSMIC / MYSTICAL / AMBIENT (Gravitational Nebula Vortex)
     // ─────────────────────────────────────────────────────────────
     else if (uMoodTier == 1) {
-      float rotSpeed = (0.2 + uKick * 0.4) * (1.0 / (distFromCenter * 0.3 + 1.0));
+      float rotSpeed = (0.35 + uKick * 0.85) * (1.0 / (distFromCenter * 0.2 + 1.0));
       float newAngle = angle + uTime * rotSpeed;
       pos.x = cos(newAngle) * distFromCenter;
       pos.y = sin(newAngle) * distFromCenter;
-      pos.z += sin(distFromCenter * 0.8 - uTime * 2.0) * (0.6 + uSubBass * 2.2);
+      pos.z += sin(distFromCenter * 0.9 - uTime * 3.0) * (1.0 + uSubBass * 3.5);
 
-      // Color: Deep Cosmic Sapphire & Emerald Aurora
-      vec3 colA = vec3(0.05, 0.35, 0.65); // Celestial blue
-      vec3 colB = vec3(0.15, 0.85, 0.55); // Emerald glow
-      vColor = mix(colA, colB, sin(newAngle * 2.0 + uTime) * 0.5 + 0.5);
-      vAlpha = (0.45 + uKick * 0.5) * smoothstep(15.0, 0.5, distFromCenter);
+      // Color: Electric Sapphire & Radiant Emerald Aurora
+      vec3 colA = vec3(0.20, 0.55, 1.00);
+      vec3 colB = vec3(0.10, 0.95, 0.70);
+      vColor = mix(colA, colB, sin(newAngle * 2.0 + uTime * 1.5) * 0.5 + 0.5);
+      vAlpha = (0.80 + uKick * 0.4);
     }
     // ─────────────────────────────────────────────────────────────
-    // TIER 2: TRAP / CYBERNETIC / FOCUSED WARP (Explosive Shockwaves)
+    // TIER 2: TRAP / CYBERNETIC / WARP (High-Energy Particle Shockwave)
     // ─────────────────────────────────────────────────────────────
     else {
-      // Radial shockwave expansion on kick/bass drops
-      float shock = sin(distFromCenter * 1.5 - uTime * 8.0) * uKick * 3.5;
-      pos += normalize(pos) * shock;
-      pos.z += (snoise(pos * 0.8 + vec3(uTime * 3.0, 0.0, 0.0)) * uSubBass * 4.0);
+      vec3 shockDir = normalize(pos + vec3(0.001));
+      float pulseWave = sin(distFromCenter * 2.2 - uTime * 8.0);
+      pos += shockDir * (pulseWave * (0.8 + uKick * 2.5) + uSubBass * 3.2);
 
-      // Color: High-Contrast Obsidian Violet & Electric Cyan
-      vec3 colA = vec3(0.55, 0.10, 0.95); // Laser violet
-      vec3 colB = vec3(0.10, 0.90, 1.00); // Electric cyan
-      vColor = mix(colA, colB, fract(distFromCenter * 0.4 + uTime * 2.0));
-      vAlpha = (0.55 + uKick * 0.45);
+      // Color: Hyper Neon Violet & Electric Cyan
+      vec3 colA = vec3(0.85, 0.15, 1.00);
+      vec3 colB = vec3(0.00, 0.95, 1.00);
+      vColor = mix(colA, colB, fract(distFromCenter * 0.4 + uTime * 3.0));
+      vAlpha = (0.85 + uKick * 0.45);
     }
 
     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mvPosition;
 
-    // Dynamic point size scaling with high treble sparkle
-    float pSize = aScale * (18.0 / -mvPosition.z) * (1.0 + uHighTreble * 1.5);
-    gl_PointSize = clamp(pSize, 2.0, 48.0);
+    // Dynamic, high-visibility point size scaling with beat and treble sparkle
+    float pSize = aScale * (65.0 / -mvPosition.z) * (1.0 + uKick * 0.8 + uHighTreble * 1.2);
+    gl_PointSize = clamp(pSize, 4.0, 72.0);
   }
 `;
 
@@ -129,15 +128,15 @@ export const GenreParticleFragmentShader = `
   varying float vAlpha;
 
   void main() {
-    // Soft radial particle falloff (Anti-aliased glow point)
+    // High-luminous radial particle falloff with intense core
     vec2 centerCoord = gl_PointCoord - vec2(0.5);
     float dist = length(centerCoord);
     if (dist > 0.5) discard;
 
     float glow = smoothstep(0.5, 0.0, dist);
-    float core = smoothstep(0.2, 0.0, dist) * 1.2;
+    float core = smoothstep(0.15, 0.0, dist) * 1.8;
 
-    vec3 finalColor = vColor + vec3(core * 0.6);
+    vec3 finalColor = vColor + vec3(core * 0.8);
     gl_FragColor = vec4(finalColor, vAlpha * glow);
   }
 `;

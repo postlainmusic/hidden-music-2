@@ -2,7 +2,6 @@ import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { useAudioStore } from "../../store/audioStore";
 import { audioAnalyserEngine } from "../../audio/AudioAnalyserEngine";
-import { createFloatingVinylArtifact } from "./FloatingVinylArtifact";
 import {
   GenreParticleVertexShader,
   GenreParticleFragmentShader,
@@ -16,7 +15,6 @@ export const Album3DScene: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { currentTrack, isPlaying } = useAudioStore();
 
-  // Determine Mood Tier based on current track genre/title
   const getMoodTier = (genre?: string, title?: string): number => {
     const g = (genre || "").toLowerCase();
     const t = (title || "").toLowerCase();
@@ -45,8 +43,7 @@ export const Album3DScene: React.FC = () => {
     scene.background = new THREE.Color("#050508");
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    // Adjusted camera distance for mobile vs desktop
-    camera.position.set(0, 0.5, isMobile ? 10.5 : 8.0);
+    camera.position.set(0, 0, isMobile ? 11.0 : 8.5);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -56,27 +53,27 @@ export const Album3DScene: React.FC = () => {
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.35;
     container.appendChild(renderer.domElement);
 
     // ─────────────────────────────────────────────────────────────
     // 2. STUDIO LIGHTING RIG
     // ─────────────────────────────────────────────────────────────
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0xffffff, 2.6);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 3.0);
     keyLight.position.set(5, 8, 6);
     scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight(0x8b5cf6, 4.0);
+    const rimLight = new THREE.DirectionalLight(0x8b5cf6, 4.5);
     rimLight.position.set(-6, -4, -4);
     scene.add(rimLight);
 
     // ─────────────────────────────────────────────────────────────
-    // 3. GENRE-DRIVEN AUDIO REACTIVE PARTICLE SYSTEM (20,000 PARTICLES)
+    // 3. GENRE-DRIVEN AUDIO REACTIVE PARTICLE SYSTEM (15,000 PARTICLES)
     // ─────────────────────────────────────────────────────────────
-    const particleCount = isMobile ? 12000 : 20000;
+    const particleCount = isMobile ? 9000 : 15000;
     const particleGeo = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     const scales = new Float32Array(particleCount);
@@ -84,7 +81,7 @@ export const Album3DScene: React.FC = () => {
     const phases = new Float32Array(particleCount);
 
     for (let i = 0; i < particleCount; i++) {
-      const radius = 1.2 + Math.pow(Math.random(), 1.4) * 15.0;
+      const radius = 1.0 + Math.pow(Math.random(), 1.3) * 16.0;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(Math.random() * 2 - 1);
 
@@ -92,7 +89,7 @@ export const Album3DScene: React.FC = () => {
       positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
       positions[i * 3 + 2] = radius * Math.cos(phi);
 
-      scales[i] = Math.random() * 1.6 + 0.8;
+      scales[i] = Math.random() * 1.8 + 0.9;
       randomVecs[i * 3] = (Math.random() - 0.5) * 2;
       randomVecs[i * 3 + 1] = (Math.random() - 0.5) * 2;
       randomVecs[i * 3 + 2] = (Math.random() - 0.5) * 2;
@@ -124,16 +121,48 @@ export const Album3DScene: React.FC = () => {
     scene.add(particleSystem);
 
     // ─────────────────────────────────────────────────────────────
-    // 4. FLOATING 3D VINYL ARTIFACT (HIGH-CONTRAST PBR)
+    // 4. CENTRAL GLOWING AUDIO-REACTIVE SHOCKWAVE AURA RING
     // ─────────────────────────────────────────────────────────────
-    const vinylArtifact = createFloatingVinylArtifact(
-      currentTrack?.coverUrl || "https://media.postlain.com/covers/HVL_Album_Cover.jpg"
-    );
-    scene.add(vinylArtifact.group);
+    const ringGeo = new THREE.RingGeometry(2.2, 4.6, 64);
+    const ringMat = new THREE.ShaderMaterial({
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        uniform float uKick;
+        uniform float uSubBass;
+        uniform vec3 uColor;
+        varying vec2 vUv;
 
-    // Position artifact offset slightly to left on desktop, centered on mobile
-    const baseArtifactX = isMobile ? 0 : -1.4;
-    vinylArtifact.group.position.set(baseArtifactX, 0, 0);
+        void main() {
+          vec2 centered = vUv - vec2(0.5);
+          float dist = length(centered) * 2.0;
+          float ring = smoothstep(0.4, 0.7, dist) * smoothstep(1.0, 0.75, dist);
+          float pulse = (0.2 + uKick * 0.8 + uSubBass * 0.5);
+          float alpha = ring * pulse * 0.65;
+          gl_FragColor = vec4(uColor + vec3(uKick * 0.3), alpha);
+        }
+      `,
+      uniforms: {
+        uTime: { value: 0 },
+        uKick: { value: 0 },
+        uSubBass: { value: 0 },
+        uColor: { value: new THREE.Color(currentTrack?.palette?.primary || "#6366f1") }
+      },
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide
+    });
+
+    const auraRing = new THREE.Mesh(ringGeo, ringMat);
+    auraRing.position.set(0, 0, -1.0);
+    scene.add(auraRing);
 
     // ─────────────────────────────────────────────────────────────
     // 5. CINEMATIC 35MM POST-PROCESSING (GRAIN, HALATION, BLOOM)
@@ -154,10 +183,10 @@ export const Album3DScene: React.FC = () => {
       uniforms: {
         tDiffuse: { value: renderTarget.texture },
         uTime: { value: 0 },
-        uGrainIntensity: { value: 0.08 },
-        uHalationIntensity: { value: 0.65 },
+        uGrainIntensity: { value: 0.05 },
+        uHalationIntensity: { value: 0.55 },
         uChromaticAberration: { value: 0.0 },
-        uVignetteIntensity: { value: 0.95 },
+        uVignetteIntensity: { value: 0.8 },
       },
       depthWrite: false,
       depthTest: false,
@@ -167,21 +196,7 @@ export const Album3DScene: React.FC = () => {
     postScene.add(postQuad);
 
     // ─────────────────────────────────────────────────────────────
-    // 6. INTERACTION STATE & MOUSE PARALLAX
-    // ─────────────────────────────────────────────────────────────
-    let mouseParallax = { x: 0, y: 0 };
-
-    const handlePointerMove = (e: PointerEvent) => {
-      const normX = (e.clientX / width) * 2 - 1;
-      const normY = -(e.clientY / height) * 2 + 1;
-      mouseParallax.x = normX * 0.35;
-      mouseParallax.y = normY * 0.25;
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-
-    // ─────────────────────────────────────────────────────────────
-    // 7. PRE-ALLOCATED SCRATCH BUFFERS & 60FPS RENDER LOOP
+    // 6. 60FPS RENDER LOOP WITH REAL-TIME AUDIO BAND REACTIVITY
     // ─────────────────────────────────────────────────────────────
     let animationFrameId: number;
     const clock = new THREE.Clock();
@@ -200,27 +215,17 @@ export const Album3DScene: React.FC = () => {
       particleMaterial.uniforms.uHighTreble.value = bands.highTreble;
       particleMaterial.uniforms.uMoodTier.value = getMoodTier(currentTrack?.genre, currentTrack?.title);
 
-      // Spin the vinyl disc around its center axis when music plays
-      if (isPlaying) {
-        vinylArtifact.discGroup.rotation.y += 0.025 + bands.overallEnergy * 0.03;
-      }
-      
-      // Floating oscillation in 3D space
-      const floatY = Math.sin(elapsedTime * 1.1) * 0.22 + bands.kick * 0.12;
-      const floatX = baseArtifactX + Math.cos(elapsedTime * 0.7) * 0.18;
-      vinylArtifact.group.position.set(floatX, floatY, 0);
-
-      // Parallax rotation
-      vinylArtifact.group.rotation.x = 0.15 + mouseParallax.y * 0.4;
-      vinylArtifact.group.rotation.y = -0.22 + mouseParallax.x * 0.4;
-
-      // Pulse disc size on Kick
-      const discScale = 1.0 + bands.kick * 0.06;
-      vinylArtifact.discMesh.scale.set(discScale, 1.0, discScale);
+      // Update Aura Ring
+      ringMat.uniforms.uTime.value = elapsedTime;
+      ringMat.uniforms.uKick.value = bands.kick;
+      ringMat.uniforms.uSubBass.value = bands.subBass;
+      const ringScale = 1.0 + bands.kick * 0.25 + Math.sin(elapsedTime * 2.0) * 0.05;
+      auraRing.scale.set(ringScale, ringScale, 1.0);
+      auraRing.rotation.z += 0.005;
 
       // Sub-Bass Driven Chromatic Aberration Shockwave
       postMaterial.uniforms.uTime.value = elapsedTime;
-      postMaterial.uniforms.uChromaticAberration.value = bands.subBass * 0.85;
+      postMaterial.uniforms.uChromaticAberration.value = bands.subBass * 0.75;
 
       // Render Scene to Target, then render Post Quad to Screen
       renderer.setRenderTarget(renderTarget);
@@ -233,7 +238,7 @@ export const Album3DScene: React.FC = () => {
     animate();
 
     // ─────────────────────────────────────────────────────────────
-    // 8. RESIZE LISTENER
+    // 7. RESIZE LISTENER
     // ─────────────────────────────────────────────────────────────
     const handleResize = () => {
       if (!container) return;
@@ -241,7 +246,7 @@ export const Album3DScene: React.FC = () => {
       const h = container.clientHeight || window.innerHeight;
 
       camera.aspect = w / h;
-      camera.position.z = w < 768 ? 10.5 : 8.0;
+      camera.position.z = w < 768 ? 11.0 : 8.5;
       camera.updateProjectionMatrix();
 
       renderer.setSize(w, h);
@@ -251,16 +256,16 @@ export const Album3DScene: React.FC = () => {
     window.addEventListener("resize", handleResize);
 
     // ─────────────────────────────────────────────────────────────
-    // 9. CLEANUP & VRAM DISPOSAL (AGENTS.MD COMPLIANCE)
+    // 8. CLEANUP & VRAM DISPOSAL
     // ─────────────────────────────────────────────────────────────
     return () => {
       cancelAnimationFrame(animationFrameId);
-      window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("resize", handleResize);
 
-      vinylArtifact.dispose();
       particleGeo.dispose();
       particleMaterial.dispose();
+      ringGeo.dispose();
+      ringMat.dispose();
       postGeo.dispose();
       postMaterial.dispose();
       renderTarget.dispose();
