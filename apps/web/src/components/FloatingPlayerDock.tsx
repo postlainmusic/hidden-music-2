@@ -43,7 +43,7 @@ export const FloatingPlayerDock: React.FC = () => {
   } = useAudioStore();
 
   const [expandedMode, setExpandedMode] = useState<"none" | "lyrics" | "queue">("none");
-  const [showVolumeSlider, setShowVolumeSlider] = useState<boolean>(false);
+  const [showInlineVolume, setShowInlineVolume] = useState<boolean>(false);
   const [shuffleMode, setShuffleMode] = useState<boolean>(false);
   const [repeatMode, setRepeatMode] = useState<"off" | "all" | "one">("off");
   const [hoverSeekTime, setHoverSeekTime] = useState<number | null>(null);
@@ -63,6 +63,7 @@ export const FloatingPlayerDock: React.FC = () => {
   // Scrubber Drag State
   const isDraggingSeekerRef = useRef<boolean>(false);
   const dragSeekTimeRef = useRef<number | null>(null);
+  const latestDurationRef = useRef<number>(0);
 
   const isFav = currentTrack ? favoritedTrackIds.includes(currentTrack.id) : false;
 
@@ -82,7 +83,6 @@ export const FloatingPlayerDock: React.FC = () => {
     const handleMouseDown = (e: MouseEvent) => {
       if (dockContainerRef.current && !dockContainerRef.current.contains(e.target as Node)) {
         setExpandedMode("none");
-        setShowVolumeSlider(false);
       }
     };
     document.addEventListener("mousedown", handleMouseDown);
@@ -92,6 +92,10 @@ export const FloatingPlayerDock: React.FC = () => {
   // Direct Ref High-Frequency Progress Subscription (60fps without React state)
   useEffect(() => {
     const unsubscribe = dualDeckAudioEngine.subscribeProgress((state: ProgressState) => {
+      if (state.duration && state.duration > 0) {
+        latestDurationRef.current = state.duration;
+      }
+
       if (isDraggingSeekerRef.current) return;
 
       if (currentTimeTextRef.current) {
@@ -101,15 +105,25 @@ export const FloatingPlayerDock: React.FC = () => {
         durationTextRef.current.textContent = formatTime(state.duration);
       }
       if (playedProgressBarRef.current) {
-        playedProgressBarRef.current.style.width = `${state.progressPercent}%`;
+        playedProgressBarRef.current.style.width = `${Math.min(100, Math.max(0, state.progressPercent))}%`;
       }
       if (bufferedProgressBarRef.current) {
-        bufferedProgressBarRef.current.style.width = `${state.bufferedPercent}%`;
+        bufferedProgressBarRef.current.style.width = `${Math.min(100, Math.max(0, state.bufferedPercent))}%`;
       }
     });
 
     return () => unsubscribe();
   }, []);
+
+  // Update duration ref on track change
+  useEffect(() => {
+    if (currentTrack) {
+      latestDurationRef.current = currentTrack.duration || 0;
+      if (durationTextRef.current) {
+        durationTextRef.current.textContent = formatTime(currentTrack.duration);
+      }
+    }
+  }, [currentTrack]);
 
   // 60FPS Beat Pulse, Snare Strobe & Audio-Reactive Chớp Giật on Playdock
   useEffect(() => {
@@ -146,20 +160,20 @@ export const FloatingPlayerDock: React.FC = () => {
         }
       }
 
-      // 2. Mini Cover Beat Reaction
+      // 2. Mini Cover Beat Reaction (Clean scale without clipping)
       if (miniCoverRef.current) {
         if (beatState.isSnareHit) {
-          miniCoverRef.current.style.transform = "scale(1.09)";
-          miniCoverRef.current.style.boxShadow = "0 0 18px rgba(255, 255, 255, 0.9)";
-        } else if (beatState.isKickHit || beatState.isKickRoll) {
           miniCoverRef.current.style.transform = "scale(1.08)";
-          miniCoverRef.current.style.boxShadow = "0 0 16px rgba(239, 68, 68, 0.9)";
+          miniCoverRef.current.style.boxShadow = "0 0 16px rgba(255, 255, 255, 0.9)";
+        } else if (beatState.isKickHit || beatState.isKickRoll) {
+          miniCoverRef.current.style.transform = "scale(1.07)";
+          miniCoverRef.current.style.boxShadow = "0 0 14px rgba(239, 68, 68, 0.9)";
         } else if (beatState.isSubHit) {
-          miniCoverRef.current.style.transform = "scale(1.04)";
-          miniCoverRef.current.style.boxShadow = "0 0 14px rgba(185, 28, 28, 0.75)";
+          miniCoverRef.current.style.transform = "scale(1.03)";
+          miniCoverRef.current.style.boxShadow = "0 0 12px rgba(185, 28, 28, 0.75)";
         } else {
           miniCoverRef.current.style.transform = "scale(1.0)";
-          miniCoverRef.current.style.boxShadow = "0 4px 14px rgba(0,0,0,0.5)";
+          miniCoverRef.current.style.boxShadow = "0 4px 12px rgba(0,0,0,0.5)";
         }
       }
 
@@ -170,46 +184,53 @@ export const FloatingPlayerDock: React.FC = () => {
     return () => cancelAnimationFrame(animId);
   }, [isPlaying]);
 
-  const effectiveDuration = duration && duration > 0 ? duration : currentTrack?.duration || 0;
+  const effectiveDuration =
+    latestDurationRef.current > 0
+      ? latestDurationRef.current
+      : duration && duration > 0
+      ? duration
+      : currentTrack?.duration || 1;
 
   // ─────────────────────────────────────────────────────────────────────────
-  // HIGH-PRECISION SCRUBBER TRACKING (CLICK & DRAG WITH WINDOW LISTENERS)
+  // HIGH-PRECISION SCRUBBER TRACKING (FIXED SEEK TO PREVENT JUMPING TO END)
   // ─────────────────────────────────────────────────────────────────────────
   const calculateSeekTime = useCallback(
     (clientX: number): number => {
-      if (!scrubberTrackRef.current || effectiveDuration <= 0) return 0;
+      if (!scrubberTrackRef.current) return 0;
       const rect = scrubberTrackRef.current.getBoundingClientRect();
+      if (rect.width <= 0) return 0;
       const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      return ratio * effectiveDuration;
+      const totalDur = latestDurationRef.current > 0 ? latestDurationRef.current : effectiveDuration;
+      return ratio * totalDur;
     },
     [effectiveDuration]
   );
 
   const handleScrubberPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (effectiveDuration <= 0) return;
     isDraggingSeekerRef.current = true;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {}
 
     const targetSec = calculateSeekTime(e.clientX);
     dragSeekTimeRef.current = targetSec;
 
-    // Instant UI update
+    const totalDur = latestDurationRef.current > 0 ? latestDurationRef.current : effectiveDuration;
     if (currentTimeTextRef.current) {
       currentTimeTextRef.current.textContent = formatTime(targetSec);
     }
-    if (playedProgressBarRef.current) {
-      playedProgressBarRef.current.style.width = `${(targetSec / effectiveDuration) * 100}%`;
+    if (playedProgressBarRef.current && totalDur > 0) {
+      playedProgressBarRef.current.style.width = `${Math.max(0, Math.min(100, (targetSec / totalDur) * 100))}%`;
     }
-    seek(targetSec);
   };
 
   const handleScrubberPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (effectiveDuration <= 0) return;
+    const totalDur = latestDurationRef.current > 0 ? latestDurationRef.current : effectiveDuration;
     const rect = scrubberTrackRef.current?.getBoundingClientRect();
-    if (rect) {
+    if (rect && rect.width > 0) {
       const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       setHoverSeekPos(ratio * 100);
-      setHoverSeekTime(ratio * effectiveDuration);
+      setHoverSeekTime(ratio * totalDur);
     }
 
     if (isDraggingSeekerRef.current) {
@@ -219,8 +240,8 @@ export const FloatingPlayerDock: React.FC = () => {
       if (currentTimeTextRef.current) {
         currentTimeTextRef.current.textContent = formatTime(targetSec);
       }
-      if (playedProgressBarRef.current) {
-        playedProgressBarRef.current.style.width = `${(targetSec / effectiveDuration) * 100}%`;
+      if (playedProgressBarRef.current && totalDur > 0) {
+        playedProgressBarRef.current.style.width = `${Math.max(0, Math.min(100, (targetSec / totalDur) * 100))}%`;
       }
     }
   };
@@ -228,13 +249,14 @@ export const FloatingPlayerDock: React.FC = () => {
   const handleScrubberPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (isDraggingSeekerRef.current) {
       isDraggingSeekerRef.current = false;
-      if (dragSeekTimeRef.current !== null) {
-        seek(dragSeekTimeRef.current);
-        dragSeekTimeRef.current = null;
+      const targetSec = dragSeekTimeRef.current !== null ? dragSeekTimeRef.current : calculateSeekTime(e.clientX);
+      if (!isNaN(targetSec) && isFinite(targetSec) && targetSec >= 0) {
+        seek(targetSec);
       }
+      dragSeekTimeRef.current = null;
     }
     try {
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {}
   };
 
@@ -269,23 +291,23 @@ export const FloatingPlayerDock: React.FC = () => {
             style={{
               width: "min(860px, calc(100vw - 40px))",
               height: "min(420px, 50vh)",
-              borderRadius: "28px 28px 12px 12px",
-              background: "rgba(8, 9, 14, 0.95)",
+              borderRadius: "28px 28px 0 0",
+              background: "rgba(8, 9, 14, 0.96)",
               border: "1px solid rgba(239, 68, 68, 0.4)",
-              borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-              boxShadow: "0 30px 80px rgba(0, 0, 0, 0.98), 0 0 40px rgba(239, 68, 68, 0.25)",
+              borderBottom: "none",
+              boxShadow: "0 -20px 60px rgba(0, 0, 0, 0.95), 0 0 35px rgba(239, 68, 68, 0.20)",
               backdropFilter: "blur(36px)",
               WebkitBackdropFilter: "blur(36px)",
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
               pointerEvents: "auto",
-              marginBottom: "-6px", // Seamlessly connected to dock
+              marginBottom: "0px", // Flawlessly merges into main dock
               zIndex: 70,
               transformOrigin: "bottom center",
             }}
           >
-            {/* Minimal Header (No Redundant Tab Buttons) */}
+            {/* Minimal Header */}
             <div
               style={{
                 display: "flex",
@@ -436,8 +458,9 @@ export const FloatingPlayerDock: React.FC = () => {
           width: "100%",
           maxWidth: "860px",
           padding: "10px 20px",
-          borderRadius: expandedMode !== "none" ? "12px 12px 26px 26px" : "26px",
-          background: "rgba(10, 11, 16, 0.90)",
+          borderRadius: expandedMode !== "none" ? "0 0 26px 26px" : "26px",
+          borderTop: expandedMode !== "none" ? "1px solid rgba(255, 255, 255, 0.08)" : undefined,
+          background: "rgba(10, 11, 16, 0.92)",
           border: "1px solid rgba(255, 255, 255, 0.16)",
           boxShadow: "0 20px 50px rgba(0, 0, 0, 0.95), 0 0 25px rgba(239, 68, 68, 0.18)",
           backdropFilter: "blur(28px)",
@@ -480,15 +503,18 @@ export const FloatingPlayerDock: React.FC = () => {
             maxWidth: "220px",
             flexShrink: 0,
             cursor: "pointer",
-            overflow: "hidden",
+            overflow: "visible", // Do not clip cover beat pulse
           }}
         >
+          {/* Mini Album Cover with clean unclipped glow */}
           <div
             ref={miniCoverRef}
             style={{
               position: "relative",
               width: "44px",
               height: "44px",
+              minWidth: "44px",
+              minHeight: "44px",
               borderRadius: "12px",
               overflow: "hidden",
               flexShrink: 0,
@@ -498,7 +524,7 @@ export const FloatingPlayerDock: React.FC = () => {
             <img
               src={currentTrack.coverUrl}
               alt={currentTrack.title}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
             />
             {isPlaying && (
               <div
@@ -788,7 +814,7 @@ export const FloatingPlayerDock: React.FC = () => {
           </div>
         </div>
 
-        {/* 3. RIGHT: TOOL BUTTONS & SEAMLESS INTEGRATED VOLUME (220px STRICT) */}
+        {/* 3. RIGHT: TOOL BUTTONS & SEAMLESS INLINE INTEGRATED VOLUME (220px STRICT) */}
         <div
           style={{
             display: "flex",
@@ -844,19 +870,48 @@ export const FloatingPlayerDock: React.FC = () => {
             <ListMusic size={16} />
           </button>
 
-          {/* Seamless Integrated Volume Slider Popover */}
+          {/* Seamless Inline Integrated Volume Control (Zero Floating Detached Pills) */}
           <div
-            style={{ position: "relative" }}
-            onMouseEnter={() => setShowVolumeSlider(true)}
-            onMouseLeave={() => setShowVolumeSlider(false)}
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
+            onMouseEnter={() => setShowInlineVolume(true)}
+            onMouseLeave={() => setShowInlineVolume(false)}
           >
+            <AnimatePresence>
+              {showInlineVolume && (
+                <motion.div
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: 68 }}
+                  exit={{ opacity: 0, width: 0 }}
+                  transition={{ duration: 0.18, ease: "easeOut" }}
+                  style={{ display: "flex", alignItems: "center", overflow: "hidden" }}
+                >
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={isMuted ? 0 : volume}
+                    onChange={(e) => setVolume(Number(e.target.value))}
+                    style={{
+                      width: "65px",
+                      height: "4px",
+                      cursor: "pointer",
+                      accentColor: "#ef4444",
+                    }}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <button
-              onClick={() => setShowVolumeSlider((prev) => !prev)}
+              onClick={() => {
+                setShowInlineVolume((prev) => !prev);
+              }}
               onDoubleClick={toggleMute}
               title={`Âm lượng: ${Math.round((isMuted ? 0 : volume) * 100)}%`}
               style={{
-                background: showVolumeSlider ? "#ffffff" : "rgba(255, 255, 255, 0.08)",
-                color: showVolumeSlider ? "#000000" : "#ffffff",
+                background: showInlineVolume ? "#ffffff" : "rgba(255, 255, 255, 0.08)",
+                color: showInlineVolume ? "#000000" : "#ffffff",
                 border: "1px solid rgba(255, 255, 255, 0.15)",
                 borderRadius: "50%",
                 width: "34px",
@@ -876,54 +931,6 @@ export const FloatingPlayerDock: React.FC = () => {
                 <Volume1 size={16} />
               )}
             </button>
-
-            {/* Seamless Docked Vertical Volume Slider */}
-            <AnimatePresence>
-              {showVolumeSlider && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  transition={{ duration: 0.15 }}
-                  style={{
-                    position: "absolute",
-                    bottom: "42px",
-                    right: "-2px",
-                    padding: "12px 8px",
-                    borderRadius: "18px",
-                    background: "rgba(10, 11, 16, 0.96)",
-                    border: "1px solid rgba(239, 68, 68, 0.4)",
-                    boxShadow: "0 15px 40px rgba(0, 0, 0, 0.95), 0 0 20px rgba(239, 68, 68, 0.3)",
-                    backdropFilter: "blur(28px)",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: "8px",
-                    zIndex: 100,
-                  }}
-                >
-                  <span style={{ fontSize: "0.70rem", fontWeight: 800, color: "#ffffff" }}>
-                    {Math.round((isMuted ? 0 : volume) * 100)}%
-                  </span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={isMuted ? 0 : volume}
-                    onChange={(e) => setVolume(Number(e.target.value))}
-                    style={{
-                      writingMode: "vertical-lr",
-                      direction: "rtl",
-                      width: "6px",
-                      height: "85px",
-                      cursor: "pointer",
-                      accentColor: "#ef4444",
-                    }}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
         </div>
       </div>

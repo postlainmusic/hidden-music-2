@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
-import { Mic2, Music2 } from "lucide-react";
+import { Music2 } from "lucide-react";
 import { useAudioStore } from "../store/audioStore";
 import { dualDeckAudioEngine } from "../audio/DualDeckAudioEngine";
 import { LRC_VAULT } from "../lyrics/lrcVault";
@@ -33,8 +33,6 @@ export function parseLrc(lrcText: string): LyricLine[] {
         const time = mins * 60 + secs + ms / 1000;
         result.push({ time, text: text || "♪" });
       }
-    } else if (!matches.length && line.trim() && !line.trim().startsWith("[")) {
-      result.push({ time: -1, text: line.trim() });
     }
   }
 
@@ -42,7 +40,7 @@ export function parseLrc(lrcText: string): LyricLine[] {
   if (hasTimestamps) {
     return result.filter((r) => r.time >= 0).sort((a, b) => a.time - b.time);
   }
-  return result;
+  return [];
 }
 
 interface SyncedLyricsViewProps {
@@ -53,6 +51,7 @@ interface SyncedLyricsViewProps {
 export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, className = "" }) => {
   const { currentTrack } = useAudioStore();
   const [lrcContent, setLrcContent] = useState<string>("");
+  const [hasLoaded, setHasLoaded] = useState<boolean>(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const lineRefs = useRef<(HTMLParagraphElement | null)[]>([]);
@@ -63,15 +62,17 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, clas
   useEffect(() => {
     if (!currentTrack) {
       setLrcContent("");
+      setHasLoaded(true);
       return;
     }
 
+    setHasLoaded(false);
     const trackTitle = currentTrack.title || "";
     const trackId = currentTrack.id || "";
     const trackNum = trackTitle.match(/^(\d+)/)?.[1] || trackId.replace(/\D/g, "");
 
     // 1. Check bundled LRC_VAULT
-    let foundLrc =
+    const foundLrc =
       LRC_VAULT[trackTitle] ||
       LRC_VAULT[trackNum] ||
       LRC_VAULT[trackNum.padStart(2, "0")] ||
@@ -79,6 +80,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, clas
 
     if (foundLrc) {
       setLrcContent(foundLrc);
+      setHasLoaded(true);
       return;
     }
 
@@ -89,11 +91,13 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, clas
         if (res.ok) return res.text();
         throw new Error("404");
       })
-      .then((text) => setLrcContent(text))
+      .then((text) => {
+        setLrcContent(text);
+        setHasLoaded(true);
+      })
       .catch(() => {
-        setLrcContent(
-          `[00:00.00] ♪ ${currentTrack.title} - ${currentTrack.artist}\n[00:04.50] Hidden Music Lossless Audio Experience\n[00:10.00] Master Quality M4A High-Fidelity`
-        );
+        setLrcContent(""); // Strictly empty if no real LRC exists
+        setHasLoaded(true);
       });
   }, [currentTrack]);
 
@@ -151,7 +155,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, clas
     }
   };
 
-  if (!currentTrack) {
+  if (!currentTrack || (hasLoaded && parsedLyrics.length === 0)) {
     return (
       <div
         style={{
@@ -160,12 +164,18 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, clas
           alignItems: "center",
           justifyContent: "center",
           height: "100%",
-          color: "rgba(255, 255, 255, 0.4)",
-          padding: "48px 0",
+          color: "rgba(255, 255, 255, 0.45)",
+          padding: "60px 20px",
+          textAlign: "center",
         }}
       >
-        <Mic2 size={32} style={{ marginBottom: "12px", opacity: 0.3 }} />
-        <p style={{ fontSize: "0.85rem" }}>Chưa có bài hát nào được chọn</p>
+        <Music2 size={36} style={{ marginBottom: "14px", opacity: 0.35, color: "#ef4444" }} />
+        <p style={{ fontSize: "0.95rem", fontWeight: 700, color: "#ffffff", marginBottom: "6px" }}>
+          Chưa có lời bài hát đồng bộ
+        </p>
+        <p style={{ fontSize: "0.78rem", color: "rgba(255, 255, 255, 0.4)" }}>
+          {currentTrack ? `${currentTrack.title} • Bản phát hành Lossless` : ""}
+        </p>
       </div>
     );
   }
@@ -178,7 +188,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, clas
       style={{
         height: "100%",
         overflowY: "auto",
-        padding: "20px 24px",
+        padding: "24px 28px",
         scrollBehavior: "smooth",
         background: "transparent",
         maskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)",
@@ -190,78 +200,62 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, clas
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: "14px",
-          maxWidth: "640px",
+          gap: "16px",
+          maxWidth: "680px",
           margin: "0 auto",
-          padding: "30px 0",
+          padding: "36px 0",
         }}
       >
-        {parsedLyrics.length > 0 ? (
-          parsedLyrics.map((line, idx) => {
-            const isActive = idx === activeIndex;
-            const isPast = idx < activeIndex;
+        {parsedLyrics.map((line, idx) => {
+          const isActive = idx === activeIndex;
+          const isPast = idx < activeIndex;
 
-            return (
-              <p
-                key={idx}
-                ref={(el) => {
-                  lineRefs.current[idx] = el;
-                }}
-                onClick={() => handleLineClick(line.time)}
-                style={{
-                  fontSize: "1.05rem", // Consistent, elegant readable size
-                  fontWeight: isActive ? 700 : 500,
-                  textAlign: "center",
-                  lineHeight: 1.45,
-                  cursor: line.time >= 0 ? "pointer" : "default",
-                  color: isActive
-                    ? "#ffffff"
-                    : isPast
+          return (
+            <p
+              key={idx}
+              ref={(el) => {
+                lineRefs.current[idx] = el;
+              }}
+              onClick={() => handleLineClick(line.time)}
+              style={{
+                fontSize: "1.05rem",
+                fontWeight: isActive ? 700 : 500,
+                textAlign: "center",
+                lineHeight: 1.5,
+                cursor: line.time >= 0 ? "pointer" : "default",
+                color: isActive
+                  ? "#ffffff"
+                  : isPast
+                  ? "rgba(255, 255, 255, 0.50)"
+                  : "rgba(255, 255, 255, 0.25)",
+                transition: "color 0.2s ease, text-shadow 0.2s ease",
+                textShadow: isActive
+                  ? "0 0 16px rgba(239, 68, 68, 0.7), 0 0 30px rgba(239, 68, 68, 0.35)"
+                  : "none",
+                userSelect: "none",
+                margin: 0,
+                padding: "4px 14px",
+                borderRadius: "8px",
+                maxWidth: "100%",
+                wordBreak: "break-word",
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive && line.time >= 0) {
+                  (e.currentTarget as HTMLElement).style.color = "rgba(255, 255, 255, 0.85)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive && line.time >= 0) {
+                  (e.currentTarget as HTMLElement).style.color = isPast
                     ? "rgba(255, 255, 255, 0.50)"
-                    : "rgba(255, 255, 255, 0.25)",
-                  transition: "color 0.2s ease, opacity 0.2s ease, text-shadow 0.2s ease",
-                  textShadow: isActive
-                    ? "0 0 16px rgba(239, 68, 68, 0.7), 0 0 30px rgba(239, 68, 68, 0.35)"
-                    : "none",
-                  userSelect: "none",
-                  margin: 0,
-                  padding: "3px 12px",
-                  borderRadius: "6px",
-                  maxWidth: "100%",
-                  wordBreak: "break-word",
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive && line.time >= 0) {
-                    (e.currentTarget as HTMLElement).style.color = "rgba(255, 255, 255, 0.85)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive && line.time >= 0) {
-                    (e.currentTarget as HTMLElement).style.color = isPast
-                      ? "rgba(255, 255, 255, 0.50)"
-                      : "rgba(255, 255, 255, 0.25)";
-                  }
-                }}
-              >
-                {line.text}
-              </p>
-            );
-          })
-        ) : (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "40px 0",
-              color: "rgba(255, 255, 255, 0.4)",
-            }}
-          >
-            <Music2 size={28} style={{ marginBottom: "8px", opacity: 0.3 }} />
-            <p style={{ fontSize: "0.85rem" }}>Không tìm thấy lời bài hát</p>
-          </div>
-        )}
+                    : "rgba(255, 255, 255, 0.25)";
+                }
+              }}
+            >
+              {line.text}
+            </p>
+          );
+        })}
       </div>
     </div>
   );
