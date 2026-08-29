@@ -505,7 +505,7 @@ export const FloatingPlayerDock: React.FC = () => {
                 boxShadow: "0 0 20px rgba(255, 255, 255, 0.5)"
               }}
             >
-              {isBuffering ? (
+              {isBuffering && isPlaying && currentTime === 0 ? (
                 <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
                   <Loader2 size={18} color="#090a0f" />
                 </motion.div>
