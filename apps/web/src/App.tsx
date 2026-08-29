@@ -1,99 +1,21 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { MeshGradientBackground } from "./components/MeshGradientBackground";
 import { GlassNavbar } from "./components/GlassNavbar";
 import { VaultGate } from "./components/VaultGate";
 import { HomePage } from "./pages/HomePage";
 import { MobileHomePage } from "./pages/MobileHomePage";
 import { Album3DZone } from "./pages/Album3DZone";
-import { studioBeatEngine } from "./audio/StudioBeatEngine";
 import { useAudioStore } from "./store/audioStore";
 import { useIsMobile } from "./hooks/useIsMobile";
 
 export const App: React.FC = () => {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [activeTab, setActiveTab] = useState<"vault" | "explore" | "3d">("vault");
-  const {
-    currentTrack,
-    queue,
-    isPlaying,
-    isBuffering,
-    volume,
-    isMuted,
-    currentUser,
-    setAudioElement,
-    nextTrack,
-    initAudioEngine
-  } = useAudioStore();
+  const { currentUser, initAudioEngine } = useAudioStore();
   const isMobile = useIsMobile();
-  const [canPrebuffer, setCanPrebuffer] = useState(false);
-
-  // Next-Track Pre-buffer calculation for 0ms transitions (AGENTS.md Rule 2)
-  const nextTrackUrl = React.useMemo(() => {
-    if (!currentTrack || queue.length <= 1) return null;
-    const currentIndex = queue.findIndex((t) => t.id === currentTrack.id);
-    if (currentIndex === -1) return null;
-    const nextIndex = (currentIndex + 1) % queue.length;
-    return queue[nextIndex]?.audioUrl || null;
-  }, [currentTrack, queue]);
 
   useEffect(() => {
     initAudioEngine();
-    if (audioRef.current) {
-      setAudioElement(audioRef.current);
-      studioBeatEngine.attachAudioElement(audioRef.current);
-    }
-  }, [initAudioEngine, setAudioElement]);
-
-  useEffect(() => {
-    if (currentTrack) {
-      studioBeatEngine.setTrack(currentTrack.id || currentTrack.title);
-    }
-  }, [currentTrack]);
-
-  // Volume & Mute synchronizer
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = isMuted ? 0 : volume;
-      audioRef.current.muted = isMuted;
-    }
-  }, [volume, isMuted]);
-
-  // Single Unified Media Engine Controller (Play/Pause/Track switch with Network Request Abort)
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    if (!currentTrack || !currentTrack.audioUrl) {
-      audio.pause();
-      return;
-    }
-
-    const targetUrl = currentTrack.audioUrl;
-    if (audio.src !== targetUrl) {
-      // 1. Immediately abort and cancel previous in-flight network range streams
-      audio.pause();
-      audio.removeAttribute("src");
-      audio.load(); // Forces Chromium Media Pipeline to terminate previous connection immediately!
-      setCanPrebuffer(false);
-
-      // 2. Set new target stream URL
-      audio.src = targetUrl;
-      audio.load();
-    }
-
-    if (isPlaying) {
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          if (err?.name !== "AbortError") {
-            console.warn("Audio play notice:", err);
-          }
-        });
-      }
-    } else {
-      audio.pause();
-    }
-  }, [currentTrack, isPlaying]);
+  }, [initAudioEngine]);
 
   return (
     <div style={{ position: "relative", minHeight: "100dvh", width: "100vw", overflowX: "hidden", backgroundColor: "#000000" }}>
@@ -178,82 +100,6 @@ export const App: React.FC = () => {
             </div>
           )}
         </>
-      )}
-
-      {/* 4. Primary Global HTML5 Lossless Audio Engine */}
-      <audio
-        ref={audioRef}
-        preload="metadata"
-        playsInline
-        onPlay={(e) => {
-          const isReady = e.currentTarget.readyState >= 3;
-          useAudioStore.setState({ isPlaying: true, isBuffering: !isReady });
-        }}
-        onPause={() => useAudioStore.setState({ isPlaying: false, isBuffering: false })}
-        onWaiting={() => {
-          useAudioStore.setState({ isBuffering: true });
-        }}
-        onProgress={(e) => {
-          const audio = e.currentTarget;
-          if (audio.buffered.length > 0) {
-            try {
-              const bufferedEnd = audio.buffered.end(audio.buffered.length - 1);
-              useAudioStore.setState({ bufferedTime: bufferedEnd });
-            } catch {}
-          }
-        }}
-        onStalled={() => {
-          const audio = audioRef.current;
-          if (audio && isPlaying && audio.paused) {
-            audio.play().catch(() => {});
-          }
-        }}
-        onSeeking={() => useAudioStore.setState({ isBuffering: true })}
-        onSeeked={() => useAudioStore.setState({ isBuffering: false })}
-        onPlaying={() => useAudioStore.setState({ isPlaying: true, isBuffering: false })}
-        onCanPlay={() => useAudioStore.setState({ isBuffering: false })}
-        onCanPlayThrough={() => useAudioStore.setState({ isBuffering: false })}
-        onTimeUpdate={(e) => {
-          const cur = e.currentTarget.currentTime;
-          if (cur >= 5) {
-            setCanPrebuffer(true);
-          }
-          useAudioStore.setState({
-            currentTime: cur,
-            isBuffering: false,
-            isPlaying: !e.currentTarget.paused
-          });
-        }}
-        onDurationChange={(e) => {
-          if (e.currentTarget.duration && !isNaN(e.currentTarget.duration) && e.currentTarget.duration > 0) {
-            useAudioStore.setState({ duration: Math.round(e.currentTarget.duration) });
-          }
-        }}
-        onLoadedMetadata={(e) => {
-          if (e.currentTarget.duration && !isNaN(e.currentTarget.duration) && e.currentTarget.duration > 0) {
-            useAudioStore.setState({ duration: Math.round(e.currentTarget.duration) });
-          }
-        }}
-        onEnded={() => nextTrack()}
-        onError={(e) => {
-          const err = e.currentTarget.error;
-          if (err) {
-            console.error("HTML5 Media Error Code:", err.code, "Message:", err.message);
-          }
-          useAudioStore.setState({ isBuffering: false });
-        }}
-        style={{ display: "none" }}
-      />
-
-      {/* 5. Smart Deferred Next-Track Pre-Buffer Engine for 0ms Transitions (AGENTS.md Rule 2) */}
-      {canPrebuffer && nextTrackUrl && (
-        <audio
-          key={nextTrackUrl}
-          src={nextTrackUrl}
-          preload="auto"
-          muted
-          style={{ display: "none" }}
-        />
       )}
     </div>
   );
