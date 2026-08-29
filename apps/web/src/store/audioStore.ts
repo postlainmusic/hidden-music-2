@@ -22,6 +22,7 @@ export interface Track {
 }
 
 const R2_BASE = "https://media.postlain.com";
+const STREAM_BASE = "https://hidden-music-api.postlain-music.workers.dev/api/stream";
 const HVL_COVER = `${R2_BASE}/covers/HVL_Album_Cover.jpg`;
 
 export const DEFAULT_TRACKS: Track[] = [
@@ -32,7 +33,7 @@ export const DEFAULT_TRACKS: Track[] = [
     album: "HVL",
     duration: 198,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/01.%20Elegie.m4a`,
+    audioUrl: `${STREAM_BASE}/audio/01.%20Elegie.m4a`,
     videoUrl: `${R2_BASE}/videos/01.%20Elegie%20-%20MCK.mkv`,
     palette: { primary: "#6366f1", secondary: "#ec4899", accent: "#8b5cf6", glow: "rgba(99, 102, 241, 0.45)" },
     genre: "Hip-Hop / Rap"
@@ -44,7 +45,7 @@ export const DEFAULT_TRACKS: Track[] = [
     album: "HVL",
     duration: 215,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/02.%20IDK.m4a`,
+    audioUrl: `${STREAM_BASE}/audio/02.%20IDK.m4a`,
     videoUrl: `${R2_BASE}/videos/02.%20IDK%20-%20MCK%20(Official%20Music%20Video).mkv`,
     palette: { primary: "#06b6d4", secondary: "#3b82f6", accent: "#10b981", glow: "rgba(6, 182, 212, 0.45)" },
     genre: "Melodic Rap"
@@ -56,7 +57,7 @@ export const DEFAULT_TRACKS: Track[] = [
     album: "HVL",
     duration: 180,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/03.%20Wtf%20Bby%20I_m%20Lit.m4a`,
+    audioUrl: `${STREAM_BASE}/audio/03.%20Wtf%20Bby%20I_m%20Lit.m4a`,
     videoUrl: `${R2_BASE}/videos/03.%20Wtf%20Bby%20I'm%20Lit%20-%20MCK.mkv`,
     palette: { primary: "#f43f5e", secondary: "#fb923c", accent: "#d946ef", glow: "rgba(244, 63, 94, 0.45)" },
     genre: "Trap"
@@ -68,7 +69,7 @@ export const DEFAULT_TRACKS: Track[] = [
     album: "HVL",
     duration: 224,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/04.%20Anh%20Kh%C3%B4ng%20Mu%E1%BB%91n%20N%C3%B3%20D%E1%BB%85%20D%C3%A0ng.m4a`,
+    audioUrl: `${STREAM_BASE}/audio/04.%20Anh%20Kh%C3%B4ng%20Mu%E1%BB%91n%20N%C3%B3%20D%E1%BB%85%20D%C3%A0ng.m4a`,
     videoUrl: `${R2_BASE}/videos/04.%20Anh%20Kh%C3%B4ng%20Mu%E1%BB%91n%20N%C3%B3%20D%E1%BB%85%20D%C3%A0ng%20-%20MCK.mkv`,
     palette: { primary: "#14b8a6", secondary: "#0284c7", accent: "#a855f7", glow: "rgba(20, 184, 166, 0.45)" },
     genre: "R&B / Soul"
@@ -80,7 +81,7 @@ export const DEFAULT_TRACKS: Track[] = [
     album: "HVL",
     duration: 230,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/05.%20Baby%20(feat.%20marzuz).m4a`,
+    audioUrl: `${STREAM_BASE}/audio/05.%20Baby%20(feat.%20marzuz).m4a`,
     videoUrl: `${R2_BASE}/videos/05.%20Baby%20-%20MCK%20ft.%20marzuz.mkv`,
     palette: { primary: "#ec4899", secondary: "#8b5cf6", accent: "#f43f5e", glow: "rgba(236, 72, 153, 0.45)" },
     genre: "Alternative R&B"
@@ -92,7 +93,7 @@ export const DEFAULT_TRACKS: Track[] = [
     album: "HVL",
     duration: 210,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/06.%20Y%C3%AAu%20Anh%20Gi%E1%BA%BFt%20Anh.m4a`,
+    audioUrl: `${STREAM_BASE}/audio/06.%20Y%C3%AAu%20Anh%20Gi%E1%BA%BFt%20Anh.m4a`,
     videoUrl: `${R2_BASE}/videos/06.%20Y%C3%AAu%20Anh%20Gi%E1%BA%BFt%20Anh%20-%20MCK.mkv`,
     palette: { primary: "#ef4444", secondary: "#7c3aed", accent: "#f97316", glow: "rgba(239, 68, 68, 0.45)" },
     genre: "Emo Rap"
@@ -104,7 +105,7 @@ export const DEFAULT_TRACKS: Track[] = [
     album: "HVL",
     duration: 240,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/07.%20M%E1%BA%AFt%20M%C3%B4i%20Tay%20Ch%C3%A2n%20(feat.%20Tage).m4a`,
+    audioUrl: `${STREAM_BASE}/audio/07.%20M%E1%BA%AFt%20M%C3%B4i%20Tay%20Ch%C3%A2n%20(feat.%20Tage).m4a`,
     videoUrl: `${R2_BASE}/videos/07.%20M%E1%BA%AFt%20M%C3%B4i%20Tay%20Ch%C3%A2n%20-%20MCK%20ft.%20Tage%20(Official%20Music%20Video).mkv`,
     palette: { primary: "#8b5cf6", secondary: "#06b6d4", accent: "#3b82f6", glow: "rgba(139, 92, 246, 0.45)" },
     genre: "Hip-Hop"
@@ -116,9 +117,9 @@ export const DEFAULT_TRACKS: Track[] = [
     album: "HVL",
     duration: 195,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/08.%20%C4%90ao%20C%E1%BB%A7a%20Anh%20V%E1%BB%ABa.m4a`,
+    audioUrl: `${STREAM_BASE}/audio/08.%20%C4%90ao%20C%E1%BB%A7a%20Anh%20V%E1%BB%ABa.m4a`,
     videoUrl: `${R2_BASE}/videos/08.%20%C4%90%E1%BA%A1o%20C%E1%BB%A7a%20Anh%20V%E1%BB%ABa%20-%20MCK.mkv`,
-    palette: { primary: "#eab308", secondary: "#ef4444", accent: "#f97316", glow: "rgba(234, 179, 8, 0.45)" },
+    palette: { primary: "#f59e0b", secondary: "#10b981", accent: "#ef4444", glow: "rgba(245, 158, 11, 0.45)" },
     genre: "Trap"
   },
   {
@@ -128,33 +129,33 @@ export const DEFAULT_TRACKS: Track[] = [
     album: "HVL",
     duration: 205,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/09.%20L%C3%A0%20G%C3%AC%20C%E1%BB%A7a%20Nhau.m4a`,
+    audioUrl: `${STREAM_BASE}/audio/09.%20L%C3%A0%20G%C3%AC%20C%E1%BB%A7a%20Nhau.m4a`,
     videoUrl: `${R2_BASE}/videos/09.%20L%C3%A0%20G%C3%AC%20C%E1%BB%A7a%20Nhau%20-%20MCK.mkv`,
-    palette: { primary: "#3b82f6", secondary: "#ec4899", accent: "#6366f1", glow: "rgba(59, 130, 246, 0.45)" },
-    genre: "R&B"
+    palette: { primary: "#06b6d4", secondary: "#8b5cf6", accent: "#ec4899", glow: "rgba(6, 182, 212, 0.45)" },
+    genre: "Pop Rap"
   },
   {
     id: "mck-10",
     title: "10. Night In Prague",
     artist: "MCK",
     album: "HVL",
-    duration: 250,
+    duration: 260,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/10.%20Night%20In%20Prague.m4a`,
-    videoUrl: `${R2_BASE}/videos/10.%20Night%20In%20Prague%20-%20MCK.mkv`,
-    palette: { primary: "#6366f1", secondary: "#14b8a6", accent: "#a855f7", glow: "rgba(99, 102, 241, 0.45)" },
-    genre: "Chillhop / Jazzhop"
+    audioUrl: `${STREAM_BASE}/audio/10.%20Night%20In%20Prague.m4a`,
+    videoUrl: `${R2_BASE}/videos/10.%20Night%20In%20Prague%20-%20MCK%20(Official%20Music%20Video).mkv`,
+    palette: { primary: "#3b82f6", secondary: "#6366f1", accent: "#a855f7", glow: "rgba(59, 130, 246, 0.45)" },
+    genre: "Melodic Hip-Hop"
   },
   {
     id: "mck-11",
     title: "11. Một Cái Ôm",
     artist: "MCK",
     album: "HVL",
-    duration: 218,
+    duration: 250,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/11.%20M%E1%BB%99t%20C%C3%A1i%20%C3%94m.m4a`,
+    audioUrl: `${STREAM_BASE}/audio/11.%20M%E1%BB%99t%20C%C3%A1i%20%C3%94m.m4a`,
     videoUrl: `${R2_BASE}/videos/11.%20M%E1%BB%99t%20C%C3%A1i%20%C3%94m%20-%20MCK.mkv`,
-    palette: { primary: "#f43f5e", secondary: "#8b5cf6", accent: "#06b6d4", glow: "rgba(244, 63, 94, 0.45)" },
+    palette: { primary: "#ec4899", secondary: "#f43f5e", accent: "#fb923c", glow: "rgba(236, 72, 153, 0.45)" },
     genre: "Acoustic / Rap"
   },
   {
@@ -162,23 +163,23 @@ export const DEFAULT_TRACKS: Track[] = [
     title: "12. Liệm",
     artist: "MCK",
     album: "HVL",
-    duration: 235,
+    duration: 285,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/12.%20Li%E1%BB%87m.m4a`,
+    audioUrl: `${STREAM_BASE}/audio/12.%20Li%E1%BB%87m.m4a`,
     videoUrl: `${R2_BASE}/videos/12.%20Li%E1%BB%87m%20-%20MCK.mkv`,
-    palette: { primary: "#7c3aed", secondary: "#000000", accent: "#dc2626", glow: "rgba(124, 58, 237, 0.45)" },
-    genre: "Dark Trap"
+    palette: { primary: "#64748b", secondary: "#475569", accent: "#94a3b8", glow: "rgba(100, 116, 139, 0.45)" },
+    genre: "Dark Rap"
   },
   {
     id: "mck-13",
     title: "13. Nếu Như Ta Chẳng Còn",
     artist: "MCK ft. AAP Ướt Mi",
     album: "HVL",
-    duration: 242,
+    duration: 340,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/13.%20N%E1%BA%BFu%20Nh%C6%B0%20Ta%20Ch%E1%BA%B3ng%20C%C3%B2n%20(feat.%20AAP%20%C6%AF%E1%BB%9Bt%20Mi).m4a`,
-    videoUrl: `${R2_BASE}/videos/13.%20N%E1%BA%BFu%20Nh%C6%B0%20Ta%20Ch%E1%BA%B3ng%20C%C3%B2n%20-%20MCK%20ft.%20AAP%20%C6%AF%E1%BB%9Bt%20Mi.mkv`,
-    palette: { primary: "#0ea5e9", secondary: "#6366f1", accent: "#ec4899", glow: "rgba(14, 165, 233, 0.45)" },
+    audioUrl: `${STREAM_BASE}/audio/13.%20N%E1%BA%BFu%20Nh%C6%B0%20Ta%20Ch%E1%BA%B3ng%20C%C3%B2n%20(feat.%20AAP%20%C6%AF%E1%BB%9Bt%20Mi).m4a`,
+    videoUrl: `${R2_BASE}/videos/13.%20N%E1%BA%BFu%20Nh%C6%B0%20Ta%20Ch%E1%BA%B3ng%20C%C3%B2n%20-%20MCK%20ft.%20AAP%20%C6%AF%E1%BB%9Bt%20Mi%20(Official%20Music%20Video).mkv`,
+    palette: { primary: "#6366f1", secondary: "#a855f7", accent: "#ec4899", glow: "rgba(99, 102, 241, 0.45)" },
     genre: "R&B / Soul"
   },
   {
@@ -186,11 +187,11 @@ export const DEFAULT_TRACKS: Track[] = [
     title: "14. Ai Mới Là Kẻ Xấu Xa",
     artist: "MCK",
     album: "HVL",
-    duration: 212,
+    duration: 235,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/14.%20Ai%20M%E1%BB%9Bi%20L%C3%A0%20K%E1%BA%BB%20X%E1%BA%A5u%20Xa.m4a`,
+    audioUrl: `${STREAM_BASE}/audio/14.%20Ai%20M%E1%BB%9Bi%20L%C3%A0%20K%E1%BA%BB%20X%E1%BA%A5u%20Xa.m4a`,
     videoUrl: `${R2_BASE}/videos/14.%20Ai%20M%E1%BB%9Bi%20L%C3%A0%20K%E1%BA%BB%20X%E1%BA%A5u%20Xa%20-%20MCK.mkv`,
-    palette: { primary: "#e11d48", secondary: "#f59e0b", accent: "#8b5cf6", glow: "rgba(225, 29, 72, 0.45)" },
+    palette: { primary: "#ef4444", secondary: "#f97316", accent: "#eab308", glow: "rgba(239, 68, 68, 0.45)" },
     genre: "Hip-Hop"
   },
   {
@@ -198,59 +199,59 @@ export const DEFAULT_TRACKS: Track[] = [
     title: "15. Slippery",
     artist: "MCK ft. Tùng Dương",
     album: "HVL",
-    duration: 260,
+    duration: 270,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/15.%20Slippery%20(feat.%20T%C3%B9ng%20D%C6%B0%C6%A1ng).m4a`,
+    audioUrl: `${STREAM_BASE}/audio/15.%20Slippery%20(feat.%20T%C3%B9ng%20D%C6%B0%C6%A1ng).m4a`,
     videoUrl: `${R2_BASE}/videos/15.%20Slippery%20-%20MCK%20ft.%20T%C3%B9ng%20D%C6%B0%C6%A1ng%20(Official%20Music%20Video).mkv`,
-    palette: { primary: "#d946ef", secondary: "#06b6d4", accent: "#f43f5e", glow: "rgba(217, 70, 239, 0.45)" },
-    genre: "Art Pop / Rap"
+    palette: { primary: "#10b981", secondary: "#06b6d4", accent: "#6366f1", glow: "rgba(16, 185, 129, 0.45)" },
+    genre: "Electronic / Rap"
   },
   {
     id: "mck-16",
-    title: "16. Interpol",
+    title: "16. Intenpol",
     artist: "MCK",
     album: "HVL",
-    duration: 185,
+    duration: 98,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/16.%20Intenpol.m4a`,
+    audioUrl: `${STREAM_BASE}/audio/16.%20Intenpol.m4a`,
     videoUrl: `${R2_BASE}/videos/16.%20Intenpol%20-%20MCK.mkv`,
-    palette: { primary: "#10b981", secondary: "#3b82f6", accent: "#6366f1", glow: "rgba(16, 185, 129, 0.45)" },
-    genre: "Trap"
+    palette: { primary: "#f43f5e", secondary: "#8b5cf6", accent: "#06b6d4", glow: "rgba(244, 63, 94, 0.45)" },
+    genre: "Interlude"
   },
   {
     id: "mck-17",
     title: "17. Tây Thi",
     artist: "MCK",
     album: "HVL",
-    duration: 210,
+    duration: 155,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/17.%20T%C3%A2y%20Thi.m4a`,
-    videoUrl: `${R2_BASE}/videos/17.%20T%C3%A2y%20Thi%20-%20MCK.mkv`,
-    palette: { primary: "#f43f5e", secondary: "#ec4899", accent: "#fbbf24", glow: "rgba(244, 63, 94, 0.45)" },
-    genre: "Oriental Trap"
+    audioUrl: `${STREAM_BASE}/audio/17.%20T%C3%A2y%20Thi.m4a`,
+    videoUrl: `${R2_BASE}/videos/17.%20T%C3%A2y%20Thi%20-%20MCK%20(Official%20Music%20Video).mkv`,
+    palette: { primary: "#a855f7", secondary: "#ec4899", accent: "#f43f5e", glow: "rgba(168, 85, 247, 0.45)" },
+    genre: "Hip-Hop"
   },
   {
     id: "mck-18",
     title: "18. Hút và Hút",
     artist: "MCK",
     album: "HVL",
-    duration: 198,
+    duration: 190,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/18.%20H%C3%BAt%20v%C3%A0%20H%C3%BAt.m4a`,
+    audioUrl: `${STREAM_BASE}/audio/18.%20H%C3%BAt%20v%C3%A0%20H%C3%BAt.m4a`,
     videoUrl: `${R2_BASE}/videos/18.%20H%C3%BAt%20v%C3%A0%20H%C3%BAt%20-%20MCK.mkv`,
-    palette: { primary: "#84cc16", secondary: "#06b6d4", accent: "#10b981", glow: "rgba(132, 204, 22, 0.45)" },
-    genre: "Chillhop"
+    palette: { primary: "#14b8a6", secondary: "#10b981", accent: "#06b6d4", glow: "rgba(20, 184, 166, 0.45)" },
+    genre: "Trap"
   },
   {
     id: "mck-19",
     title: "19. Dưa Chua",
     artist: "MCK",
     album: "HVL",
-    duration: 204,
+    duration: 230,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/19.%20D%C6%B0a%20Chua.m4a`,
+    audioUrl: `${STREAM_BASE}/audio/19.%20D%C6%B0a%20Chua.m4a`,
     videoUrl: `${R2_BASE}/videos/19.%20D%C6%B0a%20Chua%20-%20MCK.mkv`,
-    palette: { primary: "#eab308", secondary: "#84cc16", accent: "#f97316", glow: "rgba(234, 179, 8, 0.45)" },
+    palette: { primary: "#eab308", secondary: "#84cc16", accent: "#10b981", glow: "rgba(234, 179, 8, 0.45)" },
     genre: "Hip-Hop"
   },
   {
@@ -258,47 +259,47 @@ export const DEFAULT_TRACKS: Track[] = [
     title: "20. Xa Xôi",
     artist: "MCK ft. Obito",
     album: "HVL",
-    duration: 232,
+    duration: 275,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/20.%20Xa%20X%C3%B4i%20(feat.%20Obito).m4a`,
+    audioUrl: `${STREAM_BASE}/audio/20.%20Xa%20X%C3%B4i%20(feat.%20Obito).m4a`,
     videoUrl: `${R2_BASE}/videos/20.%20Xa%20X%C3%B4i%20-%20MCK%20ft.%20Obito%20(Official%20Music%20Video).mkv`,
-    palette: { primary: "#6366f1", secondary: "#ec4899", accent: "#06b6d4", glow: "rgba(99, 102, 241, 0.45)" },
+    palette: { primary: "#3b82f6", secondary: "#8b5cf6", accent: "#06b6d4", glow: "rgba(59, 130, 246, 0.45)" },
     genre: "Melodic Rap"
   },
   {
     id: "mck-21",
-    title: "21. Che Phù",
+    title: "21. Che Phủ",
     artist: "MCK",
     album: "HVL",
-    duration: 190,
+    duration: 195,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/21.%20Che%20Ph%E1%BB%A7.m4a`,
-    videoUrl: `${R2_BASE}/videos/21.%20Che%20Ph%C3%B9%20-%20MCK.mkv`,
-    palette: { primary: "#a855f7", secondary: "#f43f5e", accent: "#3b82f6", glow: "rgba(168, 85, 247, 0.45)" },
+    audioUrl: `${STREAM_BASE}/audio/21.%20Che%20Ph%E1%BB%A7.m4a`,
+    videoUrl: `${R2_BASE}/videos/21.%20Che%20Ph%E1%BB%A7%20-%20MCK.mkv`,
+    palette: { primary: "#6366f1", secondary: "#3b82f6", accent: "#14b8a6", glow: "rgba(99, 102, 241, 0.45)" },
     genre: "Hip-Hop"
   },
   {
     id: "mck-22",
-    title: "22. Oanh M - Thuoc",
+    title: "22. Oanh M = Thuoc",
     artist: "MCK",
     album: "HVL",
-    duration: 215,
+    duration: 250,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/22.%20Oanh%20M%20%3D%20Thuoc.m4a`,
-    videoUrl: `${R2_BASE}/videos/22.%20Oanh%20M%20-%20Thuoc%20-%20MCK.mkv`,
-    palette: { primary: "#06b6d4", secondary: "#6366f1", accent: "#10b981", glow: "rgba(6, 182, 212, 0.45)" },
+    audioUrl: `${STREAM_BASE}/audio/22.%20Oanh%20M%20%3D%20Thuoc.m4a`,
+    videoUrl: `${R2_BASE}/videos/22.%20Oanh%20M%20%3D%20Thuoc%20-%20MCK.mkv`,
+    palette: { primary: "#ec4899", secondary: "#a855f7", accent: "#f43f5e", glow: "rgba(236, 72, 153, 0.45)" },
     genre: "Trap"
   },
   {
     id: "mck-23",
-    title: "23. Ghét Xog Lại Thik",
+    title: "23. Ghet Xog Lai Thik",
     artist: "MCK",
     album: "HVL",
-    duration: 188,
+    duration: 160,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/23.%20Ghet%20Xog%20Lai%20Thik.m4a`,
-    videoUrl: `${R2_BASE}/videos/23.%20Gh%C3%A9t%20Xog%20L%E1%BA%A1i%20Thik%20-%20MCK.mkv`,
-    palette: { primary: "#ec4899", secondary: "#f43f5e", accent: "#fb923c", glow: "rgba(236, 72, 153, 0.45)" },
+    audioUrl: `${STREAM_BASE}/audio/23.%20Ghet%20Xog%20Lai%20Thik.m4a`,
+    videoUrl: `${R2_BASE}/videos/23.%20Ghet%20Xog%20Lai%20Thik%20-%20MCK.mkv`,
+    palette: { primary: "#f97316", secondary: "#ef4444", accent: "#ec4899", glow: "rgba(249, 115, 22, 0.45)" },
     genre: "Pop Rap"
   },
   {
@@ -306,35 +307,35 @@ export const DEFAULT_TRACKS: Track[] = [
     title: "24. Nhìn Kẻ Thù Của Tao",
     artist: "MCK",
     album: "HVL",
-    duration: 220,
+    duration: 290,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/24.%20Nh%C3%ACn%20K%E1%BA%BB%20Th%C3%B9%20C%E1%BB%A7a%20Tao.m4a`,
-    videoUrl: `${R2_BASE}/videos/24.%20Nh%C3%ACn%20K%E1%BA%BB%20Th%C3%B9%20C%E1%BB%A7a%20Tao%20-%20MCK%20(Official%20Music%20Video).mkv`,
-    palette: { primary: "#dc2626", secondary: "#7c3aed", accent: "#000000", glow: "rgba(220, 38, 38, 0.45)" },
-    genre: "Hardcore Trap"
+    audioUrl: `${STREAM_BASE}/audio/24.%20Nh%C3%ACn%20K%E1%BA%BB%20Th%C3%B9%20C%E1%BB%A7a%20Tao.m4a`,
+    videoUrl: `${R2_BASE}/videos/24.%20Nh%C3%ACn%20K%E1%BA%BB%20Th%C3%B9%20C%E1%BB%A7a%20Tao%20-%20MCK.mkv`,
+    palette: { primary: "#ef4444", secondary: "#dc2626", accent: "#7c3aed", glow: "rgba(239, 68, 68, 0.45)" },
+    genre: "Hardcore Rap"
   },
   {
     id: "mck-25",
     title: "25. Envy",
     artist: "MCK ft. THANHDRAW",
     album: "HVL",
-    duration: 230,
+    duration: 285,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/25.%20Envy%20(feat.%20THANHDRAW).m4a`,
-    videoUrl: `${R2_BASE}/videos/25.%20Envy%20-%20MCK%20ft.%20THANHDRAW.mkv`,
-    palette: { primary: "#10b981", secondary: "#f59e0b", accent: "#ef4444", glow: "rgba(16, 185, 129, 0.45)" },
-    genre: "Trap"
+    audioUrl: `${STREAM_BASE}/audio/25.%20Envy%20(feat.%20THANHDRAW).m4a`,
+    videoUrl: `${R2_BASE}/videos/25.%20Envy%20-%20MCK%20ft.%20THANHDRAW%20(Official%20Music%20Video).mkv`,
+    palette: { primary: "#10b981", secondary: "#14b8a6", accent: "#eab308", glow: "rgba(16, 185, 129, 0.45)" },
+    genre: "Drill"
   },
   {
     id: "mck-26",
     title: "26. Cảm Ơn",
     artist: "MCK",
     album: "HVL",
-    duration: 245,
+    duration: 200,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/26.%20C%E1%BA%A3m%20%C6%A0n.m4a`,
+    audioUrl: `${STREAM_BASE}/audio/26.%20C%E1%BA%A3m%20%C6%A0n.m4a`,
     videoUrl: `${R2_BASE}/videos/26.%20C%E1%BA%A3m%20%C6%A0n%20-%20MCK.mkv`,
-    palette: { primary: "#3b82f6", secondary: "#8b5cf6", accent: "#ec4899", glow: "rgba(59, 130, 246, 0.45)" },
+    palette: { primary: "#3b82f6", secondary: "#06b6d4", accent: "#10b981", glow: "rgba(59, 130, 246, 0.45)" },
     genre: "Melodic Rap"
   },
   {
@@ -342,11 +343,11 @@ export const DEFAULT_TRACKS: Track[] = [
     title: "27. Không Cần Lo Cho Tao",
     artist: "MCK",
     album: "HVL",
-    duration: 215,
+    duration: 195,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/27.%20Kh%C3%B4ng%20C%E1%BA%A7n%20Lo%20Cho%20Tao.m4a`,
+    audioUrl: `${STREAM_BASE}/audio/27.%20Kh%C3%B4ng%20C%E1%BA%A7n%20Lo%20Cho%20Tao.m4a`,
     videoUrl: `${R2_BASE}/videos/27.%20Kh%C3%B4ng%20C%E1%BA%A7n%20Lo%20Cho%20Tao%20-%20MCK.mkv`,
-    palette: { primary: "#f97316", secondary: "#6366f1", accent: "#06b6d4", glow: "rgba(249, 115, 22, 0.45)" },
+    palette: { primary: "#f43f5e", secondary: "#fb923c", accent: "#eab308", glow: "rgba(244, 63, 94, 0.45)" },
     genre: "Hip-Hop"
   },
   {
@@ -356,7 +357,7 @@ export const DEFAULT_TRACKS: Track[] = [
     album: "HVL",
     duration: 255,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/28.%20Huh%20(feat.%20RPT%20Orijinn%20%26%20THANHDRAW).m4a`,
+    audioUrl: `${STREAM_BASE}/audio/28.%20Huh%20(feat.%20RPT%20Orijinn%20%26%20THANHDRAW).m4a`,
     videoUrl: `${R2_BASE}/videos/28.%20Huh%20-%20MCK%20ft.%20RPT%20ORIJINN%20%26%20THANHDRAW.mkv`,
     palette: { primary: "#8b5cf6", secondary: "#ef4444", accent: "#eab308", glow: "rgba(139, 92, 246, 0.45)" },
     genre: "Drill / Trap"
@@ -368,7 +369,7 @@ export const DEFAULT_TRACKS: Track[] = [
     album: "HVL",
     duration: 220,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/29.%20Nguy%E1%BB%85n%20V%C4%83n%20M%C6%B0%E1%BB%9Di.m4a`,
+    audioUrl: `${STREAM_BASE}/audio/29.%20Nguy%E1%BB%85n%20V%C4%83n%20M%C6%B0%E1%BB%9Di.m4a`,
     videoUrl: `${R2_BASE}/videos/29.%20Nguy%E1%BB%85n%20V%C4%83n%20M%C6%B0%E1%BB%9Di%20-%20MCK.mkv`,
     palette: { primary: "#14b8a6", secondary: "#f43f5e", accent: "#6366f1", glow: "rgba(20, 184, 166, 0.45)" },
     genre: "Hip-Hop"
@@ -380,14 +381,12 @@ export const DEFAULT_TRACKS: Track[] = [
     album: "HVL",
     duration: 210,
     coverUrl: HVL_COVER,
-    audioUrl: `${R2_BASE}/audio/30.%20Th%E1%BB%8Bt%20L%E1%BB%A3n.m4a`,
+    audioUrl: `${STREAM_BASE}/audio/30.%20Th%E1%BB%8Bt%20L%E1%BB%A3n.m4a`,
     videoUrl: `${R2_BASE}/videos/30.%20Th%E1%BB%8Bt%20L%E1%BB%A3n%20-%20MCK.mkv`,
     palette: { primary: "#ec4899", secondary: "#f97316", accent: "#8b5cf6", glow: "rgba(236, 72, 153, 0.45)" },
     genre: "Trap"
   }
 ];
-
-
 
 interface UserSession {
   id: string;
