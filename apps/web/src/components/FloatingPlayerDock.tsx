@@ -125,37 +125,41 @@ export const FloatingPlayerDock: React.FC = () => {
     }
   }, [currentTrack]);
 
-  // 60FPS Beat Pulse, Snare Strobe & Audio-Reactive Chớp Giật on Playdock
+  // 60FPS Beat Pulse, Snare Strobe & Audio-Reactive Chớp Nảy Hào Quang on Entire Monolith
   useEffect(() => {
     let animId: number;
 
     const loop = () => {
       const beatState = studioBeatEngine.getBeatState();
 
-      // 1. Playdock Audio-Reactive Strobe & Border Chớp Giật on Entire Monolith Card
+      // 1. Full Monolith Dock Audio-Reactive Chớp Nảy & Hào Quang
       if (mainDockBarRef.current) {
         if (beatState.isSnareHit || beatState.snareStrobe > 0.35) {
-          // Snare Hit: Blinding Silver-White & Diamond Specular Flash
-          mainDockBarRef.current.style.borderColor = "rgba(255, 255, 255, 0.95)";
+          // Snare Hit: Blinding Silver-White Diamond Flash + Micro Bounce
+          mainDockBarRef.current.style.borderColor = "rgba(255, 255, 255, 1.0)";
           mainDockBarRef.current.style.boxShadow =
-            "0 25px 70px rgba(0, 0, 0, 0.98), 0 0 35px rgba(255, 255, 255, 0.65), inset 0 0 15px rgba(255, 255, 255, 0.35)";
+            "0 30px 90px rgba(0, 0, 0, 0.98), 0 0 50px rgba(255, 255, 255, 0.85), inset 0 0 25px rgba(255, 255, 255, 0.40)";
+          mainDockBarRef.current.style.transform = "scale(1.012)";
           if (topSpecularRef.current) topSpecularRef.current.style.opacity = "1.0";
         } else if (beatState.isKickHit || beatState.isKickRoll || beatState.kickImpact > 0.35) {
-          // Kick / 808 Hit: Blazing Crimson Red Flash
-          mainDockBarRef.current.style.borderColor = "rgba(239, 68, 68, 0.95)";
+          // Kick / 808 Hit: Blazing Crimson Red Flash + Micro Bounce
+          mainDockBarRef.current.style.borderColor = "rgba(239, 68, 68, 1.0)";
           mainDockBarRef.current.style.boxShadow =
-            "0 25px 70px rgba(0, 0, 0, 0.98), 0 0 35px rgba(239, 68, 68, 0.65), inset 0 0 15px rgba(239, 68, 68, 0.25)";
-          if (topSpecularRef.current) topSpecularRef.current.style.opacity = "0.75";
+            "0 30px 90px rgba(0, 0, 0, 0.98), 0 0 55px rgba(239, 68, 68, 0.90), inset 0 0 25px rgba(239, 68, 68, 0.35)";
+          mainDockBarRef.current.style.transform = "scale(1.015)";
+          if (topSpecularRef.current) topSpecularRef.current.style.opacity = "0.85";
         } else if (beatState.subImpact > 0.25) {
-          // Sub-Bass Glow
-          mainDockBarRef.current.style.borderColor = "rgba(185, 28, 28, 0.65)";
+          // Sub-Bass Breathing Glow
+          mainDockBarRef.current.style.borderColor = "rgba(220, 38, 38, 0.75)";
           mainDockBarRef.current.style.boxShadow =
-            "0 25px 60px rgba(0, 0, 0, 0.95), 0 0 25px rgba(185, 28, 28, 0.45)";
+            "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 35px rgba(220, 38, 38, 0.65)";
+          mainDockBarRef.current.style.transform = "scale(1.005)";
           if (topSpecularRef.current) topSpecularRef.current.style.opacity = "0.5";
         } else {
-          mainDockBarRef.current.style.borderColor = isPlaying ? "rgba(239, 68, 68, 0.35)" : "rgba(255, 255, 255, 0.16)";
+          mainDockBarRef.current.style.borderColor = isPlaying ? "rgba(239, 68, 68, 0.40)" : "rgba(255, 255, 255, 0.16)";
           mainDockBarRef.current.style.boxShadow =
-            "0 25px 60px rgba(0, 0, 0, 0.95), 0 0 20px rgba(239, 68, 68, 0.15)";
+            "0 25px 60px rgba(0, 0, 0, 0.95), 0 0 25px rgba(239, 68, 68, 0.20)";
+          mainDockBarRef.current.style.transform = "scale(1.0)";
           if (topSpecularRef.current) topSpecularRef.current.style.opacity = "0.35";
         }
       }
@@ -184,6 +188,13 @@ export const FloatingPlayerDock: React.FC = () => {
     return () => cancelAnimationFrame(animId);
   }, [isPlaying]);
 
+  const effectiveDuration =
+    latestDurationRef.current > 0
+      ? latestDurationRef.current
+      : duration && duration > 0
+      ? duration
+      : currentTrack?.duration || 1;
+
   // ─────────────────────────────────────────────────────────────────────────
   // HIGH-PRECISION SCRUBBER TRACKING (GROUND-TRUTH AUDIO DURATION SYNCHRONIZED)
   // ─────────────────────────────────────────────────────────────────────────
@@ -204,7 +215,6 @@ export const FloatingPlayerDock: React.FC = () => {
       if (rect.width <= 0) return 0;
       const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
       const totalDur = getGroundTruthDuration();
-      // Clamp to totalDur - 0.25 to prevent skipping to next track on extreme right click
       return Math.max(0, Math.min(Math.max(0, totalDur - 0.25), ratio * totalDur));
     },
     [getGroundTruthDuration]
@@ -282,7 +292,7 @@ export const FloatingPlayerDock: React.FC = () => {
       }}
     >
       {/* ─────────────────────────────────────────────────────────────────────
-          TRUE 100% UNIFIED MONOLITH LIQUID GLASS CARD CONTAINER
+          TRUE 100% UNIFIED MONOLITH CONTAINER (ZERO HORIZONTAL CUTTING LINES)
       ────────────────────────────────────────────────────────────────────── */}
       <motion.div
         ref={mainDockBarRef}
@@ -294,7 +304,7 @@ export const FloatingPlayerDock: React.FC = () => {
           borderRadius: "28px",
           background: "rgba(10, 11, 16, 0.94)",
           border: "1px solid rgba(255, 255, 255, 0.16)",
-          boxShadow: "0 25px 60px rgba(0, 0, 0, 0.95), 0 0 25px rgba(239, 68, 68, 0.18)",
+          boxShadow: "0 25px 60px rgba(0, 0, 0, 0.95), 0 0 25px rgba(239, 68, 68, 0.20)",
           backdropFilter: "blur(32px)",
           WebkitBackdropFilter: "blur(32px)",
           display: "flex",
@@ -302,7 +312,7 @@ export const FloatingPlayerDock: React.FC = () => {
           pointerEvents: "auto",
           overflow: "hidden",
           position: "relative",
-          transition: "border-color 0.08s ease, box-shadow 0.08s ease",
+          transition: "border-color 0.08s ease, box-shadow 0.08s ease, transform 0.08s ease-out",
         }}
       >
         {/* Top Specular Reflection Glow Line */}
@@ -335,8 +345,8 @@ export const FloatingPlayerDock: React.FC = () => {
                 display: "flex",
                 flexDirection: "column",
                 overflow: "hidden",
-                borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                background: "rgba(0, 0, 0, 0.25)",
+                // ZERO horizontal dividing border!
+                background: "transparent",
               }}
             >
               {/* Header inside Monolith */}
@@ -345,9 +355,8 @@ export const FloatingPlayerDock: React.FC = () => {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  padding: "14px 24px",
-                  borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
-                  background: "rgba(239, 68, 68, 0.03)",
+                  padding: "16px 24px 8px 24px",
+                  background: "transparent",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -394,7 +403,7 @@ export const FloatingPlayerDock: React.FC = () => {
                 {expandedMode === "lyrics" ? (
                   <SyncedLyricsView onSeek={(t) => seek(t)} />
                 ) : (
-                  <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <div style={{ padding: "8px 16px", display: "flex", flexDirection: "column", gap: "4px" }}>
                     {DEFAULT_TRACKS.map((track, idx) => {
                       const isCur = track.id === currentTrack.id;
                       const isTrackFav = favoritedTrackIds.includes(track.id);
@@ -482,7 +491,7 @@ export const FloatingPlayerDock: React.FC = () => {
         </AnimatePresence>
 
         {/* ─────────────────────────────────────────────────────────────────
-            2. LOWER SECTION: PLAYER CONTROLS (ALWAYS MOUNTED IN SAME CARD)
+            2. LOWER SECTION: PLAYER CONTROLS (SEAMLESSLY INTEGRATED)
         ────────────────────────────────────────────────────────────────── */}
         <div
           style={{
@@ -492,6 +501,7 @@ export const FloatingPlayerDock: React.FC = () => {
             padding: "10px 20px",
             gap: "16px",
             width: "100%",
+            // NO dividing border line! Pure continuous surface!
           }}
         >
           {/* 1. LEFT: FIXED-WIDTH LOCKED METADATA (220px STRICT) */}
