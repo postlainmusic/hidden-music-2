@@ -23,8 +23,9 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
         right: 0,
         zIndex: 100,
         background: "transparent",
-        padding: "0 36px",
-        height: "72px",
+        padding: "0 clamp(14px, 4vw, 36px)",
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        height: "max(64px, calc(64px + env(safe-area-inset-top, 0px)))",
         display: "flex",
         alignItems: "center",
         pointerEvents: "auto"
