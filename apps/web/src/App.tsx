@@ -25,8 +25,6 @@ export const App: React.FC = () => {
   } = useAudioStore();
   const isMobile = useIsMobile();
 
-  const effectiveAudioUrl = currentTrack?.audioUrl ?? "";
-
   useEffect(() => {
     initAudioEngine();
     if (audioRef.current) {
@@ -49,10 +47,22 @@ export const App: React.FC = () => {
     }
   }, [volume, isMuted]);
 
-  // Proven HTML5 Audio Player Controller (Play/Pause/Track switch)
+  // Single Unified Media Engine Controller (Play/Pause/Track switch)
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !effectiveAudioUrl) return;
+    if (!audio) return;
+
+    if (!currentTrack || !currentTrack.audioUrl) {
+      audio.pause();
+      return;
+    }
+
+    const targetUrl = currentTrack.audioUrl;
+    if (audio.src !== targetUrl) {
+      audio.pause();
+      audio.src = targetUrl;
+      audio.load();
+    }
 
     if (isPlaying) {
       studioBeatEngine.resumeContext();
@@ -61,14 +71,13 @@ export const App: React.FC = () => {
         playPromise.catch((err) => {
           if (err?.name !== "AbortError") {
             console.warn("Audio play notice:", err);
-            useAudioStore.setState({ isPlaying: false, isBuffering: false });
           }
         });
       }
     } else {
       audio.pause();
     }
-  }, [isPlaying, effectiveAudioUrl]);
+  }, [currentTrack, isPlaying]);
 
   // Anti-Hang Buffer Watchdog: If audio is waiting for > 2.5s while playing, clear spinner safely
   useEffect(() => {
@@ -173,7 +182,6 @@ export const App: React.FC = () => {
       {/* 4. Primary Global HTML5 Lossless Audio Engine */}
       <audio
         ref={audioRef}
-        src={effectiveAudioUrl || undefined}
         crossOrigin="anonymous"
         preload="auto"
         playsInline

@@ -492,23 +492,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   playTrack: (track: Track) => {
     updateCssTheme(track.palette);
 
-    if (audioElement) {
-      studioBeatEngine.resumeContext();
-      if (audioElement.src !== track.audioUrl) {
-        audioElement.src = track.audioUrl;
-      }
-      audioElement.currentTime = 0;
-      audioElement.play().catch((err) => {
-        if (err?.name !== "AbortError") {
-          console.warn("audioElement play notice:", err);
-        }
-      });
-    }
-
     set({
       currentTrack: track,
       duration: track.duration,
       currentTime: 0,
+      bufferedTime: 0,
       isBuffering: false,
       isPlaying: true
     });
@@ -520,19 +508,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     if (!currentTrack && DEFAULT_TRACKS.length > 0) {
       playTrack(DEFAULT_TRACKS[0]);
       return;
-    }
-
-    if (audioElement) {
-      if (!isPlaying) {
-        studioBeatEngine.resumeContext();
-        audioElement.play().catch((err) => {
-          if (err?.name !== "AbortError") {
-            console.warn("audioElement resume notice:", err);
-          }
-        });
-      } else {
-        audioElement.pause();
-      }
     }
 
     set({ isPlaying: !isPlaying });
