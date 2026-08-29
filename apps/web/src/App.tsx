@@ -1,23 +1,27 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { MeshGradientBackground } from "./components/MeshGradientBackground";
 import { GlassNavbar } from "./components/GlassNavbar";
-import { FloatingPlayerDock } from "./components/FloatingPlayerDock";
 import { VaultGate } from "./components/VaultGate";
 import { HomePage } from "./pages/HomePage";
+import { MobileHomePage } from "./pages/MobileHomePage";
 import { Album3DZone } from "./pages/Album3DZone";
-import { useAudioStore } from "./store/audioStore";
 import { studioBeatEngine } from "./audio/StudioBeatEngine";
+import { useAudioStore } from "./store/audioStore";
+import { useIsMobile } from "./hooks/useIsMobile";
 
 export const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [activeTab, setActiveTab] = React.useState<"vault" | "explore" | "3d">("vault");
-  const { currentTrack, isPlaying, volume, isMuted, currentUser, nextTrack } = useAudioStore();
+  const [activeTab, setActiveTab] = useState<"vault" | "explore" | "3d">("vault");
+  const { currentTrack, isPlaying, volume, isMuted, currentUser, setAudioElement, nextTrack, initAudioEngine } = useAudioStore();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
+    initAudioEngine();
     if (audioRef.current) {
+      setAudioElement(audioRef.current);
       studioBeatEngine.attachAudioElement(audioRef.current);
     }
-  }, []);
+  }, [initAudioEngine, setAudioElement]);
 
   useEffect(() => {
     if (currentTrack) {
@@ -55,40 +59,46 @@ export const App: React.FC = () => {
   }, [isPlaying, currentTrack?.audioUrl]);
 
   return (
-    <div style={{ position: "relative", minHeight: "100vh", overflowX: "hidden", backgroundColor: "#000000" }}>
-      {/* 1. Subtle Monochrome Background */}
-      <MeshGradientBackground />
-
-      {/* 2. Mandatory Google Login Vault Gate */}
+    <div style={{ position: "relative", minHeight: "100dvh", width: "100vw", overflowX: "hidden", backgroundColor: "#000000" }}>
+      {/* 1. Mandatory Google Login Vault Gate */}
       {!currentUser ? (
-        <VaultGate />
+        <>
+          <MeshGradientBackground />
+          <VaultGate />
+        </>
       ) : activeTab === "3d" ? (
         /* 2. Full 3D Immersion Zone (WebGL Universe + Album Cover + 30 Tracks + Playbar) */
         <Album3DZone onBackToVault={() => setActiveTab("vault")} />
       ) : (
+        /* 3. Standard Vault & Explore Browse Experience */
         <>
-          {/* Frosted Glass Corner-to-Corner Navigation */}
-          <GlassNavbar
-            activeTab={activeTab === "explore" ? "explore" : "vault"}
-            onTabChange={(tab) => setActiveTab(tab as "vault" | "explore")}
-          />
+          <MeshGradientBackground />
+          <GlassNavbar activeTab={activeTab === "explore" ? "explore" : "vault"} onTabChange={setActiveTab} />
 
-          {/* Tab Content */}
           {activeTab === "vault" ? (
-            <HomePage
-              onExploreClick={() => setActiveTab("explore")}
-              onOpen3D={() => setActiveTab("3d")}
-            />
+            isMobile ? (
+              <MobileHomePage
+                onExploreClick={() => setActiveTab("explore")}
+                onOpen3D={() => setActiveTab("3d")}
+              />
+            ) : (
+              <HomePage
+                onExploreClick={() => setActiveTab("explore")}
+                onOpen3D={() => setActiveTab("3d")}
+              />
+            )
           ) : (
             <div
               style={{
-                minHeight: "100vh",
+                minHeight: "100dvh",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
                 padding: "100px 24px",
-                textAlign: "center"
+                textAlign: "center",
+                position: "relative",
+                zIndex: 10
               }}
             >
               <h2 style={{ fontSize: "2rem", fontWeight: 800, marginBottom: "16px", color: "#ffffff" }}>
@@ -130,19 +140,16 @@ export const App: React.FC = () => {
               </div>
             </div>
           )}
-
-          {/* Floating Player Dock (Only shows when playing) */}
-          {isPlaying && <FloatingPlayerDock />}
         </>
       )}
 
-      {/* 6. Primary Global HTML5 Lossless Audio Engine (Proven Byte-Range Seeking Lifecycle) */}
+      {/* 4. Primary Global HTML5 Lossless Audio Engine */}
       <audio
         ref={audioRef}
         src={currentTrack?.audioUrl || undefined}
+        crossOrigin="anonymous"
         preload="metadata"
         playsInline
-        crossOrigin="anonymous"
         onPlay={() => useAudioStore.setState({ isPlaying: true })}
         onPause={() => useAudioStore.setState({ isPlaying: false })}
         onWaiting={() => useAudioStore.setState({ isBuffering: true })}
