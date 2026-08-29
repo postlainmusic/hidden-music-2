@@ -679,90 +679,96 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
         </motion.div>
 
         {/* ── SECTION 2: 5-POINT INTERACTIVE MAGNETIC ROLLING MARBLE CAPSULE (HVL Ở TÂM ĐIỂM SỐ 3) ── */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{
-            opacity: activeSection === 1 ? 1 : 0,
-            y: activeSection === 1 ? 0 : 15,
-            pointerEvents: activeSection === 1 ? "auto" : "none"
-          }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
+        <div
           style={{
             position: "absolute",
-            bottom: "-42px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: "160px",
-            height: "32px",
-            borderRadius: "999px",
-            background: "rgba(18, 18, 22, 0.75)",
-            border: "1px solid rgba(255, 255, 255, 0.20)",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
+            bottom: "-44px",
+            left: 0,
+            right: 0,
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "0 12px",
-            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.25)",
-            opacity: 0,
+            justifyContent: "center",
             pointerEvents: "none",
-            zIndex: 20
+            zIndex: 25
           }}
         >
-          {/* 5 Interactive Clickable Slots: Slot 4 (0), Slot 5 (1), HVL (2), Slot 2 (3), Slot 3 (4) */}
-          {[0, 1, 2, 3, 4].map((slotIdx) => {
-            const isSelected = revolverIndex === slotIdx;
-            return (
-              <button
-                key={slotIdx}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setRevolverIndex(slotIdx);
-                }}
-                style={{
-                  position: "relative",
-                  width: "24px",
-                  height: "24px",
-                  borderRadius: "50%",
-                  background: "transparent",
-                  border: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  padding: 0
-                }}
-              >
-                {/* Background Slot Dot */}
-                <span
-                  style={{
-                    width: isSelected ? "8px" : "5px",
-                    height: isSelected ? "8px" : "5px",
-                    borderRadius: "50%",
-                    background: isSelected ? "#ffffff" : "rgba(255, 255, 255, 0.3)",
-                    boxShadow: isSelected ? "0 0 10px rgba(255, 255, 255, 0.9)" : "none",
-                    transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{
+              opacity: activeSection === 1 ? 1 : 0,
+              y: activeSection === 1 ? 0 : 15,
+            }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            style={{
+              width: "160px",
+              height: "32px",
+              borderRadius: "999px",
+              background: "rgba(18, 18, 22, 0.75)",
+              border: "1px solid rgba(255, 255, 255, 0.20)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "0 12px",
+              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.25)",
+              pointerEvents: activeSection === 1 ? "auto" : "none",
+            }}
+          >
+            {/* 5 Interactive Clickable Slots: Slot 4 (0), Slot 5 (1), HVL (2), Slot 2 (3), Slot 3 (4) */}
+            {[0, 1, 2, 3, 4].map((slotIdx) => {
+              const isSelected = revolverIndex === slotIdx;
+              return (
+                <button
+                  key={slotIdx}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setRevolverIndex(slotIdx);
                   }}
-                />
-
-                {/* Active Glowing Marble Ring */}
-                {isSelected && (
-                  <motion.span
-                    layoutId="active-marble-indicator"
-                    transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                  style={{
+                    position: "relative",
+                    width: "24px",
+                    height: "24px",
+                    borderRadius: "50%",
+                    background: "transparent",
+                    border: "none",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    padding: 0
+                  }}
+                >
+                  {/* Background Slot Dot */}
+                  <span
                     style={{
-                      position: "absolute",
-                      inset: "2px",
+                      width: isSelected ? "8px" : "5px",
+                      height: isSelected ? "8px" : "5px",
                       borderRadius: "50%",
-                      border: "1.5px solid rgba(255, 255, 255, 0.8)",
-                      pointerEvents: "none"
+                      background: isSelected ? "#ffffff" : "rgba(255, 255, 255, 0.3)",
+                      boxShadow: isSelected ? "0 0 10px rgba(255, 255, 255, 0.9)" : "none",
+                      transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
                     }}
                   />
-                )}
-              </button>
-            );
-          })}
-        </motion.div>
+
+                  {/* Active Glowing Marble Ring */}
+                  {isSelected && (
+                    <motion.span
+                      layoutId="active-marble-indicator"
+                      transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                      style={{
+                        position: "absolute",
+                        inset: "2px",
+                        borderRadius: "50%",
+                        border: "1.5px solid rgba(255, 255, 255, 0.8)",
+                        pointerEvents: "none"
+                      }}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </motion.div>
+        </div>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────

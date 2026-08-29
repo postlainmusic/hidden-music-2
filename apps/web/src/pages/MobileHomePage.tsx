@@ -418,81 +418,92 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
         </motion.div>
 
         {/* SECTION 2: 5-POINT INTERACTIVE CAPSULE ON MOBILE (HVL Ở TÂM ĐIỂM SỐ 3) */}
-        <motion.div
-          animate={{
-            opacity: activeSection === 1 ? 1 : 0,
-            y: activeSection === 1 ? 130 : 160,
-            pointerEvents: activeSection === 1 ? "auto" : "none"
-          }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
+        <div
           style={{
             position: "absolute",
-            width: "150px",
-            height: "30px",
-            borderRadius: "999px",
-            background: "rgba(18, 18, 22, 0.75)",
-            border: "1px solid rgba(255, 255, 255, 0.20)",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
+            bottom: "40px",
+            left: 0,
+            right: 0,
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "0 10px",
-            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.25)",
-            zIndex: 20
+            justifyContent: "center",
+            pointerEvents: "none",
+            zIndex: 25
           }}
         >
-          {[0, 1, 2, 3, 4].map((slotIdx) => {
-            const isSelected = revolverIndex === slotIdx;
-            return (
-              <button
-                key={slotIdx}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setRevolverIndex(slotIdx);
-                }}
-                style={{
-                  position: "relative",
-                  width: "22px",
-                  height: "22px",
-                  borderRadius: "50%",
-                  background: "transparent",
-                  border: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  padding: 0
-                }}
-              >
-                <span
-                  style={{
-                    width: isSelected ? "7px" : "4.5px",
-                    height: isSelected ? "7px" : "4.5px",
-                    borderRadius: "50%",
-                    background: isSelected ? "#ffffff" : "rgba(255, 255, 255, 0.3)",
-                    boxShadow: isSelected ? "0 0 8px rgba(255, 255, 255, 0.9)" : "none",
-                    transition: "all 0.25s ease"
+          <motion.div
+            animate={{
+              opacity: activeSection === 1 ? 1 : 0,
+              y: activeSection === 1 ? 0 : 20,
+            }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            style={{
+              width: "150px",
+              height: "30px",
+              borderRadius: "999px",
+              background: "rgba(18, 18, 22, 0.75)",
+              border: "1px solid rgba(255, 255, 255, 0.20)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "0 10px",
+              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.25)",
+              pointerEvents: activeSection === 1 ? "auto" : "none",
+            }}
+          >
+            {[0, 1, 2, 3, 4].map((slotIdx) => {
+              const isSelected = revolverIndex === slotIdx;
+              return (
+                <button
+                  key={slotIdx}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setRevolverIndex(slotIdx);
                   }}
-                />
-
-                {isSelected && (
-                  <motion.span
-                    layoutId="active-marble-indicator-mobile"
-                    transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                  style={{
+                    position: "relative",
+                    width: "22px",
+                    height: "22px",
+                    borderRadius: "50%",
+                    background: "transparent",
+                    border: "none",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    padding: 0
+                  }}
+                >
+                  <span
                     style={{
-                      position: "absolute",
-                      inset: "1px",
+                      width: isSelected ? "7px" : "4.5px",
+                      height: isSelected ? "7px" : "4.5px",
                       borderRadius: "50%",
-                      border: "1.5px solid rgba(255, 255, 255, 0.8)",
-                      pointerEvents: "none"
+                      background: isSelected ? "#ffffff" : "rgba(255, 255, 255, 0.3)",
+                      boxShadow: isSelected ? "0 0 8px rgba(255, 255, 255, 0.9)" : "none",
+                      transition: "all 0.25s ease"
                     }}
                   />
-                )}
-              </button>
-            );
-          })}
-        </motion.div>
+
+                  {isSelected && (
+                    <motion.span
+                      layoutId="active-marble-indicator-mobile"
+                      transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                      style={{
+                        position: "absolute",
+                        inset: "1px",
+                        borderRadius: "50%",
+                        border: "1.5px solid rgba(255, 255, 255, 0.8)",
+                        pointerEvents: "none"
+                      }}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </motion.div>
+        </div>
       </div>
 
       {/* SECTION 3: MOBILE EXPLORE UNIVERSE */}
