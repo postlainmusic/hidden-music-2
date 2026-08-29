@@ -341,6 +341,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
 
           return (
             <motion.div
+              layoutId="album-hero-cover"
               drag={isSection2 ? "x" : false}
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.4}

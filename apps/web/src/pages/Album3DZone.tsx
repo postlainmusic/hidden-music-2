@@ -317,8 +317,9 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
       {/* ─────────────────────────────────────────────────────────────────────
           3. CENTER-STAGE ALBUM COVER & DYNAMIC VOLUMETRIC GLOW AURA
       ────────────────────────────────────────────────────────────────────── */}
-      <div
+      <motion.div
         ref={cardWrapperRef}
+        layoutId="album-hero-cover"
         style={{
           position: "relative",
           zIndex: 20,
@@ -596,7 +597,7 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
             </div>
           )}
         </motion.div>
-      </div>
+      </motion.div>
 
       {/* ─────────────────────────────────────────────────────────────────────
           4. BOTTOM PLAYBAR DOCK
