@@ -189,6 +189,10 @@ export class StudioBeatEngine {
     return new Uint8Array(32);
   }
 
+  public update(): StudioBeatState {
+    return this.getBeatState();
+  }
+
   public getBeatState(): StudioBeatState {
     const now = performance.now();
     const audio = this.currentAudioElement;
