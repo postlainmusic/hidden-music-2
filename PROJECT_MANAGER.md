@@ -69,3 +69,4 @@ When a prompt is received, evaluate which specialized capabilities are required 
 * **Live Worker API**: `https://hidden-music-api.postlain-music.workers.dev`
 * **R2 CDN Custom Domain**: `https://media.postlain.com` (Direct Cloudflare R2 bucket: `hidden-music-vault`)
 * **Artist**: MCK | **Featured Album**: HVL (30 Lossless FLAC Tracks & Videos)
+* **3D Zone Master Roadmap**: [ROADMAP_3D_ZONE.md](file:///c:/Users/Admin/Documents/GitHub/hidden-music-2/ROADMAP_3D_ZONE.md) (Contains all questionnaire questions & phase roadmap)
