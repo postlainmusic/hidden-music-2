@@ -5,6 +5,8 @@ import { VaultGate } from "./components/VaultGate";
 import { HomePage } from "./pages/HomePage";
 import { MobileHomePage } from "./pages/MobileHomePage";
 import { Album3DZone } from "./pages/Album3DZone";
+import { FloatingPlayerDock } from "./components/FloatingPlayerDock";
+import { MobilePlayerDock } from "./components/MobilePlayerDock";
 import { useAudioStore } from "./store/audioStore";
 import { useIsMobile } from "./hooks/useIsMobile";
 
@@ -99,6 +101,9 @@ export const App: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* Global Floating Player Dock across all Vault pages */}
+          {isMobile ? <MobilePlayerDock /> : <FloatingPlayerDock />}
         </>
       )}
     </div>

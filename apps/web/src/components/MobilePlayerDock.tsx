@@ -59,6 +59,10 @@ export const MobilePlayerDock: React.FC = () => {
   // Direct Ref High-Frequency Progress Subscription (60fps on mobile without React lag)
   useEffect(() => {
     const unsubscribe = dualDeckAudioEngine.subscribeProgress((state: ProgressState) => {
+      if (fullSliderRef.current && state.duration > 0) {
+        fullSliderRef.current.max = String(state.duration);
+      }
+
       if (isDraggingSeeker) return;
 
       if (miniProgressBarRef.current) {
@@ -490,31 +494,45 @@ export const MobilePlayerDock: React.FC = () => {
                     ref={fullSliderRef}
                     type="range"
                     min={0}
-                    max={effectiveDuration}
+                    max={currentTrack.duration || 180}
                     defaultValue={0}
                     onMouseDown={() => setIsDraggingSeeker(true)}
                     onTouchStart={() => setIsDraggingSeeker(true)}
                     onChange={(e) => {
                       const val = Number(e.target.value);
                       setDragSeekTime(val);
+                      const activeAudio = dualDeckAudioEngine.getActiveAudio();
+                      const realDur = (activeAudio && activeAudio.duration && isFinite(activeAudio.duration) && activeAudio.duration > 0)
+                        ? activeAudio.duration
+                        : currentTrack.duration || 180;
                       if (fullCurrentTimeRef.current) {
                         fullCurrentTimeRef.current.textContent = formatTime(val);
                       }
-                      if (fullPlayedProgressBarRef.current && effectiveDuration > 0) {
-                        fullPlayedProgressBarRef.current.style.width = `${(val / effectiveDuration) * 100}%`;
+                      if (fullPlayedProgressBarRef.current && realDur > 0) {
+                        fullPlayedProgressBarRef.current.style.width = `${Math.min(100, (val / realDur) * 100)}%`;
                       }
                     }}
                     onMouseUp={() => {
                       setIsDraggingSeeker(false);
                       if (dragSeekTime !== null) {
-                        seek(dragSeekTime);
+                        const activeAudio = dualDeckAudioEngine.getActiveAudio();
+                        const realDur = (activeAudio && activeAudio.duration && isFinite(activeAudio.duration) && activeAudio.duration > 0)
+                          ? activeAudio.duration
+                          : currentTrack.duration || 180;
+                        const clamped = Math.max(0, Math.min(realDur - 0.25, dragSeekTime));
+                        seek(clamped);
                         setDragSeekTime(null);
                       }
                     }}
                     onTouchEnd={() => {
                       setIsDraggingSeeker(false);
                       if (dragSeekTime !== null) {
-                        seek(dragSeekTime);
+                        const activeAudio = dualDeckAudioEngine.getActiveAudio();
+                        const realDur = (activeAudio && activeAudio.duration && isFinite(activeAudio.duration) && activeAudio.duration > 0)
+                          ? activeAudio.duration
+                          : currentTrack.duration || 180;
+                        const clamped = Math.max(0, Math.min(realDur - 0.25, dragSeekTime));
+                        seek(clamped);
                         setDragSeekTime(null);
                       }
                     }}

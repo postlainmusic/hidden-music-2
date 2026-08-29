@@ -38,7 +38,7 @@ export const DEFAULT_TRACKS: Track[] = [
     artist: "MCK",
     album: "HVL",
     releaseType: "album",
-    duration: 198,
+    duration: 87,
     coverUrl: HVL_COVER,
     audioUrl: `${STREAM_BASE}/audio/01.%20Elegie.m4a`,
     videoUrl: `${R2_BASE}/videos/01.%20Elegie%20-%20MCK.mkv`,
