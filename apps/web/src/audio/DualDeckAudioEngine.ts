@@ -209,7 +209,12 @@ export class DualDeckAudioEngine {
     });
 
     audio.addEventListener("ended", () => {
-      if (this.activeDeckId === deckId) {
+      // ONLY trigger onTrackEnd if the active audio has legitimately played to the very end
+      const hasValidDuration = audio.duration && !isNaN(audio.duration) && audio.duration > 5;
+      const isNearEnd = hasValidDuration && audio.currentTime >= audio.duration - 1.5;
+
+      if (this.activeDeckId === deckId && isNearEnd) {
+        console.log(`[DualDeck] Track legitimately ended on Deck ${deckId} at ${audio.currentTime.toFixed(2)}s`);
         this.onTrackEndCallbacks.forEach((cb) => cb());
       }
     });

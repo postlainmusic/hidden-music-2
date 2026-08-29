@@ -17,10 +17,10 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, index }) => {
 
   const handlePlayClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isCurrent) {
+    if (isCurrent && isPlaying) {
       togglePlay();
     } else {
-      playTrack(track, { crossfade: true });
+      playTrack(track, { crossfade: isPlaying });
     }
   };
 

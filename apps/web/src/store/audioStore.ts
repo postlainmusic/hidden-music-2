@@ -576,11 +576,16 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       { crossfade: shouldCrossfade }
     );
 
-    // Preload next track silently on idle deck
+    // Preload next track silently on idle deck after a 3s delay
     const currentIndex = queue.findIndex((t) => t.id === track.id);
     if (currentIndex !== -1 && queue.length > 1) {
       const nextTrackItem = queue[(currentIndex + 1) % queue.length];
-      dualDeckAudioEngine.preloadNextTrack(nextTrackItem.audioUrl);
+      setTimeout(() => {
+        const { currentTrack: activeT, isPlaying: isPl } = get();
+        if (isPl && activeT?.id === track.id) {
+          dualDeckAudioEngine.preloadNextTrack(nextTrackItem.audioUrl);
+        }
+      }, 3000);
     }
 
     set({
@@ -599,12 +604,18 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       return;
     }
 
-    if (isPlaying) {
-      dualDeckAudioEngine.pause();
-      set({ isPlaying: false });
-    } else {
+    const activeAudio = dualDeckAudioEngine.getActiveAudio();
+    if (!isPlaying) {
+      // If audio element is not loaded yet, initiate full playTrack
+      if (!activeAudio.src || activeAudio.src === "" || !activeAudio.src.includes(encodeURIComponent(currentTrack.title).replace(/%20/g, "+"))) {
+        playTrack(currentTrack, { crossfade: false });
+        return;
+      }
       dualDeckAudioEngine.resume();
       set({ isPlaying: true });
+    } else {
+      dualDeckAudioEngine.pause();
+      set({ isPlaying: false });
     }
   },
 
