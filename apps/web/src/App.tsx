@@ -4,12 +4,13 @@ import { GlassNavbar } from "./components/GlassNavbar";
 import { FloatingPlayerDock } from "./components/FloatingPlayerDock";
 import { VaultGate } from "./components/VaultGate";
 import { HomePage } from "./pages/HomePage";
+import { Album3DZone } from "./pages/Album3DZone";
 import { useAudioStore } from "./store/audioStore";
 import { studioBeatEngine } from "./audio/StudioBeatEngine";
 
 export const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [activeTab, setActiveTab] = React.useState<"vault" | "explore">("vault");
+  const [activeTab, setActiveTab] = React.useState<"vault" | "explore" | "3d">("vault");
   const { currentTrack, isPlaying, volume, isMuted, currentUser, nextTrack } = useAudioStore();
 
   useEffect(() => {
@@ -61,14 +62,23 @@ export const App: React.FC = () => {
       {/* 2. Mandatory Google Login Vault Gate */}
       {!currentUser ? (
         <VaultGate />
+      ) : activeTab === "3d" ? (
+        /* 2. Full 3D Immersion Zone (WebGL Universe + Album Cover + 30 Tracks + Playbar) */
+        <Album3DZone onBackToVault={() => setActiveTab("vault")} />
       ) : (
         <>
           {/* Frosted Glass Corner-to-Corner Navigation */}
-          <GlassNavbar activeTab={activeTab} onTabChange={setActiveTab} />
+          <GlassNavbar
+            activeTab={activeTab === "explore" ? "explore" : "vault"}
+            onTabChange={(tab) => setActiveTab(tab as "vault" | "explore")}
+          />
 
           {/* Tab Content */}
           {activeTab === "vault" ? (
-            <HomePage onExploreClick={() => setActiveTab("explore")} />
+            <HomePage
+              onExploreClick={() => setActiveTab("explore")}
+              onOpen3D={() => setActiveTab("3d")}
+            />
           ) : (
             <div
               style={{
@@ -87,20 +97,37 @@ export const App: React.FC = () => {
               <p style={{ color: "rgba(255, 255, 255, 0.5)", maxWidth: "480px", marginBottom: "32px", lineHeight: 1.6 }}>
                 Không gian âm nhạc mở rộng đang được kết nối với hệ sinh thái streaming độc quyền.
               </p>
-              <button
-                onClick={() => setActiveTab("vault")}
-                style={{
-                  padding: "12px 28px",
-                  borderRadius: "999px",
-                  background: "#ffffff",
-                  color: "#000000",
-                  fontWeight: 700,
-                  border: "none",
-                  cursor: "pointer"
-                }}
-              >
-                Quay lại Vault
-              </button>
+              <div style={{ display: "flex", gap: "16px" }}>
+                <button
+                  onClick={() => setActiveTab("3d")}
+                  style={{
+                    padding: "12px 28px",
+                    borderRadius: "999px",
+                    background: "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)",
+                    color: "#ffffff",
+                    fontWeight: 700,
+                    border: "none",
+                    cursor: "pointer",
+                    boxShadow: "0 0 24px rgba(99, 102, 241, 0.5)"
+                  }}
+                >
+                  Vào 3D Album Zone
+                </button>
+                <button
+                  onClick={() => setActiveTab("vault")}
+                  style={{
+                    padding: "12px 28px",
+                    borderRadius: "999px",
+                    background: "#ffffff",
+                    color: "#000000",
+                    fontWeight: 700,
+                    border: "none",
+                    cursor: "pointer"
+                  }}
+                >
+                  Quay lại Vault
+                </button>
+              </div>
             </div>
           )}
 

@@ -20,11 +20,11 @@ const formatDuration = (seconds: number) => {
 
 interface HomePageProps {
   onExploreClick?: () => void;
+  onOpen3D?: () => void;
 }
 
-export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
-  const { favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
-  const [selectedAlbumModal, setSelectedAlbumModal] = useState<string | null>(null);
+export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) => {
+  const { playTrack, favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
   const [activeSection, setActiveSection] = useState(0); // 0: Section 1, 1: Section 2, 2: Section 3
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
   const isScrollingRef = useRef(false);
@@ -35,8 +35,17 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
     toggleFavoriteTrack(trackId);
   };
 
-  const handleAlbumClick = (albumName: string) => {
-    setSelectedAlbumModal(albumName);
+  const handleAlbumClick = (_albumName?: string) => {
+    if (onOpen3D) {
+      onOpen3D();
+    }
+  };
+
+  const handleTrackSelect = (track: any) => {
+    playTrack(track);
+    if (onOpen3D) {
+      onOpen3D();
+    }
   };
 
   // Fixed Viewport Screen Switching on Wheel, Keydown, and Touch (Zero Scrollbar)
@@ -226,6 +235,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                       initial={{ opacity: 0, y: 15 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.4, delay: 0.1 * idx + 0.3 }}
+                      onClick={() => handleTrackSelect(track)}
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -234,7 +244,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                         borderRadius: "16px",
                         background: "rgba(255, 255, 255, 0.03)",
                         border: "1px solid rgba(255, 255, 255, 0.07)",
-                        transition: "all 0.25s ease"
+                        transition: "all 0.25s ease",
+                        cursor: "pointer"
                       }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: 0 }}>
@@ -455,68 +466,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
               <ArrowRight size={20} />
             </motion.button>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ─────────────────────────────────────────────────────────────────────────
-          ALBUM 3D PREVIEW TRANSITION MODAL (NO MUSIC AUTOPLAY)
-      ────────────────────────────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {selectedAlbumModal && (
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 200,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "rgba(0, 0, 0, 0.85)",
-              backdropFilter: "blur(24px)",
-              padding: "24px"
-            }}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.92 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.92 }}
-              style={{
-                width: "100%",
-                maxWidth: "440px",
-                padding: "36px 32px",
-                borderRadius: "32px",
-                textAlign: "center",
-                background: "rgba(20, 20, 20, 0.9)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                boxShadow: "0 25px 60px rgba(0, 0, 0, 0.9)"
-              }}
-            >
-              <h3 style={{ fontSize: "1.4rem", fontWeight: 800, marginBottom: "12px" }}>
-                {selectedAlbumModal}
-              </h3>
-
-              <p style={{ fontSize: "0.9rem", color: "rgba(255, 255, 255, 0.6)", lineHeight: 1.6, marginBottom: "28px" }}>
-                Không gian 3D đang được chuẩn bị. Âm nhạc sẽ chỉ nạp và phát khi bước vào khu vực 3D của album.
-              </p>
-
-              <button
-                onClick={() => setSelectedAlbumModal(null)}
-                style={{
-                  width: "100%",
-                  padding: "14px",
-                  fontSize: "0.92rem",
-                  fontWeight: 700,
-                  borderRadius: "16px",
-                  background: "#ffffff",
-                  color: "#000000",
-                  border: "none",
-                  cursor: "pointer"
-                }}
-              >
-                Đã hiểu
-              </button>
-            </motion.div>
-          </div>
         )}
       </AnimatePresence>
     </main>
