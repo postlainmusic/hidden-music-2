@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Mic2, Music2 } from "lucide-react";
 import { useAudioStore } from "../store/audioStore";
 import { dualDeckAudioEngine } from "../audio/DualDeckAudioEngine";
+import { LRC_VAULT } from "../lyrics/lrcVault";
 
 export interface LyricLine {
   time: number;
@@ -58,15 +59,42 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, clas
   const isUserScrollingRef = useRef<boolean>(false);
   const scrollTimeoutRef = useRef<any>(null);
 
-  // Default lyrics generator for tracks
+  // Load Real Synchronized Lyrics (0ms Instant Vault with R2 CDN Fallback)
   useEffect(() => {
     if (!currentTrack) {
       setLrcContent("");
       return;
     }
 
-    const defaultLyrics = `[00:00.00] ♪ ${currentTrack.title} - ${currentTrack.artist}\n[00:04.50] Hidden Music Lossless Audio Experience\n[00:12.00] Master Quality M4A High-Fidelity\n[00:24.00] ♪ [Giai điệu Master không nén] ♪\n[00:45.00] ♪ [Drop & Kick Bass Roll] ♪`;
-    setLrcContent(defaultLyrics);
+    const trackTitle = currentTrack.title || "";
+    const trackId = currentTrack.id || "";
+    const trackNum = trackTitle.match(/^(\d+)/)?.[1] || trackId.replace(/\D/g, "");
+
+    // 1. Check bundled LRC_VAULT
+    let foundLrc =
+      LRC_VAULT[trackTitle] ||
+      LRC_VAULT[trackNum] ||
+      LRC_VAULT[trackNum.padStart(2, "0")] ||
+      Object.entries(LRC_VAULT).find(([k]) => k.toLowerCase().includes(trackTitle.toLowerCase()))?.[1];
+
+    if (foundLrc) {
+      setLrcContent(foundLrc);
+      return;
+    }
+
+    // 2. Fetch from Cloudflare R2
+    const enc = encodeURIComponent(trackTitle) + ".lrc";
+    fetch(`https://media.postlain.com/lyrics/${enc}`)
+      .then((res) => {
+        if (res.ok) return res.text();
+        throw new Error("404");
+      })
+      .then((text) => setLrcContent(text))
+      .catch(() => {
+        setLrcContent(
+          `[00:00.00] ♪ ${currentTrack.title} - ${currentTrack.artist}\n[00:04.50] Hidden Music Lossless Audio Experience\n[00:10.00] Master Quality M4A High-Fidelity\n[00:20.00] ♪ [Giai điệu Master không nén] ♪`
+        );
+      });
   }, [currentTrack]);
 
   const parsedLyrics = useMemo(() => parseLrc(lrcContent), [lrcContent]);
@@ -81,7 +109,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, clas
 
       let idx = -1;
       for (let i = parsedLyrics.length - 1; i >= 0; i--) {
-        if (state.currentTime >= parsedLyrics[i].time - 0.25) {
+        if (state.currentTime >= parsedLyrics[i].time - 0.20) {
           idx = i;
           break;
         }
@@ -113,7 +141,7 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, clas
     if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     scrollTimeoutRef.current = setTimeout(() => {
       isUserScrollingRef.current = false;
-    }, 2500);
+    }, 2800);
   };
 
   const handleLineClick = (time: number) => {
@@ -125,9 +153,19 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, clas
 
   if (!currentTrack) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-slate-500 py-12">
-        <Mic2 size={36} className="mb-2 opacity-40" />
-        <p className="text-sm">Chưa có bài hát nào được chọn</p>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100%",
+          color: "rgba(255, 255, 255, 0.4)",
+          padding: "48px 0",
+        }}
+      >
+        <Mic2 size={36} style={{ marginBottom: "12px", opacity: 0.3 }} />
+        <p style={{ fontSize: "0.85rem" }}>Chưa có bài hát nào được chọn</p>
       </div>
     );
   }
@@ -136,10 +174,27 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, clas
     <div
       ref={containerRef}
       onScroll={handleContainerScroll}
-      className={`h-full overflow-y-auto px-6 py-6 scroll-smooth ${className}`}
-      style={{ maskImage: "linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)" }}
+      className={className}
+      style={{
+        height: "100%",
+        overflowY: "auto",
+        padding: "24px 28px",
+        scrollBehavior: "smooth",
+        maskImage: "linear-gradient(to bottom, transparent 0%, black 16%, black 84%, transparent 100%)",
+        WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 16%, black 84%, transparent 100%)",
+      }}
     >
-      <div className="flex flex-col items-center space-y-4 max-w-xl mx-auto py-10">
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "18px",
+          maxWidth: "620px",
+          margin: "0 auto",
+          padding: "40px 0",
+        }}
+      >
         {parsedLyrics.length > 0 ? (
           parsedLyrics.map((line, idx) => {
             const isActive = idx === activeIndex;
@@ -148,20 +203,43 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, clas
             return (
               <p
                 key={idx}
-                ref={(el) => { lineRefs.current[idx] = el; }}
+                ref={(el) => {
+                  lineRefs.current[idx] = el;
+                }}
                 onClick={() => handleLineClick(line.time)}
-                className={`text-center transition-all duration-300 select-none ${
-                  line.time >= 0 ? "cursor-pointer hover:text-white" : ""
-                } ${
-                  isActive
-                    ? "text-xl md:text-2xl font-bold text-white scale-105 drop-shadow-[0_0_12px_rgba(255,255,255,0.7)]"
-                    : isPast
-                    ? "text-base md:text-lg text-slate-400 opacity-60 font-medium"
-                    : "text-base md:text-lg text-slate-500 opacity-40 font-normal"
-                }`}
                 style={{
-                  color: isActive ? currentTrack.palette?.primary || "#ffffff" : undefined,
-                  transform: isActive ? "scale(1.05)" : "scale(1.0)"
+                  fontSize: isActive ? "1.28rem" : "1.02rem",
+                  fontWeight: isActive ? 800 : 500,
+                  textAlign: "center",
+                  lineHeight: 1.45,
+                  cursor: line.time >= 0 ? "pointer" : "default",
+                  color: isActive
+                    ? "#ffffff"
+                    : isPast
+                    ? "rgba(255, 255, 255, 0.55)"
+                    : "rgba(255, 255, 255, 0.28)",
+                  transform: isActive ? "scale(1.06)" : "scale(1.0)",
+                  transformOrigin: "center center",
+                  transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+                  textShadow: isActive ? "0 0 20px rgba(239, 68, 68, 0.75), 0 0 40px rgba(239, 68, 68, 0.35)" : "none",
+                  userSelect: "none",
+                  margin: 0,
+                  padding: "4px 12px",
+                  borderRadius: "8px",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive && line.time >= 0) {
+                    (e.currentTarget as HTMLElement).style.color = "rgba(255, 255, 255, 0.85)";
+                    (e.currentTarget as HTMLElement).style.background = "rgba(255, 255, 255, 0.05)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive && line.time >= 0) {
+                    (e.currentTarget as HTMLElement).style.color = isPast
+                      ? "rgba(255, 255, 255, 0.55)"
+                      : "rgba(255, 255, 255, 0.28)";
+                    (e.currentTarget as HTMLElement).style.background = "transparent";
+                  }
                 }}
               >
                 {line.text}
@@ -169,12 +247,23 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, clas
             );
           })
         ) : (
-          <div className="flex flex-col items-center justify-center text-slate-400 py-12">
-            <Music2 size={32} className="mb-3 opacity-50" />
-            <p className="text-sm font-medium">Đang đồng bộ lời bài hát chất lượng cao...</p>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "40px 0",
+              color: "rgba(255, 255, 255, 0.4)",
+            }}
+          >
+            <Music2 size={32} style={{ marginBottom: "8px", opacity: 0.3 }} />
+            <p style={{ fontSize: "0.85rem" }}>Không tìm thấy lời bài hát</p>
           </div>
         )}
       </div>
     </div>
   );
 };
+
+export default SyncedLyricsView;
