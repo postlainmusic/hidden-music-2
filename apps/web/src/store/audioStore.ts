@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { audioAnalyserEngine } from "../audio/AudioAnalyserEngine";
 
 export interface TrackPalette {
   primary: string;
@@ -486,6 +487,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   playTrack: (track: Track) => {
+    audioAnalyserEngine.resumeContext();
     updateCssTheme(track.palette);
 
     set({
@@ -498,6 +500,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   togglePlay: () => {
+    audioAnalyserEngine.resumeContext();
     const { currentTrack, isPlaying, playTrack } = get();
 
     if (!currentTrack && DEFAULT_TRACKS.length > 0) {
@@ -623,13 +626,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   getFrequencyData: () => {
-    const data = new Uint8Array(32);
-    const { isPlaying } = get();
-    if (!isPlaying) return data;
-    const now = Date.now() / 150;
-    for (let i = 0; i < 32; i++) {
-      data[i] = Math.floor(128 + 100 * Math.sin(now + i * 0.4));
-    }
-    return data;
+    return audioAnalyserEngine.getByteFrequencyData();
   }
 }));

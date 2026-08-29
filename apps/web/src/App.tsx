@@ -136,10 +136,11 @@ export const App: React.FC = () => {
         </>
       )}
 
-      {/* 4. Primary Global HTML5 Lossless Audio Engine (Zero-CORS Issue Native Playback) */}
+      {/* 4. Primary Global HTML5 Lossless Audio Engine */}
       <audio
         ref={audioRef}
         src={currentTrack?.audioUrl || undefined}
+        crossOrigin="anonymous"
         preload="metadata"
         playsInline
         onPlay={() => useAudioStore.setState({ isPlaying: true })}

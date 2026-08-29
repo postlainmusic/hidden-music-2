@@ -1,6 +1,4 @@
-// 🔬 High-Performance Web Audio Frequency & Beat Reactivity Engine
-
-import { useAudioStore } from "../store/audioStore";
+// 🔬 Hardware-Accelerated Real-Time Web Audio 5-Band Frequency Engine
 
 export interface AudioFrequencyBands {
   subBass: number;      // 20 - 90 Hz
@@ -14,9 +12,13 @@ export interface AudioFrequencyBands {
 
 class AudioAnalyserEngine {
   private static instance: AudioAnalyserEngine;
+  private audioCtx: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private sourceNode: MediaElementAudioSourceNode | null = null;
   private currentAudioElement: HTMLAudioElement | null = null;
-  private freqArray: Uint8Array = new Uint8Array(32);
+  private dataArray: Uint8Array<ArrayBuffer> | null = null;
 
+  // Smoothing buffers for 60fps jitter-free visualizer
   private smoothedBands: AudioFrequencyBands = {
     subBass: 0,
     kick: 0,
@@ -27,6 +29,9 @@ class AudioAnalyserEngine {
     isBeat: false,
   };
 
+  private energyHistory: number[] = [];
+  private readonly HISTORY_SIZE = 30;
+
   private constructor() {}
 
   public static getInstance(): AudioAnalyserEngine {
@@ -36,74 +41,129 @@ class AudioAnalyserEngine {
     return AudioAnalyserEngine.instance;
   }
 
+  /**
+   * Connect HTML5 Audio Element to Web Audio Context and AnalyserNode
+   */
   public attachAudioElement(audioEl: HTMLAudioElement): void {
+    if (this.currentAudioElement === audioEl && this.sourceNode) {
+      return;
+    }
+
     this.currentAudioElement = audioEl;
+
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+
+      if (!this.audioCtx) {
+        this.audioCtx = new AudioContextClass();
+      }
+
+      if (!this.analyser) {
+        this.analyser = this.audioCtx.createAnalyser();
+        this.analyser.fftSize = 256;
+        this.analyser.smoothingTimeConstant = 0.75;
+        this.analyser.minDecibels = -85;
+        this.analyser.maxDecibels = -15;
+        this.dataArray = new Uint8Array(new ArrayBuffer(this.analyser.frequencyBinCount));
+      }
+
+      if (!this.sourceNode && this.audioCtx && this.analyser) {
+        try {
+          this.sourceNode = this.audioCtx.createMediaElementSource(audioEl);
+          this.sourceNode.connect(this.analyser);
+          this.analyser.connect(this.audioCtx.destination);
+        } catch (e) {
+          console.warn("Audio source node connection:", e);
+        }
+      }
+    } catch (err) {
+      console.warn("AudioAnalyserEngine attach notice:", err);
+    }
   }
 
   /**
-   * Get 32-bin frequency array for 2D Canvas Waveform visualizer
+   * Resume AudioContext on any user gesture
+   */
+  public resumeContext(): void {
+    if (this.audioCtx && this.audioCtx.state === "suspended") {
+      this.audioCtx.resume().catch(() => {});
+    }
+  }
+
+  /**
+   * Get raw byte frequency array for canvas waveform bars
    */
   public getByteFrequencyData(): Uint8Array {
-    const isPlaying = useAudioStore.getState().isPlaying;
-    const curTime = this.currentAudioElement?.currentTime || Date.now() / 1000;
-
-    if (!isPlaying) {
-      for (let i = 0; i < 32; i++) {
-        this.freqArray[i] = Math.max(0, Math.floor(this.freqArray[i] * 0.85));
-      }
-      return this.freqArray;
+    if (this.analyser && this.dataArray) {
+      this.analyser.getByteFrequencyData(this.dataArray);
+      return this.dataArray;
     }
-
-    const t = curTime * 3.2;
-    for (let i = 0; i < 32; i++) {
-      const freqNoise = Math.sin(t * 2.0 + i * 0.45) * 0.5 + 0.5;
-      const beatSpike = Math.sin(t * 1.57) > 0.6 ? 1.0 : 0.2;
-      const val = Math.floor((freqNoise * 0.6 + beatSpike * 0.4) * 255);
-      this.freqArray[i] = val;
-    }
-
-    return this.freqArray;
+    return new Uint8Array(32);
   }
 
   /**
-   * Extract 5 granular frequency bands + beat transient detection at 60fps
+   * Extract 5 granular real frequency bands + beat detection
    */
   public getBands(): AudioFrequencyBands {
-    const isPlaying = useAudioStore.getState().isPlaying;
-    const curTime = this.currentAudioElement?.currentTime || Date.now() / 1000;
+    if (this.analyser && this.dataArray) {
+      this.analyser.getByteFrequencyData(this.dataArray);
+      const binCount = this.analyser.frequencyBinCount;
+      const sampleRate = this.audioCtx ? this.audioCtx.sampleRate : 44100;
+      const binHz = sampleRate / (binCount * 2);
 
-    if (!isPlaying) {
-      this.smoothedBands.subBass *= 0.85;
-      this.smoothedBands.kick *= 0.85;
-      this.smoothedBands.lowMid *= 0.85;
-      this.smoothedBands.vocalMid *= 0.85;
-      this.smoothedBands.highTreble *= 0.85;
-      this.smoothedBands.overallEnergy *= 0.85;
-      this.smoothedBands.isBeat = false;
-      return this.smoothedBands;
+      const getAverageInRange = (minHz: number, maxHz: number): number => {
+        const startBin = Math.max(0, Math.floor(minHz / binHz));
+        const endBin = Math.min(binCount - 1, Math.ceil(maxHz / binHz));
+        if (startBin >= endBin) return (this.dataArray![startBin] || 0) / 255;
+
+        let sum = 0;
+        for (let i = startBin; i <= endBin; i++) {
+          sum += this.dataArray![i];
+        }
+        return sum / ((endBin - startBin + 1) * 255);
+      };
+
+      const rawSub = getAverageInRange(20, 90);
+      const rawKick = getAverageInRange(90, 220);
+      const rawLowMid = getAverageInRange(220, 600);
+      const rawVocal = getAverageInRange(600, 3000);
+      const rawTreble = getAverageInRange(3000, 16000);
+      const rawOverall = (rawSub * 0.35 + rawKick * 0.25 + rawLowMid * 0.15 + rawVocal * 0.15 + rawTreble * 0.1);
+
+      if (rawOverall > 0.01) {
+        this.energyHistory.push(rawKick + rawSub);
+        if (this.energyHistory.length > this.HISTORY_SIZE) {
+          this.energyHistory.shift();
+        }
+        const avgEnergy = this.energyHistory.reduce((a, b) => a + b, 0) / this.energyHistory.length;
+        const isInstantBeat = (rawKick + rawSub) > avgEnergy * 1.25 && (rawKick + rawSub) > 0.25;
+
+        const lerp = (curr: number, target: number, attack = 0.55, decay = 0.15) => {
+          const rate = target > curr ? attack : decay;
+          return curr + (target - curr) * rate;
+        };
+
+        this.smoothedBands.subBass = lerp(this.smoothedBands.subBass, rawSub, 0.7, 0.18);
+        this.smoothedBands.kick = lerp(this.smoothedBands.kick, rawKick, 0.8, 0.2);
+        this.smoothedBands.lowMid = lerp(this.smoothedBands.lowMid, rawLowMid, 0.5, 0.15);
+        this.smoothedBands.vocalMid = lerp(this.smoothedBands.vocalMid, rawVocal, 0.5, 0.15);
+        this.smoothedBands.highTreble = lerp(this.smoothedBands.highTreble, rawTreble, 0.6, 0.18);
+        this.smoothedBands.overallEnergy = lerp(this.smoothedBands.overallEnergy, rawOverall, 0.6, 0.18);
+        this.smoothedBands.isBeat = isInstantBeat;
+
+        return this.smoothedBands;
+      }
     }
 
-    // High-impact musical rhythm simulation derived from track playback time
-    const bpm = 128;
-    const beatInterval = 60 / bpm; // ~0.468s per beat
-    const beatPhase = (curTime % beatInterval) / beatInterval; // 0.0 -> 1.0 in each beat
-    
-    // Sharp kick transient at start of beat (decaying rapidly)
-    const kickTransient = Math.pow(Math.max(0, 1.0 - beatPhase * 3.5), 2.0);
-    const subBassPulse = Math.sin(curTime * 4.0) * 0.4 + 0.6 + kickTransient * 0.4;
-    const vocalWave = Math.sin(curTime * 2.4) * 0.5 + 0.5;
-    const trebleSparkle = (Math.sin(curTime * 7.2) * 0.5 + 0.5) * (0.5 + kickTransient * 0.5);
-
-    const isInstantBeat = kickTransient > 0.65;
-
-    this.smoothedBands.subBass = Math.min(1.0, subBassPulse);
-    this.smoothedBands.kick = Math.min(1.0, kickTransient);
-    this.smoothedBands.lowMid = (Math.cos(curTime * 1.8) * 0.5 + 0.5) * 0.7;
-    this.smoothedBands.vocalMid = vocalWave;
-    this.smoothedBands.highTreble = trebleSparkle;
-    this.smoothedBands.overallEnergy = (kickTransient * 0.4 + subBassPulse * 0.3 + vocalWave * 0.3);
-    this.smoothedBands.isBeat = isInstantBeat;
-
+    // Decay to 0 when paused or idle
+    this.smoothedBands.subBass *= 0.85;
+    this.smoothedBands.kick *= 0.85;
+    this.smoothedBands.lowMid *= 0.85;
+    this.smoothedBands.vocalMid *= 0.85;
+    this.smoothedBands.highTreble *= 0.85;
+    this.smoothedBands.overallEnergy *= 0.85;
+    this.smoothedBands.isBeat = false;
     return this.smoothedBands;
   }
 }
