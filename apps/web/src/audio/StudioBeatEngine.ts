@@ -120,12 +120,10 @@ export class StudioBeatEngine {
   }
 
   public attachAudioElement(audioEl: HTMLAudioElement): void {
-    if (this.currentAudioElement === audioEl && this.sourceNode) {
-      return;
-    }
-
     this.currentAudioElement = audioEl;
+  }
 
+  public async resumeContext(): Promise<void> {
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
@@ -134,7 +132,11 @@ export class StudioBeatEngine {
         this.audioCtx = new AudioContextClass();
       }
 
-      if (!this.analyser) {
+      if (this.audioCtx.state === "suspended") {
+        await this.audioCtx.resume();
+      }
+
+      if (!this.analyser && this.audioCtx) {
         this.analyser = this.audioCtx.createAnalyser();
         this.analyser.fftSize = 512;
         this.analyser.smoothingTimeConstant = 0.55;
@@ -144,9 +146,9 @@ export class StudioBeatEngine {
         this.timeDomainData = new Uint8Array(new ArrayBuffer(this.analyser.fftSize));
       }
 
-      if (!this.sourceNode && this.audioCtx && this.analyser) {
+      if (!this.sourceNode && this.audioCtx && this.analyser && this.currentAudioElement) {
         try {
-          this.sourceNode = this.audioCtx.createMediaElementSource(audioEl);
+          this.sourceNode = this.audioCtx.createMediaElementSource(this.currentAudioElement);
           this.sourceNode.connect(this.analyser);
           this.analyser.connect(this.audioCtx.destination);
         } catch (e) {
@@ -154,17 +156,7 @@ export class StudioBeatEngine {
         }
       }
     } catch (err) {
-      console.warn("StudioBeatEngine attach error:", err);
-    }
-  }
-
-  public async resumeContext(): Promise<void> {
-    if (this.audioCtx && this.audioCtx.state === "suspended") {
-      try {
-        await this.audioCtx.resume();
-      } catch (err) {
-        console.warn("StudioBeatEngine audioCtx resume notice:", err);
-      }
+      console.warn("StudioBeatEngine resumeContext notice:", err);
     }
   }
 

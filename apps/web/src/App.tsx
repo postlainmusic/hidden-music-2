@@ -75,7 +75,6 @@ export const App: React.FC = () => {
     if (audio.src !== targetUrl) {
       audio.pause();
       audio.src = targetUrl;
-      audio.load();
     }
 
     if (isPlaying) {
