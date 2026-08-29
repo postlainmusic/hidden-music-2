@@ -6,7 +6,7 @@ import { HomePage } from "./pages/HomePage";
 import { MobileHomePage } from "./pages/MobileHomePage";
 import { Album3DZone } from "./pages/Album3DZone";
 import { studioBeatEngine } from "./audio/StudioBeatEngine";
-import { useAudioStore, getEffectiveAudioUrl } from "./store/audioStore";
+import { useAudioStore } from "./store/audioStore";
 import { useIsMobile } from "./hooks/useIsMobile";
 
 export const App: React.FC = () => {
@@ -16,8 +16,6 @@ export const App: React.FC = () => {
     currentTrack,
     isPlaying,
     isBuffering,
-    audioQuality,
-    setAudioQuality,
     volume,
     isMuted,
     currentUser,
@@ -27,7 +25,7 @@ export const App: React.FC = () => {
   } = useAudioStore();
   const isMobile = useIsMobile();
 
-  const effectiveAudioUrl = currentTrack ? getEffectiveAudioUrl(currentTrack, audioQuality) : "";
+  const effectiveAudioUrl = currentTrack?.audioUrl ?? "";
 
   useEffect(() => {
     initAudioEngine();
@@ -222,11 +220,8 @@ export const App: React.FC = () => {
         }}
         onEnded={() => nextTrack()}
         onError={(e) => {
-          console.warn("Audio element playback error, checking MP3 fallback:", e);
+          console.warn("Audio error:", e);
           useAudioStore.setState({ isBuffering: false });
-          if (audioQuality === "flac") {
-            setAudioQuality("mp3");
-          }
         }}
         style={{ display: "none" }}
       />

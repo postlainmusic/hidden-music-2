@@ -44,9 +44,7 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
     playTrack,
     togglePlay,
     favoritedTrackIds,
-    toggleFavoriteTrack,
-    audioQuality,
-    setAudioQuality
+    toggleFavoriteTrack
   } = useAudioStore();
   const isMobile = useIsMobile();
   
@@ -398,33 +396,29 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
           justifyContent: "flex-end",
         }}
       >
-        {/* Interactive Audio Quality Switcher (FLAC 24-Bit / MP3 320K) */}
-        <button
-          onClick={() => setAudioQuality(audioQuality === "flac" ? "mp3" : "flac")}
-          title="Bấm để chuyển đổi giữa FLAC 24/96kHz Master và MP3 320kbps Stream"
+        {/* Static M4A Quality Badge */}
+        <div
           style={{
             display: "inline-flex",
             alignItems: "center",
             gap: "6px",
             padding: "6px 14px",
             borderRadius: "999px",
-            background: audioQuality === "flac" ? "rgba(10, 15, 30, 0.75)" : "rgba(30, 20, 10, 0.75)",
-            border: audioQuality === "flac" ? "1px solid rgba(56, 189, 248, 0.5)" : "1px solid rgba(251, 146, 60, 0.5)",
+            background: "rgba(10, 15, 30, 0.75)",
+            border: "1px solid rgba(56, 189, 248, 0.5)",
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
-            color: audioQuality === "flac" ? "#38bdf8" : "#fb923c",
+            color: "#38bdf8",
             fontSize: "0.74rem",
             fontWeight: 800,
             letterSpacing: "0.04em",
             textTransform: "uppercase",
-            boxShadow: audioQuality === "flac" ? "0 0 15px rgba(56, 189, 248, 0.2)" : "0 0 15px rgba(251, 146, 60, 0.2)",
-            cursor: "pointer",
-            transition: "all 0.2s ease"
+            boxShadow: "0 0 15px rgba(56, 189, 248, 0.2)"
           }}
         >
           <Activity size={13} />
-          <span>{audioQuality === "flac" ? "FLAC 24/96kHz Master" : "MP3 320kbps Fast Stream"}</span>
-        </button>
+          <span>MPEG-4 Audio</span>
+        </div>
 
         {/* Live Ground-Truth BPM & Root Key Badge */}
         <div

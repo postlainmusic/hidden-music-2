@@ -19,8 +19,6 @@ export const MobilePlayerDock: React.FC = () => {
     currentTrack,
     isPlaying,
     isBuffering,
-    audioQuality,
-    setAudioQuality,
     currentTime,
     duration,
     volume,
@@ -347,25 +345,23 @@ export const MobilePlayerDock: React.FC = () => {
                   ĐANG PHÁT TỪ VAULT
                 </span>
 
-                <button
-                  onClick={() => setAudioQuality(audioQuality === "flac" ? "mp3" : "flac")}
+                <div
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: "4px",
                     padding: "4px 10px",
                     borderRadius: "999px",
-                    background: audioQuality === "flac" ? "rgba(56, 189, 248, 0.2)" : "rgba(251, 146, 60, 0.2)",
-                    border: audioQuality === "flac" ? "1px solid rgba(56, 189, 248, 0.5)" : "1px solid rgba(251, 146, 60, 0.5)",
+                    background: "rgba(56, 189, 248, 0.15)",
+                    border: "1px solid rgba(56, 189, 248, 0.4)",
                     fontSize: "0.68rem",
                     fontWeight: 800,
-                    color: audioQuality === "flac" ? "#38bdf8" : "#fb923c",
-                    cursor: "pointer"
+                    color: "#38bdf8"
                   }}
                 >
-                  <Sparkles size={11} color={audioQuality === "flac" ? "#38bdf8" : "#fb923c"} />
-                  <span>{audioQuality.toUpperCase()}</span>
-                </button>
+                  <Sparkles size={11} color="#38bdf8" />
+                  <span>M4A</span>
+                </div>
               </div>
             </div>
 
