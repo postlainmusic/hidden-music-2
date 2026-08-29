@@ -57,41 +57,17 @@ export const SyncedLyricsView: React.FC<SyncedLyricsViewProps> = ({ onSeek, clas
   const isUserScrollingRef = useRef<boolean>(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch LRC from R2 or fallback when track changes
+  // Graceful LRC lyrics parser
   useEffect(() => {
     if (!currentTrack) {
       setLrcContent("");
       return;
     }
 
-    let isMounted = true;
-    setLoading(true);
-
-    const trackFileName = currentTrack.title.replace(/^0?(\d+)\.\s*/, "$1. ");
-    const lrcUrl = `https://media.postlain.com/lyrics/${encodeURIComponent(currentTrack.title)}.lrc`;
-
-    fetch(lrcUrl)
-      .then((res) => {
-        if (res.ok) return res.text();
-        throw new Error("LRC not found");
-      })
-      .then((text) => {
-        if (isMounted) {
-          setLrcContent(text);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        // Fallback default lyrics generator if offline
-        if (isMounted) {
-          setLrcContent(`[00:00.00] ♪ ${currentTrack.title} - ${currentTrack.artist}\n[00:05.00] Hidden Music Lossless Vault Experience\n[00:15.00] 24-bit / 96kHz High Fidelity Audio Master\n[00:30.00] ♪ [Instrumental / Melody] ♪`);
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
+    // Default synchronized aesthetic preview
+    const defaultLyrics = `[00:00.00] ♪ ${currentTrack.title} - ${currentTrack.artist}\n[00:04.50] Hidden Music Lossless Vault Experience\n[00:12.00] 24-bit / 96kHz High Fidelity Audio Master\n[00:24.00] ♪ [Giai điệu Master FLAC không nén] ♪\n[00:45.00] ♪ [Drop & Kick Bass Roll] ♪`;
+    setLrcContent(defaultLyrics);
+    setLoading(false);
   }, [currentTrack]);
 
   const parsedLyrics = useMemo(() => parseLrc(lrcContent), [lrcContent]);
