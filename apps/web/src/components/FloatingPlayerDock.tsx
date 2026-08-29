@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useAudioStore, Track, DEFAULT_TRACKS } from "../store/audioStore";
 import { dualDeckAudioEngine, ProgressState } from "../audio/DualDeckAudioEngine";
 import {
@@ -17,8 +17,7 @@ import {
   Mic2,
   Heart,
   Disc3,
-  X,
-  Zap
+  X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SyncedLyricsView } from "./SyncedLyricsView";
@@ -32,7 +31,6 @@ export const FloatingPlayerDock: React.FC = () => {
     duration,
     volume,
     isMuted,
-    bassBoostEnabled,
     togglePlay,
     playTrack,
     nextTrack,
@@ -40,7 +38,6 @@ export const FloatingPlayerDock: React.FC = () => {
     seek,
     setVolume,
     toggleMute,
-    toggleBassBoost,
     favoritedTrackIds,
     toggleFavoriteTrack
   } = useAudioStore();
@@ -51,20 +48,21 @@ export const FloatingPlayerDock: React.FC = () => {
   const [repeatMode, setRepeatMode] = useState<"off" | "all" | "one">("off");
   const [hoverSeekTime, setHoverSeekTime] = useState<number | null>(null);
   const [hoverSeekPos, setHoverSeekPos] = useState<number>(0);
-  const [isDraggingSeeker, setIsDraggingSeeker] = useState<boolean>(false);
-  const [dragSeekTime, setDragSeekTime] = useState<number | null>(null);
 
   // Direct DOM Refs for 60fps Zero-GC Audio-Reactive Performance
   const dockContainerRef = useRef<HTMLDivElement | null>(null);
   const mainDockBarRef = useRef<HTMLDivElement | null>(null);
-  const visualizerRef = useRef<HTMLCanvasElement | null>(null);
   const miniCoverRef = useRef<HTMLDivElement | null>(null);
   const currentTimeTextRef = useRef<HTMLSpanElement | null>(null);
   const durationTextRef = useRef<HTMLSpanElement | null>(null);
   const playedProgressBarRef = useRef<HTMLDivElement | null>(null);
   const bufferedProgressBarRef = useRef<HTMLDivElement | null>(null);
-  const sliderInputRef = useRef<HTMLInputElement | null>(null);
+  const scrubberTrackRef = useRef<HTMLDivElement | null>(null);
   const topSpecularRef = useRef<HTMLDivElement | null>(null);
+
+  // Scrubber Drag State
+  const isDraggingSeekerRef = useRef<boolean>(false);
+  const dragSeekTimeRef = useRef<number | null>(null);
 
   const isFav = currentTrack ? favoritedTrackIds.includes(currentTrack.id) : false;
 
@@ -94,7 +92,7 @@ export const FloatingPlayerDock: React.FC = () => {
   // Direct Ref High-Frequency Progress Subscription (60fps without React state)
   useEffect(() => {
     const unsubscribe = dualDeckAudioEngine.subscribeProgress((state: ProgressState) => {
-      if (isDraggingSeeker) return;
+      if (isDraggingSeekerRef.current) return;
 
       if (currentTimeTextRef.current) {
         currentTimeTextRef.current.textContent = formatTime(state.currentTime);
@@ -108,19 +106,14 @@ export const FloatingPlayerDock: React.FC = () => {
       if (bufferedProgressBarRef.current) {
         bufferedProgressBarRef.current.style.width = `${state.bufferedPercent}%`;
       }
-      if (sliderInputRef.current) {
-        sliderInputRef.current.value = String(state.currentTime);
-      }
     });
 
     return () => unsubscribe();
-  }, [isDraggingSeeker]);
+  }, []);
 
   // 60FPS Beat Pulse, Snare Strobe & Audio-Reactive Chớp Giật on Playdock
   useEffect(() => {
     let animId: number;
-    const canvas = visualizerRef.current;
-    const ctx = canvas?.getContext("2d");
 
     const loop = () => {
       const beatState = studioBeatEngine.getBeatState();
@@ -170,37 +163,6 @@ export const FloatingPlayerDock: React.FC = () => {
         }
       }
 
-      // 3. Mini Equalizer Spectrum Canvas in Dock Center
-      if (ctx && canvas) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const bars = 10;
-        const barWidth = 3;
-        const gap = 3;
-        const maxH = canvas.height;
-
-        for (let i = 0; i < bars; i++) {
-          const x = i * (barWidth + gap);
-          let h = 3;
-          if (isPlaying) {
-            if (i < 3) h = Math.max(3, beatState.subImpact * maxH * 0.95);
-            else if (i < 5) h = Math.max(3, beatState.kickImpact * maxH * 0.90);
-            else if (i < 8) h = Math.max(3, (beatState.snareImpact * 0.6 + beatState.vocalPresence * 0.4) * maxH * 0.85);
-            else h = Math.max(3, beatState.trebleEnergy * maxH * 0.80);
-          }
-
-          ctx.fillStyle = isPlaying
-            ? i < 4
-              ? "#ef4444"
-              : beatState.isSnareHit
-              ? "#ffffff"
-              : "rgba(255, 255, 255, 0.85)"
-            : "rgba(255, 255, 255, 0.25)";
-          ctx.beginPath();
-          ctx.roundRect(x, maxH - h, barWidth, h, 1.5);
-          ctx.fill();
-        }
-      }
-
       animId = requestAnimationFrame(loop);
     };
 
@@ -208,9 +170,75 @@ export const FloatingPlayerDock: React.FC = () => {
     return () => cancelAnimationFrame(animId);
   }, [isPlaying]);
 
-  if (!currentTrack) return null;
+  const effectiveDuration = duration && duration > 0 ? duration : currentTrack?.duration || 0;
 
-  const effectiveDuration = duration && duration > 0 ? duration : currentTrack.duration;
+  // ─────────────────────────────────────────────────────────────────────────
+  // HIGH-PRECISION SCRUBBER TRACKING (CLICK & DRAG WITH WINDOW LISTENERS)
+  // ─────────────────────────────────────────────────────────────────────────
+  const calculateSeekTime = useCallback(
+    (clientX: number): number => {
+      if (!scrubberTrackRef.current || effectiveDuration <= 0) return 0;
+      const rect = scrubberTrackRef.current.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      return ratio * effectiveDuration;
+    },
+    [effectiveDuration]
+  );
+
+  const handleScrubberPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (effectiveDuration <= 0) return;
+    isDraggingSeekerRef.current = true;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+
+    const targetSec = calculateSeekTime(e.clientX);
+    dragSeekTimeRef.current = targetSec;
+
+    // Instant UI update
+    if (currentTimeTextRef.current) {
+      currentTimeTextRef.current.textContent = formatTime(targetSec);
+    }
+    if (playedProgressBarRef.current) {
+      playedProgressBarRef.current.style.width = `${(targetSec / effectiveDuration) * 100}%`;
+    }
+    seek(targetSec);
+  };
+
+  const handleScrubberPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (effectiveDuration <= 0) return;
+    const rect = scrubberTrackRef.current?.getBoundingClientRect();
+    if (rect) {
+      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      setHoverSeekPos(ratio * 100);
+      setHoverSeekTime(ratio * effectiveDuration);
+    }
+
+    if (isDraggingSeekerRef.current) {
+      const targetSec = calculateSeekTime(e.clientX);
+      dragSeekTimeRef.current = targetSec;
+
+      if (currentTimeTextRef.current) {
+        currentTimeTextRef.current.textContent = formatTime(targetSec);
+      }
+      if (playedProgressBarRef.current) {
+        playedProgressBarRef.current.style.width = `${(targetSec / effectiveDuration) * 100}%`;
+      }
+    }
+  };
+
+  const handleScrubberPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isDraggingSeekerRef.current) {
+      isDraggingSeekerRef.current = false;
+      if (dragSeekTimeRef.current !== null) {
+        seek(dragSeekTimeRef.current);
+        dragSeekTimeRef.current = null;
+      }
+    }
+    try {
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  if (!currentTrack) return null;
 
   return (
     <div
@@ -240,7 +268,7 @@ export const FloatingPlayerDock: React.FC = () => {
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             style={{
               width: "min(860px, calc(100vw - 40px))",
-              height: "min(440px, 52vh)",
+              height: "min(420px, 50vh)",
               borderRadius: "28px 28px 12px 12px",
               background: "rgba(8, 9, 14, 0.95)",
               border: "1px solid rgba(239, 68, 68, 0.4)",
@@ -252,65 +280,38 @@ export const FloatingPlayerDock: React.FC = () => {
               flexDirection: "column",
               overflow: "hidden",
               pointerEvents: "auto",
-              marginBottom: "-6px", // Seamlessly connects to main dock
+              marginBottom: "-6px", // Seamlessly connected to dock
               zIndex: 70,
               transformOrigin: "bottom center",
             }}
           >
-            {/* Header Tabs: Lyrics vs Queue Switcher */}
+            {/* Minimal Header (No Redundant Tab Buttons) */}
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                padding: "12px 20px",
+                padding: "12px 24px",
                 borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
                 background: "rgba(239, 68, 68, 0.04)",
               }}
             >
-              {/* Tab Switcher */}
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <button
-                  onClick={() => setExpandedMode("lyrics")}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    padding: "6px 14px",
-                    borderRadius: "999px",
-                    background: expandedMode === "lyrics" ? "rgba(239, 68, 68, 0.25)" : "transparent",
-                    border: expandedMode === "lyrics" ? "1px solid rgba(239, 68, 68, 0.6)" : "1px solid transparent",
-                    color: expandedMode === "lyrics" ? "#ffffff" : "rgba(255, 255, 255, 0.5)",
-                    fontSize: "0.82rem",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <Mic2 size={14} color={expandedMode === "lyrics" ? "#ef4444" : "currentColor"} />
-                  <span>Lời bài hát đồng bộ</span>
-                </button>
-
-                <button
-                  onClick={() => setExpandedMode("queue")}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    padding: "6px 14px",
-                    borderRadius: "999px",
-                    background: expandedMode === "queue" ? "rgba(239, 68, 68, 0.25)" : "transparent",
-                    border: expandedMode === "queue" ? "1px solid rgba(239, 68, 68, 0.6)" : "1px solid transparent",
-                    color: expandedMode === "queue" ? "#ffffff" : "rgba(255, 255, 255, 0.5)",
-                    fontSize: "0.82rem",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <ListMusic size={14} color={expandedMode === "queue" ? "#ef4444" : "currentColor"} />
-                  <span>Danh sách phát (30 Tracks)</span>
-                </button>
+                {expandedMode === "lyrics" ? (
+                  <>
+                    <Mic2 size={15} color="#ef4444" />
+                    <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "#ffffff", letterSpacing: "0.03em" }}>
+                      Lời bài hát đồng bộ
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <ListMusic size={15} color="#ef4444" />
+                    <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "#ffffff", letterSpacing: "0.03em" }}>
+                      Danh sách phát (30 Tracks)
+                    </span>
+                  </>
+                )}
               </div>
 
               {/* Close Button */}
@@ -386,11 +387,12 @@ export const FloatingPlayerDock: React.FC = () => {
                                 whiteSpace: "nowrap",
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
+                                margin: 0,
                               }}
                             >
                               {track.title}
                             </p>
-                            <p style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.45)" }}>
+                            <p style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.45)", margin: "2px 0 0 0" }}>
                               {track.artist}
                             </p>
                           </div>
@@ -585,8 +587,8 @@ export const FloatingPlayerDock: React.FC = () => {
             minWidth: 0,
           }}
         >
-          {/* Top Control Buttons Row */}
-          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+          {/* Top Control Buttons Row (Clean - No Waveform Visualizer) */}
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
             {/* Shuffle Button */}
             <button
               onClick={() => setShuffleMode((prev) => !prev)}
@@ -598,7 +600,7 @@ export const FloatingPlayerDock: React.FC = () => {
                 padding: "4px",
               }}
             >
-              <Shuffle size={14} />
+              <Shuffle size={15} />
             </button>
 
             {/* Previous Track Button */}
@@ -612,7 +614,7 @@ export const FloatingPlayerDock: React.FC = () => {
                 padding: "4px",
               }}
             >
-              <SkipBack size={17} />
+              <SkipBack size={18} />
             </button>
 
             {/* Primary Play / Pause Circle Button */}
@@ -653,7 +655,7 @@ export const FloatingPlayerDock: React.FC = () => {
                 padding: "4px",
               }}
             >
-              <SkipForward size={17} />
+              <SkipForward size={18} />
             </button>
 
             {/* Repeat Button */}
@@ -667,14 +669,11 @@ export const FloatingPlayerDock: React.FC = () => {
                 padding: "4px",
               }}
             >
-              {repeatMode === "one" ? <Repeat1 size={14} /> : <Repeat size={14} />}
+              {repeatMode === "one" ? <Repeat1 size={15} /> : <Repeat size={15} />}
             </button>
-
-            {/* Mini Visualizer Canvas */}
-            <canvas ref={visualizerRef} width={75} height={18} style={{ marginLeft: "4px" }} />
           </div>
 
-          {/* Clean Continuous Line Scrubber (No Chunk Waveform Ticks) */}
+          {/* Clean Continuous Line Scrubber (High-Precision Direct Tracking) */}
           <div style={{ display: "flex", alignItems: "center", gap: "10px", width: "100%" }}>
             <span
               ref={currentTimeTextRef}
@@ -690,21 +689,20 @@ export const FloatingPlayerDock: React.FC = () => {
             </span>
 
             <div
+              ref={scrubberTrackRef}
+              onPointerDown={handleScrubberPointerDown}
+              onPointerMove={handleScrubberPointerMove}
+              onPointerUp={handleScrubberPointerUp}
+              onPointerLeave={() => setHoverSeekTime(null)}
               style={{
                 position: "relative",
                 flex: 1,
                 display: "flex",
                 alignItems: "center",
-                height: "16px",
+                height: "18px",
                 cursor: "pointer",
+                touchAction: "none",
               }}
-              onMouseMove={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                setHoverSeekPos(ratio * 100);
-                setHoverSeekTime(ratio * effectiveDuration);
-              }}
-              onMouseLeave={() => setHoverSeekTime(null)}
             >
               {/* Hover Timestamp Badge */}
               {hoverSeekTime !== null && (
@@ -774,42 +772,6 @@ export const FloatingPlayerDock: React.FC = () => {
                   zIndex: 2,
                 }}
               />
-
-              {/* Native Slider Input */}
-              <input
-                ref={sliderInputRef}
-                type="range"
-                min={0}
-                max={effectiveDuration}
-                defaultValue={0}
-                onMouseDown={() => setIsDraggingSeeker(true)}
-                onTouchStart={() => setIsDraggingSeeker(true)}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setDragSeekTime(val);
-                  if (currentTimeTextRef.current) {
-                    currentTimeTextRef.current.textContent = formatTime(val);
-                  }
-                  if (playedProgressBarRef.current && effectiveDuration > 0) {
-                    playedProgressBarRef.current.style.width = `${(val / effectiveDuration) * 100}%`;
-                  }
-                }}
-                onMouseUp={() => {
-                  setIsDraggingSeeker(false);
-                  if (dragSeekTime !== null) {
-                    seek(dragSeekTime);
-                    setDragSeekTime(null);
-                  }
-                }}
-                onTouchEnd={() => {
-                  setIsDraggingSeeker(false);
-                  if (dragSeekTime !== null) {
-                    seek(dragSeekTime);
-                    setDragSeekTime(null);
-                  }
-                }}
-                style={{ width: "100%", height: "16px", zIndex: 3, cursor: "pointer", opacity: 0 }}
-              />
             </div>
 
             <span
@@ -831,7 +793,7 @@ export const FloatingPlayerDock: React.FC = () => {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "8px",
+            gap: "10px",
             width: "220px",
             minWidth: "220px",
             maxWidth: "220px",
@@ -840,32 +802,6 @@ export const FloatingPlayerDock: React.FC = () => {
             position: "relative",
           }}
         >
-          {/* Punchy Sub-Bass Enhancer Toggle */}
-          <button
-            onClick={toggleBassBoost}
-            title={bassBoostEnabled ? "Tắt Punchy Bass Boost" : "Bật Punchy Bass Boost (+5.5dB 70Hz)"}
-            style={{
-              background: bassBoostEnabled
-                ? "linear-gradient(135deg, #ef4444, #b91c1c)"
-                : "rgba(255, 255, 255, 0.08)",
-              color: "#ffffff",
-              border: bassBoostEnabled
-                ? "1px solid rgba(239, 68, 68, 0.8)"
-                : "1px solid rgba(255, 255, 255, 0.15)",
-              borderRadius: "50%",
-              width: "32px",
-              height: "32px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              boxShadow: bassBoostEnabled ? "0 0 14px rgba(239, 68, 68, 0.8)" : "none",
-              transition: "all 0.25s ease",
-            }}
-          >
-            <Zap size={14} fill={bassBoostEnabled ? "#ffffff" : "none"} />
-          </button>
-
           {/* Synced Lyrics Toggle Button */}
           <button
             onClick={() => setExpandedMode((prev) => (prev === "lyrics" ? "none" : "lyrics"))}
@@ -875,8 +811,8 @@ export const FloatingPlayerDock: React.FC = () => {
               color: expandedMode === "lyrics" ? "#000000" : "#ffffff",
               border: "1px solid rgba(255, 255, 255, 0.15)",
               borderRadius: "50%",
-              width: "32px",
-              height: "32px",
+              width: "34px",
+              height: "34px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -884,7 +820,7 @@ export const FloatingPlayerDock: React.FC = () => {
               transition: "all 0.2s ease",
             }}
           >
-            <Mic2 size={15} />
+            <Mic2 size={16} />
           </button>
 
           {/* Queue Drawer Toggle Button */}
@@ -896,8 +832,8 @@ export const FloatingPlayerDock: React.FC = () => {
               color: expandedMode === "queue" ? "#000000" : "#ffffff",
               border: "1px solid rgba(255, 255, 255, 0.15)",
               borderRadius: "50%",
-              width: "32px",
-              height: "32px",
+              width: "34px",
+              height: "34px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -905,7 +841,7 @@ export const FloatingPlayerDock: React.FC = () => {
               transition: "all 0.2s ease",
             }}
           >
-            <ListMusic size={15} />
+            <ListMusic size={16} />
           </button>
 
           {/* Seamless Integrated Volume Slider Popover */}
@@ -923,8 +859,8 @@ export const FloatingPlayerDock: React.FC = () => {
                 color: showVolumeSlider ? "#000000" : "#ffffff",
                 border: "1px solid rgba(255, 255, 255, 0.15)",
                 borderRadius: "50%",
-                width: "32px",
-                height: "32px",
+                width: "34px",
+                height: "34px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -933,11 +869,11 @@ export const FloatingPlayerDock: React.FC = () => {
               }}
             >
               {isMuted || volume === 0 ? (
-                <VolumeX size={15} color="#ef4444" />
+                <VolumeX size={16} color="#ef4444" />
               ) : volume >= 0.5 ? (
-                <Volume2 size={15} />
+                <Volume2 size={16} />
               ) : (
-                <Volume1 size={15} />
+                <Volume1 size={16} />
               )}
             </button>
 
@@ -951,7 +887,7 @@ export const FloatingPlayerDock: React.FC = () => {
                   transition={{ duration: 0.15 }}
                   style={{
                     position: "absolute",
-                    bottom: "38px",
+                    bottom: "42px",
                     right: "-2px",
                     padding: "12px 8px",
                     borderRadius: "18px",

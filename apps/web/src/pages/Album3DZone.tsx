@@ -340,17 +340,13 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
       />
 
       {/* ─────────────────────────────────────────────────────────────────────
-          2. TOP IMMERSIVE HUD (BACK TO VAULT + AUDIO METRICS)
+          2. TOP IMMERSIVE BAR (BACK TO VAULT)
       ────────────────────────────────────────────────────────────────────── */}
       <div
         style={{
           position: "absolute",
           top: "24px",
           left: "24px",
-          right: "24px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
           zIndex: 30,
           pointerEvents: "auto",
         }}
@@ -378,81 +374,6 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
           <ArrowLeft size={15} color="#ef4444" />
           <span>Vault</span>
         </button>
-
-        {/* Live Ground-Truth Rhythm Engine HUD */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "6px 14px",
-              borderRadius: "999px",
-              background: "rgba(10, 11, 16, 0.85)",
-              border: "1px solid rgba(239, 68, 68, 0.45)",
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
-              fontSize: "0.74rem",
-              fontWeight: 700,
-              color: "#ef4444",
-              boxShadow: "0 4px 16px rgba(239, 68, 68, 0.30)",
-            }}
-          >
-            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#ef4444", boxShadow: "0 0 8px #ef4444" }} />
-            <span>MPEG-4 LOSSLESS</span>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "6px 14px",
-              borderRadius: "999px",
-              background: "rgba(10, 11, 16, 0.85)",
-              border: "1px solid rgba(255, 255, 255, 0.15)",
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
-              fontSize: "0.74rem",
-              fontWeight: 700,
-              color: "#ffffff",
-            }}
-          >
-            <span ref={bpmTextRef}>120 BPM</span>
-            <span style={{ color: "rgba(255, 255, 255, 0.3)" }}>|</span>
-            <span ref={keyTextRef}>KEY: C#</span>
-          </div>
-
-          {/* 4-Beat Bar Indicator */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              padding: "6px 10px",
-              borderRadius: "999px",
-              background: "rgba(10, 11, 16, 0.85)",
-              border: "1px solid rgba(255, 255, 255, 0.12)",
-              backdropFilter: "blur(20px)",
-            }}
-          >
-            {[0, 1, 2, 3].map((i) => (
-              <div
-                key={i}
-                ref={(el) => {
-                  beatPipsRef.current[i] = el;
-                }}
-                style={{
-                  width: "6px",
-                  height: "6px",
-                  borderRadius: "50%",
-                  background: "rgba(255, 255, 255, 0.18)",
-                  transition: "transform 0.08s ease, background 0.08s ease",
-                }}
-              />
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────
