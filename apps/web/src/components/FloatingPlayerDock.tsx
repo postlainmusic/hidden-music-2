@@ -349,61 +349,12 @@ export const FloatingPlayerDock: React.FC = () => {
                 background: "transparent",
               }}
             >
-              {/* Header inside Monolith */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "16px 24px 8px 24px",
-                  background: "transparent",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  {expandedMode === "lyrics" ? (
-                    <>
-                      <Mic2 size={15} color="#ef4444" />
-                      <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "#ffffff", letterSpacing: "0.03em" }}>
-                        Lời bài hát đồng bộ
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <ListMusic size={15} color="#ef4444" />
-                      <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "#ffffff", letterSpacing: "0.03em" }}>
-                        Danh sách phát (30 Tracks)
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                {/* Close Button */}
-                <button
-                  onClick={() => setExpandedMode("none")}
-                  style={{
-                    background: "rgba(255, 255, 255, 0.08)",
-                    border: "1px solid rgba(255, 255, 255, 0.12)",
-                    borderRadius: "50%",
-                    width: "28px",
-                    height: "28px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#ffffff",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  <X size={14} />
-                </button>
-              </div>
-
-              {/* Drawer Content Body */}
-              <div style={{ flex: 1, overflowY: "auto", position: "relative" }}>
+              {/* Drawer Content Body (Pure Minimal Content, No Headers or X buttons) */}
+              <div style={{ flex: 1, overflowY: "auto", position: "relative", paddingTop: "14px" }}>
                 {expandedMode === "lyrics" ? (
                   <SyncedLyricsView onSeek={(t) => seek(t)} />
                 ) : (
-                  <div style={{ padding: "8px 16px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <div style={{ padding: "8px 16px 14px 16px", display: "flex", flexDirection: "column", gap: "4px" }}>
                     {DEFAULT_TRACKS.map((track, idx) => {
                       const isCur = track.id === currentTrack.id;
                       const isTrackFav = favoritedTrackIds.includes(track.id);
