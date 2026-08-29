@@ -181,12 +181,16 @@ export class StudioBeatEngine {
     }
   }
 
-  public getFrequencyData(): Uint8Array {
+  public getByteFrequencyData(): Uint8Array {
     if (this.analyser && this.frequencyData) {
       this.analyser.getByteFrequencyData(this.frequencyData);
       return this.frequencyData;
     }
     return new Uint8Array(32);
+  }
+
+  public getFrequencyData(): Uint8Array {
+    return this.getByteFrequencyData();
   }
 
   public update(): StudioBeatState {
