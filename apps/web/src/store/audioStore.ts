@@ -28,7 +28,7 @@ export interface Track {
 }
 
 const R2_BASE = "https://media.postlain.com";
-const STREAM_BASE = "https://hidden-music-api.postlain-music.workers.dev/api/stream";
+const STREAM_BASE = "https://media.postlain.com";
 const HVL_COVER = "/covers/HVL_Album_Cover.webp";
 
 export const DEFAULT_TRACKS: Track[] = [

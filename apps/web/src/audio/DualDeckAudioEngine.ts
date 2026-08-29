@@ -69,6 +69,7 @@ export class DualDeckAudioEngine {
 
   // High-Frequency 60fps Loop
   private rafId: number | null = null;
+  private trackStartedAt: number = 0;
   private progressSubscribers: Set<ProgressCallback> = new Set();
   private bufferingSubscribers: Set<BufferingCallback> = new Set();
   private onTrackEndCallbacks: Set<TrackEndCallback> = new Set();
@@ -209,6 +210,12 @@ export class DualDeckAudioEngine {
     });
 
     audio.addEventListener("ended", () => {
+      // Ignore any ended event during the first 4 seconds of track startup
+      if (Date.now() - this.trackStartedAt < 4000) {
+        console.log(`[DualDeck] Ignored spurious ended event on Deck ${deckId} during startup`);
+        return;
+      }
+
       // ONLY trigger onTrackEnd if the active audio has legitimately played to the very end
       const hasValidDuration = audio.duration && !isNaN(audio.duration) && audio.duration > 5;
       const isNearEnd = hasValidDuration && audio.currentTime >= audio.duration - 1.5;
@@ -281,6 +288,7 @@ export class DualDeckAudioEngine {
   ): Promise<void> {
     await this.ensureAudioContext();
     this.currentTrack = track;
+    this.trackStartedAt = Date.now();
     this.retryCount = 0;
     clearTimeout(this.retryTimeoutId);
 
