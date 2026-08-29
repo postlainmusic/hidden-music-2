@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Play, Pause, Heart, RotateCcw } from "lucide-react";
+import { ArrowLeft, Play, Pause, Heart, RotateCcw, Activity } from "lucide-react";
 import { useAudioStore, Track, DEFAULT_TRACKS } from "../store/audioStore";
 import { FloatingPlayerDock } from "../components/FloatingPlayerDock";
 import { MobilePlayerDock } from "../components/MobilePlayerDock";
+import { Album3DScene } from "../components/scene3d/Album3DScene";
 import { useIsMobile } from "../hooks/useIsMobile";
-import { audioAnalyserEngine } from "../audio/AudioAnalyserEngine";
+import { studioBeatEngine } from "../audio/StudioBeatEngine";
 
 interface Album3DZoneProps {
   onBackToVault: () => void;
@@ -47,9 +48,14 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const cardWrapperRef = useRef<HTMLDivElement | null>(null);
   const auraGlowRef = useRef<HTMLDivElement | null>(null);
+  const subRumbleAuraRef = useRef<HTMLDivElement | null>(null);
   const redKickAuraRef = useRef<HTMLDivElement | null>(null);
   const snareHaloRef = useRef<HTMLDivElement | null>(null);
   const frontCardRef = useRef<HTMLDivElement | null>(null);
+
+  const bpmTextRef = useRef<HTMLSpanElement | null>(null);
+  const keyTextRef = useRef<HTMLSpanElement | null>(null);
+  const beatPipsRef = useRef<(HTMLDivElement | null)[]>([]);
 
   const mousePos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -82,34 +88,38 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
 
     window.addEventListener("resize", handleResize);
 
-    let shockwaveRadius = 0;
+    let kickShockwaveRadius = 0;
+    let subShockwaveRadius = 0;
     let snareRadius = 0;
 
     const render = () => {
-      const bands = audioAnalyserEngine.getBands();
+      const now = performance.now();
+      const beatState = studioBeatEngine.update();
       const primaryRgb = hexToRgb(currentTrack?.palette?.primary || "#6366f1");
       const accentRgb = hexToRgb(currentTrack?.palette?.accent || "#8b5cf6");
 
-      const kickImpact = bands.kickImpact;
-      const snareFlash = bands.snareFlash;
-      const energy = bands.subBass * 0.5 + bands.kick * 0.35 + bands.lowMid * 0.15;
+      const subImpact = beatState.subImpact;
+      const kickImpact = beatState.kickImpact;
+      const bassImpact = beatState.bassImpact;
+      const kickRollIntensity = beatState.kickRollIntensity;
+      const snareFlash = beatState.snareFlash;
+      const downbeatPulse = beatState.downbeatPulse;
+      const energy = beatState.overallEnergy;
 
       // ─────────────────────────────────────────────────────────────
-      // 1. RENDER VOLUMETRIC AMBIENT DEPTH ON CANVAS (Z-INDEX 0)
+      // 1. RENDER VOLUMETRIC AMBIENT DEPTH ON CANVAS (Z-INDEX 1)
       // ─────────────────────────────────────────────────────────────
-      // Deep obsidian base
-      ctx.fillStyle = "#000000";
-      ctx.fillRect(0, 0, width, height);
+      ctx.clearRect(0, 0, width, height);
 
       const centerX = width / 2;
       const centerY = height / 2;
 
       ctx.globalCompositeOperation = "screen";
 
-      // A. Main Center Ambient Light Field (Breathing with track palette)
-      const baseRadius = Math.min(width, height) * (0.45 + energy * 0.25);
+      // A. Main Center Ambient Light Field (Breathing with track palette & melodic bass)
+      const baseRadius = Math.min(width, height) * (0.45 + energy * 0.20 + bassImpact * 0.15 + downbeatPulse * 0.10);
       const ambientGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, baseRadius);
-      const alpha = isPlaying ? 0.35 + energy * 0.40 : 0.18;
+      const alpha = isPlaying ? 0.35 + energy * 0.30 + bassImpact * 0.20 : 0.18;
 
       ambientGrad.addColorStop(0, `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, ${alpha})`);
       ambientGrad.addColorStop(0.45, `rgba(${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b}, ${alpha * 0.5})`);
@@ -121,31 +131,49 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
       ctx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
       ctx.fill();
 
-      // B. Dynamic CRIMSON RED Shockwave Blast on Bass/Kick Hits
-      if (kickImpact > 0.05) {
-        shockwaveRadius = Math.min(width, height) * (0.35 + (1.0 - kickImpact) * 0.45);
-        const redGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, shockwaveRadius);
-        const redAlpha = kickImpact * 0.65;
+      // B. DEEP 808 SUB-BASS GRAVITATIONAL WAVE (20-65Hz: Deep Indigo & Obsidian Blue)
+      if (subImpact > 0.04) {
+        subShockwaveRadius = Math.min(width, height) * (0.45 + (1.0 - subImpact) * 0.50);
+        const subGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, subShockwaveRadius);
+        const subAlpha = subImpact * 0.70;
+
+        subGrad.addColorStop(0, `rgba(79, 70, 229, ${subAlpha})`);
+        subGrad.addColorStop(0.45, `rgba(30, 27, 75, ${subAlpha * 0.6})`);
+        subGrad.addColorStop(0.85, `rgba(15, 23, 42, ${subAlpha * 0.2})`);
+        subGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+        ctx.fillStyle = subGrad;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, subShockwaveRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // C. PUNCHY KICK DRUM SHOCKWAVE (65-160Hz: Intense Crimson Red Laser)
+      const effectiveKick = Math.max(kickImpact, kickRollIntensity);
+      if (effectiveKick > 0.05) {
+        kickShockwaveRadius = Math.min(width, height) * (0.30 + (1.0 - effectiveKick) * 0.45);
+        const redGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, kickShockwaveRadius);
+        const redAlpha = effectiveKick * 0.75;
 
         redGrad.addColorStop(0, `rgba(239, 68, 68, ${redAlpha})`);
-        redGrad.addColorStop(0.4, `rgba(225, 29, 72, ${redAlpha * 0.5})`);
-        redGrad.addColorStop(0.8, `rgba(180, 20, 50, ${redAlpha * 0.15})`);
+        redGrad.addColorStop(0.35, `rgba(225, 29, 72, ${redAlpha * 0.55})`);
+        redGrad.addColorStop(0.75, `rgba(180, 20, 50, ${redAlpha * 0.15})`);
         redGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
 
         ctx.fillStyle = redGrad;
         ctx.beginPath();
-        ctx.arc(centerX, centerY, shockwaveRadius, 0, Math.PI * 2);
+        ctx.arc(centerX, centerY, kickShockwaveRadius, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // C. Radiant Specular White Halo Burst on Snare Hits
+      // D. RADIANT SPECULAR WHITE HALO (Snare / High Transients)
       if (snareFlash > 0.05) {
-        snareRadius = Math.min(width, height) * (0.28 + (1.0 - snareFlash) * 0.35);
+        snareRadius = Math.min(width, height) * (0.25 + (1.0 - snareFlash) * 0.35);
         const snareGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, snareRadius);
-        const snareAlpha = snareFlash * 0.55;
+        const snareAlpha = snareFlash * 0.60;
 
         snareGrad.addColorStop(0, `rgba(255, 255, 255, ${snareAlpha})`);
-        snareGrad.addColorStop(0.5, `rgba(210, 230, 255, ${snareAlpha * 0.3})`);
+        snareGrad.addColorStop(0.5, `rgba(210, 230, 255, ${snareAlpha * 0.35})`);
         snareGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
 
         ctx.fillStyle = snareGrad;
@@ -160,38 +188,72 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
       // 2. DIRECT ZERO-LAG DOM UPDATES ON ALBUM COVER (Z-INDEX 20)
       // ─────────────────────────────────────────────────────────────
       if (cardWrapperRef.current) {
-        const scale = 1.0 + kickImpact * 0.065;
+        // Direct scale punch on Kick + 808 sub-rumble vibration
+        const scale = 1.0 + kickImpact * 0.085 + kickRollIntensity * 0.04 + downbeatPulse * 0.04;
+        const subRumbleX = Math.sin(now * 0.040) * (subImpact * 3.5);
+        const subRumbleY = Math.cos(now * 0.050) * (subImpact * 2.5);
         const tiltX = mousePos.current.y;
         const tiltY = mousePos.current.x;
-        cardWrapperRef.current.style.transform = `scale(${scale}) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+        cardWrapperRef.current.style.transform = `translate3d(${subRumbleX}px, ${subRumbleY}px, 0) scale(${scale}) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
       }
 
-      // Synesthesia Ambient Aura Glow behind card
+      // Layer 1: Deep 808 Sub-Bass Obsidian Rumble Aura
+      if (subRumbleAuraRef.current) {
+        subRumbleAuraRef.current.style.opacity = `${subImpact > 0.04 ? subImpact * 0.95 : 0}`;
+      }
+
+      // Layer 2: Melodic Upper Bass Swell Aura
       if (auraGlowRef.current) {
-        auraGlowRef.current.style.opacity = `${isPlaying ? 0.65 + energy * 0.35 : 0.25}`;
+        auraGlowRef.current.style.opacity = `${isPlaying ? 0.50 + bassImpact * 0.45 + energy * 0.20 : 0.25}`;
       }
 
-      // Punchy Red Kick Shockwave Aura
+      // Layer 3: Punchy Crimson Kick Flash Aura (Supports Fast Kick Rolls)
       if (redKickAuraRef.current) {
-        redKickAuraRef.current.style.opacity = `${kickImpact > 0.05 ? kickImpact * 0.95 : 0}`;
+        redKickAuraRef.current.style.opacity = `${effectiveKick > 0.05 ? effectiveKick * 0.95 : 0}`;
       }
 
-      // Snare Specular Halo
+      // Layer 4: Snare Specular Halo
       if (snareHaloRef.current) {
-        snareHaloRef.current.style.opacity = `${snareFlash > 0.05 ? snareFlash * 0.90 : 0}`;
+        snareHaloRef.current.style.opacity = `${snareFlash > 0.05 ? snareFlash * 0.92 : 0}`;
       }
 
       // Front Card Dynamic Border & Shadow
       if (frontCardRef.current) {
-        if (kickImpact > 0.25) {
-          frontCardRef.current.style.borderColor = `rgba(239, 68, 68, ${0.6 + kickImpact * 0.4})`;
-          frontCardRef.current.style.boxShadow = `0 30px 90px rgba(0, 0, 0, 0.95), 0 0 ${40 + kickImpact * 60}px rgba(239, 68, 68, 0.85)`;
-        } else if (snareFlash > 0.30) {
-          frontCardRef.current.style.borderColor = `rgba(255, 255, 255, ${0.7 + snareFlash * 0.3})`;
-          frontCardRef.current.style.boxShadow = `0 30px 90px rgba(0, 0, 0, 0.95), 0 0 ${35 + snareFlash * 45}px rgba(255, 255, 255, 0.75)`;
+        if (effectiveKick > 0.22) {
+          frontCardRef.current.style.borderColor = `rgba(239, 68, 68, ${0.65 + effectiveKick * 0.35})`;
+          frontCardRef.current.style.boxShadow = `0 30px 90px rgba(0, 0, 0, 0.95), 0 0 ${40 + effectiveKick * 60}px rgba(239, 68, 68, 0.88)`;
+        } else if (subImpact > 0.25) {
+          frontCardRef.current.style.borderColor = `rgba(99, 102, 241, ${0.60 + subImpact * 0.40})`;
+          frontCardRef.current.style.boxShadow = `0 30px 90px rgba(0, 0, 0, 0.95), 0 0 ${35 + subImpact * 50}px rgba(79, 70, 229, 0.85)`;
+        } else if (snareFlash > 0.28) {
+          frontCardRef.current.style.borderColor = `rgba(255, 255, 255, ${0.75 + snareFlash * 0.25})`;
+          frontCardRef.current.style.boxShadow = `0 30px 90px rgba(0, 0, 0, 0.95), 0 0 ${35 + snareFlash * 45}px rgba(255, 255, 255, 0.80)`;
         } else {
           frontCardRef.current.style.borderColor = isPlaying ? (currentTrack?.palette?.primary || "#6366f1") : "rgba(255, 255, 255, 0.25)";
-          frontCardRef.current.style.boxShadow = `0 30px 90px rgba(0, 0, 0, 0.95), 0 0 ${20 + energy * 30}px ${currentTrack?.palette?.glow || "rgba(99, 102, 241, 0.45)"}`;
+          frontCardRef.current.style.boxShadow = `0 30px 90px rgba(0, 0, 0, 0.95), 0 0 ${20 + energy * 25 + bassImpact * 20}px ${currentTrack?.palette?.glow || "rgba(99, 102, 241, 0.45)"}`;
+        }
+      }
+
+      // Live Ground-Truth Studio Audio HUD Updates
+      if (bpmTextRef.current) {
+        bpmTextRef.current.textContent = `${beatState.liveBpm} BPM`;
+      }
+      if (keyTextRef.current) {
+        keyTextRef.current.textContent = `KEY: ${beatState.rootKey || "C"}`;
+      }
+      for (let i = 0; i < 4; i++) {
+        const pip = beatPipsRef.current[i];
+        if (pip) {
+          const isActive = beatState.beatInBar === i + 1;
+          if (isActive) {
+            pip.style.background = i === 0 ? "rgba(244, 63, 94, 1.0)" : "rgba(99, 102, 241, 1.0)";
+            pip.style.boxShadow = i === 0 ? "0 0 10px rgba(244, 63, 94, 0.9)" : "0 0 8px rgba(99, 102, 241, 0.8)";
+            pip.style.transform = "scale(1.35)";
+          } else {
+            pip.style.background = "rgba(255, 255, 255, 0.2)";
+            pip.style.boxShadow = "none";
+            pip.style.transform = "scale(1.0)";
+          }
         }
       }
 
@@ -254,7 +316,12 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
       }}
     >
       {/* ─────────────────────────────────────────────────────────────────────
-          1. 60FPS HARDWARE-ACCELERATED VOLUMETRIC AMBIENT CANVAS (No WebGL)
+          0. THREE.JS WEBGL 3D UNIVERSE (15,000 Genre Particles + Nebula Plane + Kick Ring)
+      ────────────────────────────────────────────────────────────────────── */}
+      <Album3DScene />
+
+      {/* ─────────────────────────────────────────────────────────────────────
+          1. 60FPS HARDWARE-ACCELERATED VOLUMETRIC AMBIENT LIGHT & KICK SHOCKWAVE (Z-INDEX 1)
       ────────────────────────────────────────────────────────────────────── */}
       <canvas
         ref={canvasRef}
@@ -264,7 +331,7 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
           width: "100vw",
           height: "100dvh",
           pointerEvents: "none",
-          zIndex: 0,
+          zIndex: 1,
         }}
       />
 
@@ -275,12 +342,12 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
           inset: 0,
           background: "radial-gradient(circle at center, transparent 35%, rgba(0, 0, 0, 0.82) 100%)",
           pointerEvents: "none",
-          zIndex: 1,
+          zIndex: 2,
         }}
       />
 
       {/* ─────────────────────────────────────────────────────────────────────
-          2. MINIMALIST TOP BAR: BACK TO VAULT
+          2. TOP BAR: BACK TO VAULT (LEFT) & STUDIO AUDIO HUD (RIGHT)
       ────────────────────────────────────────────────────────────────────── */}
       <div
         style={{
@@ -312,6 +379,95 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
           <ArrowLeft size={15} />
           <span>Vault</span>
         </button>
+      </div>
+
+      {/* Top-Right Studio Audio HUD */}
+      <div
+        style={{
+          position: "fixed",
+          top: "24px",
+          right: "24px",
+          zIndex: 40,
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          flexWrap: "wrap",
+          justifyContent: "flex-end",
+        }}
+      >
+        {/* Lossless 24-bit/96kHz Master Capsule */}
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            padding: "6px 14px",
+            borderRadius: "999px",
+            background: "rgba(10, 15, 30, 0.65)",
+            border: "1px solid rgba(56, 189, 248, 0.35)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            color: "#38bdf8",
+            fontSize: "0.74rem",
+            fontWeight: 800,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            boxShadow: "0 0 15px rgba(56, 189, 248, 0.15)",
+          }}
+        >
+          <Activity size={13} />
+          <span>FLAC 24/96kHz Master</span>
+        </div>
+
+        {/* Live Ground-Truth BPM & Root Key Badge */}
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "6px 14px",
+            borderRadius: "999px",
+            background: "rgba(255, 255, 255, 0.08)",
+            border: "1px solid rgba(255, 255, 255, 0.15)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            color: "#ffffff",
+            fontSize: "0.78rem",
+            fontWeight: 700,
+          }}
+        >
+          <span ref={bpmTextRef}>128 BPM</span>
+          <span style={{ opacity: 0.3 }}>|</span>
+          <span ref={keyTextRef} style={{ color: "#a78bfa" }}>KEY: C</span>
+        </div>
+
+        {/* 4/4 Beat Grid Pips */}
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "5px",
+            padding: "6px 10px",
+            borderRadius: "999px",
+            background: "rgba(0, 0, 0, 0.55)",
+            border: "1px solid rgba(255, 255, 255, 0.10)",
+            backdropFilter: "blur(16px)",
+          }}
+        >
+          {[1, 2, 3, 4].map((beatNum) => (
+            <div
+              key={beatNum}
+              ref={(el) => { beatPipsRef.current[beatNum - 1] = el; }}
+              style={{
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                background: "rgba(255, 255, 255, 0.2)",
+                transition: "all 0.08s ease-out",
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────
@@ -346,23 +502,39 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
           }}
         />
 
-        {/* B. Punchy CRIMSON RED Aura Shockwave on Bass/Kick Hits */}
+        {/* B. Deep 808 Sub-Bass Obsidian Rumble Aura (20-65Hz) */}
+        <div
+          ref={subRumbleAuraRef}
+          style={{
+            position: "absolute",
+            inset: "-70px",
+            borderRadius: "85px",
+            background: "radial-gradient(circle, rgba(79, 70, 229, 0.85) 0%, rgba(30, 27, 75, 0.70) 50%, transparent 80%)",
+            filter: "blur(60px)",
+            opacity: 0,
+            zIndex: 2,
+            pointerEvents: "none",
+            transition: "opacity 0.08s ease-out",
+          }}
+        />
+
+        {/* C. Punchy CRIMSON RED Aura Shockwave on Kick Hits & Rolls (65-160Hz) */}
         <div
           ref={redKickAuraRef}
           style={{
             position: "absolute",
-            inset: "-60px",
+            inset: "-55px",
             borderRadius: "75px",
             background: "radial-gradient(circle, rgba(239, 68, 68, 0.95) 0%, rgba(225, 29, 72, 0.65) 45%, transparent 75%)",
-            filter: "blur(42px)",
+            filter: "blur(40px)",
             opacity: 0,
-            zIndex: 2,
+            zIndex: 3,
             pointerEvents: "none",
             transition: "opacity 0.05s ease-out",
           }}
         />
 
-        {/* C. Radiant Specular White/Silver Halo on Snare Hits */}
+        {/* D. Radiant Specular White/Silver Halo on Snare Hits */}
         <div
           ref={snareHaloRef}
           style={{
@@ -372,7 +544,7 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
             background: "radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(200, 225, 255, 0.45) 50%, transparent 75%)",
             filter: "blur(24px)",
             opacity: 0,
-            zIndex: 3,
+            zIndex: 4,
             pointerEvents: "none",
             transition: "opacity 0.05s ease-out",
           }}

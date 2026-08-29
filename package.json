@@ -14,5 +14,8 @@
     "build": "npm run build:web && npm run build:api",
     "deploy:web": "npm run deploy --workspace=apps/web",
     "deploy:api": "npm run deploy --workspace=apps/api"
+  },
+  "dependencies": {
+    "web-audio-beat-detector": "^8.2.39"
   }
 }

@@ -8,27 +8,28 @@
 
 | Phase | Nội Dung Trọng Tâm | Trạng Thái | File Đã Triển Khai |
 | :--- | :--- | :--- | :--- |
-| **Phase 1** | • Động cơ 5 băng tần Web Audio API.<br>• 3 Tầng không gian hạt theo thể loại.<br>• Vật thể 3D tự do tương phản cao & bảo vệ thị giác.<br>• Pipeline Cinematic 35mm (Grain, Bloom, Halation, ACES). | ✅ **HOÀN THÀNH & DEPLOYED** | `AudioAnalyserEngine.ts`<br>`Album3DScene.tsx`<br>`FloatingVinylArtifact.ts`<br>`GenreParticleShaders.ts`<br>`GrainHalationShaders.ts` |
-| **Phase 2** | • Tương tác vật lý đĩa than $360^\circ$ + Tia Laser đọc đĩa.<br>• Thanh điều khiển Glass Dock & Waveform Scrubber.<br>• Ngăn kéo 30 bài hát kính mờ (Floating Glass Drawer). | ⏳ **PENDING QUESTIONS** | (Sẽ tạo ở Phase 2) |
-| **Phase 3** | • Chuyển cảnh Camera Fly-through từ Vault vào 3D.<br>• Cảm biến con quay hồi chuyển Gyroscope trên Mobile.<br>• Bản sắc màu Synesthesia riêng biệt cho từng track. | ⏳ **CHỜ PHASE 2** | (Sẽ tạo ở Phase 3) |
-| **Phase 4** | • Tối ưu GPU Dynamic Resolution Scaling.<br>• Chế độ tiết kiệm pin & Background Tab Throttle Guard. | ⏳ **CHỜ PHASE 3** | (Sẽ tạo ở Phase 4) |
+| **Phase 1** | • Động cơ BEAT_DETECTION cao cấp (`StudioBeatEngine.ts`) với Live Dynamic Multi-Band Spectral Flux.<br>• Thuật toán bắt Kick dồn / Kick Rolls (1/16th & 1/32th) qua First-Derivative Acceleration.<br>• 3 Tầng không gian hạt Three.js WebGL theo thể loại (15,000 hạt) + Downbeat 4/4 PLL Clock.<br>• Thẻ Bìa Album HVL 3D nổi bật (Perspective Tilt + Mobile In-Place Flip 290x290). | ✅ **HOÀN THÀNH & DEPLOYED** | `StudioBeatEngine.ts`<br>`useBeatSync.ts`<br>`Album3DScene.tsx`<br>`Album3DZone.tsx`<br>`GenreParticleShaders.ts`<br>`GrainHalationShaders.ts` |
+| **Phase 2** | • Thanh điều khiển Floating Liquid Glass Dock & Live Waveform Visualizer.<br>• Danh sách 30 bài hát kính mờ (Floating Glass Drawer).<br>• Hiệu ứng ánh sáng Synesthesia riêng biệt cho từng bài. | ⏳ **TIẾP THEO** | `FloatingPlayerDock.tsx`<br>`MobilePlayerDock.tsx` |
+| **Phase 3** | • Chuyển cảnh Camera Fly-through từ Vault vào 3D Zone.<br>• Cảm biến con quay hồi chuyển Gyroscope trên Mobile.<br>• Tối ưu GPU Dynamic Resolution Scaling. | ⏳ **CHỜ PHASE 2** | (Sẽ tạo ở Phase 3) |
 
 ---
 
-## 🏛️ BỘ 13 CÂU HỎI KIẾN TRÚC CHUYÊN SÂU & TRẠNG THÁI
+## 🏛️ BỘ QUY CHUẨN KIẾN TRÚC & QUYẾT ĐỊNH ĐÃ THỐNG NHẤT
 
-### ✅ [ĐÃ GIẢI QUYẾT TRONG PHASE 1]
-- **Câu 1: Bóc tách tần số âm thanh siêu chính xác**:
-  - *Quyết định:* Web Audio API `AnalyserNode (FFT 2048, smoothing 0.80)` bóc tách 5 dải tần thực thời: **Sub-Bass (20-90Hz)**, **Kick (90-220Hz)**, **Low-Mid (220-600Hz)**, **Vocal/Mid (600-3000Hz)**, **Treble/Air (3000-16000Hz)** kèm thuật toán **Transient-Aware EMA Lerp** phản hồi tức thời $<16\text{ms}$.
-- **Câu 2: Không gian hạt theo thể loại & Vật thể tự do**:
-  - *Quyết định:* 3 Tầng không gian biến đổi theo nhạc:
-    - *Tầng 1 (Chill/Poetic/Melancholic)*: Biển sương mù & dải lụa cực quang màu xanh đêm, tím khói.
-    - *Tầng 2 (Cosmic/Ambient)*: Tinh vân vũ trụ xoay theo quỹ đạo đĩa than với sắc xanh ngọc và chàm thiên thể.
-    - *Tầng 3 (Trap/Drill/High Energy)*: Không gian Cybernetic gia tốc cực đại với sóng xung kích phát nổ từ tâm.
-    - *Vật thể tự do:* Đĩa than lơ lửng chuyển động tự do, nảy theo beat, vật liệu kim loại PBR rãnh đĩa siêu nhỏ luôn tương phản cao với nền.
-    - *An toàn thị giác:* Nền mặc định đen tuyền, giới hạn độ sáng trần $\le 18\%$ luminance để không gây chói mắt.
-- **Câu 3: Pipeline Cinematic 35mm**:
-  - *Quyết định:* Tích hợp đầy đủ Selective Unreal Bloom, Film Halation 35mm (quầng sáng ấm mép tương phản), Dynamic 35mm Film Grain $60\text{fps}$, Sub-Bass Chromatic Aberration giật nhẹ khi dập bass, và ACES Filmic Tone Mapping.
+### ✅ [CÁC QUYẾT ĐỊNH ĐÃ PHÊ DUYỆT]
+- **Quyết định 1: Động cơ Beat Detection Live Dynamic 100% (Zero Hardcoded BPM)**:
+  - Sử dụng `StudioBeatEngine` xử lý trực tiếp luồng Web Audio API.
+  - Phân tích 5 dải tần (Sub-bass, Kick, Low-Mid, Vocal-Mid, Air-Treble) bằng Half-Wave Rectified Spectral Flux.
+  - Nhận diện nhịp Kick dồn / Double Kicks / 808 Rolls qua đạo hàm bậc 1 tốc độ gia tốc năng lượng ($\frac{dE}{dt} > 1.8$) kết hợp Micro-cooldown ($55\text{ms}$).
+  - Khóa pha liên tục (Phase-Locked Loop) cung cấp `beatProgress` ($0.0 \to 1.0$) và nhịp Downbeat phách 1 của ô nhịp 4/4.
+- **Quyết định 2: Phạm vi thị giác 3D Zone (Không dùng đĩa than)**:
+  - Tuyệt đối **không sử dụng mô hình 3D đĩa than / Turntable**.
+  - Hiệu ứng thị giác tập trung hoàn toàn vào 3 thành phần:
+    1. **Bìa Album HVL 3D**: Nghiêng tương tác theo chuột (Desktop) và lật $180^\circ$ tại chỗ xem 30 bài hát (Mobile), nảy theo nhịp Kick và Downbeat.
+    2. **Thanh Floating Player Dock**: Thiết kế kính mờ Liquid Glass, hiển thị sóng âm phổ thực thời (Real spectrum bars).
+    3. **Background Universe**: 15,000 hạt Three.js WebGL thích ứng 3 tầng Mood, dãn nở theo Downbeat và rực sáng khi có Kick dồn.
+- **Quyết định 3: Pipeline Cinematic 35mm & An toàn thị giác**:
+  - Film Grain $60\text{fps}$, Sub-bass Chromatic Aberration, ACES Filmic Tone Mapping, nền đen tuyền giới hạn trần sáng $\le 18\%$ luminance để bảo vệ mắt.
 
 ---
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { useAudioStore } from "../../store/audioStore";
-import { audioAnalyserEngine } from "../../audio/AudioAnalyserEngine";
+import { studioBeatEngine } from "../../audio/StudioBeatEngine";
 import {
   GenreParticleVertexShader,
   GenreParticleFragmentShader,
@@ -151,8 +151,16 @@ export const Album3DScene: React.FC = () => {
         uTime: { value: 0 },
         uSubBass: { value: 0 },
         uKick: { value: 0 },
+        uUpperBass: { value: 0 },
         uVocalMid: { value: 0 },
         uHighTreble: { value: 0 },
+        uSubImpact: { value: 0 },
+        uKickImpact: { value: 0 },
+        uBassImpact: { value: 0 },
+        uKickRoll: { value: 0 },
+        uDownbeatPulse: { value: 0 },
+        uSnareFlash: { value: 0 },
+        uBeatProgress: { value: 0 },
         uMoodTier: { value: getMoodTier(currentTrack?.genre, currentTrack?.title) },
       },
       transparent: true,
@@ -179,6 +187,7 @@ export const Album3DScene: React.FC = () => {
         uniform float uTime;
         uniform float uKick;
         uniform float uSubBass;
+        uniform float uDownbeat;
         uniform vec3 uColor;
         varying vec2 vUv;
 
@@ -186,15 +195,16 @@ export const Album3DScene: React.FC = () => {
           vec2 centered = vUv - vec2(0.5);
           float dist = length(centered) * 2.0;
           float ring = smoothstep(0.35, 0.65, dist) * smoothstep(1.0, 0.70, dist);
-          float pulse = (0.35 + uKick * 0.95 + uSubBass * 0.6);
+          float pulse = (0.35 + uKick * 0.95 + uSubBass * 0.6 + uDownbeat * 0.8);
           float alpha = ring * pulse * 0.75;
-          gl_FragColor = vec4(uColor + vec3(uKick * 0.4), alpha);
+          gl_FragColor = vec4(uColor + vec3(uKick * 0.4 + uDownbeat * 0.5), alpha);
         }
       `,
       uniforms: {
         uTime: { value: 0 },
         uKick: { value: 0 },
         uSubBass: { value: 0 },
+        uDownbeat: { value: 0 },
         uColor: { value: new THREE.Color(currentTrack?.palette?.primary || "#6366f1") }
       },
       transparent: true,
@@ -217,28 +227,37 @@ export const Album3DScene: React.FC = () => {
       animationFrameId = requestAnimationFrame(animate);
 
       const elapsedTime = clock.getElapsedTime();
-      const bands = audioAnalyserEngine.getBands();
+      const beatState = studioBeatEngine.update();
       const moodTier = getMoodTier(currentTrack?.genre, currentTrack?.title);
 
-      // Background Nebula Shader Update
+      // Background Nebula Shader Update (Reacts deeply to 808 Sub-Bass)
       bgMat.uniforms.uTime.value = elapsedTime;
-      bgMat.uniforms.uKick.value = bands.kick;
-      bgMat.uniforms.uSubBass.value = bands.subBass;
+      bgMat.uniforms.uKick.value = beatState.kickImpact;
+      bgMat.uniforms.uSubBass.value = beatState.subImpact;
       bgMat.uniforms.uMoodTier.value = moodTier;
 
-      // Particle Shader Uniforms Update
+      // Particle Shader Uniforms Update (Distinct Channels)
       particleMaterial.uniforms.uTime.value = elapsedTime;
-      particleMaterial.uniforms.uSubBass.value = bands.subBass;
-      particleMaterial.uniforms.uKick.value = bands.kick;
-      particleMaterial.uniforms.uVocalMid.value = bands.vocalMid;
-      particleMaterial.uniforms.uHighTreble.value = bands.highTreble;
+      particleMaterial.uniforms.uSubBass.value = beatState.subBass;
+      particleMaterial.uniforms.uKick.value = beatState.kick;
+      particleMaterial.uniforms.uUpperBass.value = beatState.upperBass;
+      particleMaterial.uniforms.uVocalMid.value = beatState.vocalMid;
+      particleMaterial.uniforms.uHighTreble.value = beatState.highTreble;
+      particleMaterial.uniforms.uSubImpact.value = beatState.subImpact;
+      particleMaterial.uniforms.uKickImpact.value = beatState.kickImpact;
+      particleMaterial.uniforms.uBassImpact.value = beatState.bassImpact;
+      particleMaterial.uniforms.uKickRoll.value = beatState.kickRollIntensity;
+      particleMaterial.uniforms.uDownbeatPulse.value = beatState.downbeatPulse;
+      particleMaterial.uniforms.uSnareFlash.value = beatState.snareFlash;
+      particleMaterial.uniforms.uBeatProgress.value = beatState.beatProgress;
       particleMaterial.uniforms.uMoodTier.value = moodTier;
 
       // Aura Shockwave Ring Update
       ringMat.uniforms.uTime.value = elapsedTime;
-      ringMat.uniforms.uKick.value = bands.kick;
-      ringMat.uniforms.uSubBass.value = bands.subBass;
-      const ringScale = 1.0 + bands.kick * 0.5 + bands.subBass * 0.3;
+      ringMat.uniforms.uKick.value = beatState.kickImpact;
+      ringMat.uniforms.uSubBass.value = beatState.subImpact;
+      ringMat.uniforms.uDownbeat.value = beatState.downbeatPulse;
+      const ringScale = 1.0 + beatState.kickImpact * 0.55 + beatState.subImpact * 0.35 + beatState.downbeatPulse * 0.30;
       auraRing.scale.set(ringScale, ringScale, 1.0);
       auraRing.rotation.z += 0.008;
 

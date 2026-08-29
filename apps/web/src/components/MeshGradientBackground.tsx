@@ -21,12 +21,12 @@ export const MeshGradientBackground: React.FC = () => {
 
     window.addEventListener("resize", handleResize);
 
-    // Signature Apple Luxury Monochrome Fluid Aurora Orbs (Silver / Platinum / Deep Black)
+    // Visible Monochrome Fluid Aurora Orbs (20%-30% contrast on deep black)
     const orbs = [
-      { x: width * 0.25, y: height * 0.25, vx: 0.35, vy: 0.25, radius: width * 0.45, alpha: 0.26 },
-      { x: width * 0.75, y: height * 0.35, vx: -0.3, vy: 0.3, radius: width * 0.5, alpha: 0.22 },
-      { x: width * 0.5, y: height * 0.8, vx: 0.25, vy: -0.25, radius: width * 0.55, alpha: 0.24 },
-      { x: width * 0.15, y: height * 0.85, vx: -0.2, vy: -0.2, radius: width * 0.4, alpha: 0.18 }
+      { x: width * 0.2, y: height * 0.25, vx: 0.35, vy: 0.25, radius: width * 0.45, alpha: 0.22 },
+      { x: width * 0.8, y: height * 0.35, vx: -0.3, vy: 0.3, radius: width * 0.5, alpha: 0.18 },
+      { x: width * 0.5, y: height * 0.8, vx: 0.25, vy: -0.25, radius: width * 0.55, alpha: 0.20 },
+      { x: width * 0.15, y: height * 0.85, vx: -0.2, vy: -0.2, radius: width * 0.4, alpha: 0.15 }
     ];
 
     let t = 0;
@@ -34,7 +34,7 @@ export const MeshGradientBackground: React.FC = () => {
     const render = () => {
       t += 0.005;
 
-      // Base pure obsidian black
+      // Base black
       ctx.fillStyle = "#000000";
       ctx.fillRect(0, 0, width, height);
 
@@ -58,8 +58,8 @@ export const MeshGradientBackground: React.FC = () => {
         );
 
         gradient.addColorStop(0, `rgba(255, 255, 255, ${orb.alpha})`);
-        gradient.addColorStop(0.4, `rgba(200, 210, 225, ${orb.alpha * 0.6})`);
-        gradient.addColorStop(0.7, `rgba(120, 130, 145, ${orb.alpha * 0.25})`);
+        gradient.addColorStop(0.4, `rgba(180, 190, 205, ${orb.alpha * 0.6})`);
+        gradient.addColorStop(0.7, `rgba(100, 110, 125, ${orb.alpha * 0.25})`);
         gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
 
         ctx.fillStyle = gradient;
@@ -88,7 +88,7 @@ export const MeshGradientBackground: React.FC = () => {
         width: "100%",
         height: "100%",
         pointerEvents: "none",
-        zIndex: 0,
+        zIndex: 0
       }}
     />
   );

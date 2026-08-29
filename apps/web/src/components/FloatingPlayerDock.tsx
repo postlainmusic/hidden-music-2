@@ -1,30 +1,26 @@
-import React, { useEffect, useRef, useState } from "react";
-import { useAudioStore, DEFAULT_TRACKS } from "../store/audioStore";
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Heart, Sparkles, ListMusic, X } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useEffect, useRef } from "react";
+import { useAudioStore } from "../store/audioStore";
+import { Play, Pause, Loader2, SkipBack, SkipForward, Volume2, VolumeX, Heart, Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
 
 export const FloatingPlayerDock: React.FC = () => {
   const {
     currentTrack,
     queue,
     isPlaying,
+    isBuffering,
     currentTime,
     duration,
     volume,
     isMuted,
     togglePlay,
-    playTrack,
     nextTrack,
     prevTrack,
     seek,
     setVolume,
     toggleMute,
-    favoritedTrackIds,
-    toggleFavoriteTrack,
     getFrequencyData
   } = useAudioStore();
-
-  const [isQueueOpen, setIsQueueOpen] = useState<boolean>(false);
 
   const currentIndex = currentTrack ? queue.findIndex((t) => t.id === currentTrack.id) : 0;
   const nextTrackItem = queue.length > 0 ? queue[(currentIndex + 1) % queue.length] : null;
@@ -61,13 +57,9 @@ export const FloatingPlayerDock: React.FC = () => {
         gradient.addColorStop(1, currentTrack?.palette?.primary || "#6366f1");
 
         ctx.fillStyle = gradient;
-        if (typeof ctx.roundRect === "function") {
-          ctx.beginPath();
-          ctx.roundRect(x, y, barWidth, barHeight, 2);
-          ctx.fill();
-        } else {
-          ctx.fillRect(x, y, barWidth, barHeight);
-        }
+        ctx.beginPath();
+        ctx.roundRect(x, y, barWidth, barHeight, 2);
+        ctx.fill();
       }
 
       animId = requestAnimationFrame(draw);
@@ -76,7 +68,7 @@ export const FloatingPlayerDock: React.FC = () => {
     draw();
 
     return () => cancelAnimationFrame(animId);
-  }, [isPlaying, getFrequencyData, currentTrack]);
+  }, [isPlaying, getFrequencyData]);
 
   if (!currentTrack) return null;
 
@@ -103,172 +95,6 @@ export const FloatingPlayerDock: React.FC = () => {
         pointerEvents: "none"
       }}
     >
-      {/* 1. Floating Desktop Queue / Tracklist Popover Window */}
-      <AnimatePresence>
-        {isQueueOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
-            style={{
-              position: "absolute",
-              bottom: "76px",
-              right: "24px",
-              width: "360px",
-              maxHeight: "440px",
-              borderRadius: "22px",
-              background: "rgba(10, 11, 16, 0.88)",
-              border: "1px solid rgba(255, 255, 255, 0.12)",
-              backdropFilter: "blur(28px)",
-              WebkitBackdropFilter: "blur(28px)",
-              boxShadow: "0 30px 80px rgba(0, 0, 0, 0.9), 0 0 1px 1px rgba(255, 255, 255, 0.1)",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              pointerEvents: "auto",
-              zIndex: 60
-            }}
-          >
-            {/* Queue Header */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "14px 18px",
-                borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-                background: "rgba(255, 255, 255, 0.02)"
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <ListMusic size={16} color="#a5b4fc" />
-                <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#ffffff" }}>
-                  Danh sách phát (30 bài)
-                </span>
-              </div>
-              <button
-                onClick={() => setIsQueueOpen(false)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "rgba(255, 255, 255, 0.6)",
-                  cursor: "pointer",
-                  padding: "4px",
-                  display: "flex",
-                  alignItems: "center"
-                }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Queue 30 Tracks Scrollable List */}
-            <div
-              style={{
-                flex: 1,
-                overflowY: "auto",
-                padding: "8px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "2px"
-              }}
-            >
-              {DEFAULT_TRACKS.map((track, idx) => {
-                const isCurrent = currentTrack.id === track.id;
-                const isFav = favoritedTrackIds.includes(track.id);
-
-                return (
-                  <div
-                    key={track.id}
-                    onClick={() => playTrack(track)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "8px 12px",
-                      borderRadius: "12px",
-                      background: isCurrent ? "rgba(255, 255, 255, 0.12)" : "transparent",
-                      border: isCurrent ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid transparent",
-                      cursor: "pointer",
-                      transition: "all 0.15s ease"
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: 1 }}>
-                      <div
-                        style={{
-                          width: "20px",
-                          height: "20px",
-                          borderRadius: "50%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          background: isCurrent ? "#ffffff" : "transparent",
-                          color: isCurrent ? "#000000" : "rgba(255, 255, 255, 0.4)",
-                          flexShrink: 0
-                        }}
-                      >
-                        {isCurrent && isPlaying ? (
-                          <Pause size={10} fill="#000000" />
-                        ) : isCurrent ? (
-                          <Play size={10} fill="#000000" style={{ marginLeft: "1px" }} />
-                        ) : (
-                          <span style={{ fontSize: "0.7rem", fontWeight: 700 }}>
-                            {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
-                          </span>
-                        )}
-                      </div>
-
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <p
-                          style={{
-                            fontSize: "0.8rem",
-                            fontWeight: isCurrent ? 700 : 500,
-                            color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.85)",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis"
-                          }}
-                        >
-                          {track.title}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-                      <span style={{ fontSize: "0.7rem", color: "rgba(255, 255, 255, 0.35)" }}>
-                        {formatTime(track.duration)}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavoriteTrack(track.id);
-                        }}
-                        style={{
-                          background: "transparent",
-                          border: "none",
-                          cursor: "pointer",
-                          padding: "2px",
-                          display: "flex",
-                          alignItems: "center"
-                        }}
-                      >
-                        <Heart
-                          size={12}
-                          color={isFav ? "#f43f5e" : "rgba(255, 255, 255, 0.25)"}
-                          fill={isFav ? "#f43f5e" : "none"}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 2. Main Glass Dock Bar */}
       <motion.div
         initial={{ y: 80, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -284,13 +110,7 @@ export const FloatingPlayerDock: React.FC = () => {
           gap: "16px",
           pointerEvents: "auto",
           position: "relative",
-          overflow: "hidden",
-          borderRadius: "26px",
-          border: `1px solid ${isPlaying ? currentTrack.palette.primary + "66" : "rgba(255, 255, 255, 0.12)"}`,
-          boxShadow: isPlaying
-            ? `0 20px 50px rgba(0,0,0,0.85), 0 0 28px ${currentTrack.palette.glow}`
-            : "0 20px 50px rgba(0,0,0,0.8), 0 0 1px 1px rgba(255, 255, 255, 0.08)",
-          transition: "border-color 0.4s ease, box-shadow 0.4s ease"
+          overflow: "hidden"
         }}
       >
         {/* Subtle Top Specular Glow Line */}
@@ -307,6 +127,7 @@ export const FloatingPlayerDock: React.FC = () => {
 
         {/* Left: Track Information & Album Art */}
         <div style={{ display: "flex", alignItems: "center", gap: "14px", minWidth: "220px" }}>
+          {/* Animated Artwork */}
           <div style={{ position: "relative" }}>
             <motion.img
               animate={{ rotate: isPlaying ? 360 : 0 }}
@@ -314,66 +135,69 @@ export const FloatingPlayerDock: React.FC = () => {
               src={currentTrack.coverUrl}
               alt={currentTrack.title}
               style={{
-                width: "46px",
-                height: "46px",
+                width: "48px",
+                height: "48px",
                 borderRadius: "12px",
                 objectFit: "cover",
-                border: "1px solid rgba(255, 255, 255, 0.2)",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.5)"
+                boxShadow: "0 4px 14px rgba(0,0,0,0.5), 0 0 16px var(--glow-color)"
               }}
             />
+            {isPlaying && (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  borderRadius: "12px",
+                  border: "1.5px solid rgba(255,255,255,0.4)"
+                }}
+              />
+            )}
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "2px", minWidth: 0 }}>
-            <span
+          <div style={{ overflow: "hidden" }}>
+            <h4
               style={{
-                fontSize: "0.85rem",
+                fontSize: "0.92rem",
                 fontWeight: 700,
-                color: "var(--text-primary)",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
-                maxWidth: "160px"
+                color: "#ffffff"
               }}
             >
               {currentTrack.title}
-            </span>
-            <span
+            </h4>
+            <p
               style={{
-                fontSize: "0.75rem",
+                fontSize: "0.78rem",
                 color: "var(--text-secondary)",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
-                textOverflow: "ellipsis",
-                maxWidth: "160px"
+                textOverflow: "ellipsis"
               }}
             >
               {currentTrack.artist}
-            </span>
+            </p>
           </div>
 
           <button
-            onClick={() => toggleFavoriteTrack(currentTrack.id)}
+            className="glass-pill"
             style={{
-              background: "transparent",
+              padding: "6px",
               border: "none",
+              color: "var(--text-muted)",
               cursor: "pointer",
-              padding: "4px",
               marginLeft: "4px"
             }}
           >
-            <Heart
-              size={17}
-              color={favoritedTrackIds.includes(currentTrack.id) ? "#f43f5e" : "var(--text-muted)"}
-              fill={favoritedTrackIds.includes(currentTrack.id) ? "#f43f5e" : "none"}
-            />
+            <Heart size={15} />
           </button>
         </div>
 
         {/* Center: Controls & Scrubber */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", flex: 1, maxWidth: "460px" }}>
-          {/* Action Buttons */}
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          {/* Button Row */}
+          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
             <button
               onClick={prevTrack}
               style={{
@@ -387,25 +211,34 @@ export const FloatingPlayerDock: React.FC = () => {
               <SkipBack size={18} />
             </button>
 
-            <button
+            <motion.button
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.92 }}
               onClick={togglePlay}
               style={{
-                width: "36px",
-                height: "36px",
+                width: "40px",
+                height: "40px",
                 borderRadius: "50%",
                 background: "#ffffff",
-                color: "#000000",
+                border: "none",
+                color: "#090a0f",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                border: "none",
                 cursor: "pointer",
-                boxShadow: "0 0 16px rgba(255,255,255,0.4)",
-                transition: "transform 0.1s ease"
+                boxShadow: "0 4px 18px var(--glow-color), 0 0 12px rgba(255,255,255,0.8)"
               }}
             >
-              {isPlaying ? <Pause size={17} fill="#000000" /> : <Play size={17} fill="#000000" style={{ marginLeft: "2px" }} />}
-            </button>
+              {isBuffering ? (
+                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
+                  <Loader2 size={18} color="#090a0f" />
+                </motion.div>
+              ) : isPlaying ? (
+                <Pause size={18} fill="#090a0f" />
+              ) : (
+                <Play size={18} fill="#090a0f" style={{ marginLeft: "2px" }} />
+              )}
+            </motion.button>
 
             <button
               onClick={nextTrack}
@@ -437,7 +270,9 @@ export const FloatingPlayerDock: React.FC = () => {
                 max={duration || 100}
                 value={currentTime}
                 onChange={(e) => seek(Number(e.target.value))}
-                style={{ zIndex: 2 }}
+                style={{
+                  zIndex: 2
+                }}
               />
               <div
                 style={{
@@ -459,30 +294,8 @@ export const FloatingPlayerDock: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Queue Popover Button + Lossless & Volume */}
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: "200px", justifyContent: "flex-end" }}>
-          {/* Queue Window Toggle Button */}
-          <button
-            onClick={() => setIsQueueOpen(!isQueueOpen)}
-            style={{
-              background: isQueueOpen ? "rgba(255, 255, 255, 0.2)" : "rgba(255, 255, 255, 0.08)",
-              border: "1px solid rgba(255, 255, 255, 0.15)",
-              color: isQueueOpen ? "#ffffff" : "var(--text-secondary)",
-              cursor: "pointer",
-              padding: "6px 10px",
-              borderRadius: "999px",
-              display: "flex",
-              alignItems: "center",
-              gap: "5px",
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              transition: "all 0.2s ease"
-            }}
-          >
-            <ListMusic size={14} />
-            <span>30 Bài</span>
-          </button>
-
+        {/* Right: Audio Quality & Volume */}
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: "180px", justifyContent: "flex-end" }}>
           <div
             className="glass-pill"
             style={{
@@ -496,10 +309,10 @@ export const FloatingPlayerDock: React.FC = () => {
             }}
           >
             <Sparkles size={11} />
-            <span>FLAC</span>
+            <span>LOSSLESS</span>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", width: "100px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", width: "110px" }}>
             <button
               onClick={toggleMute}
               style={{
@@ -524,7 +337,7 @@ export const FloatingPlayerDock: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Background Silent Next-Track Preloader */}
+      {/* Background Silent Next-Track Preloader (Pre-buffers the next track for 0ms transition) */}
       {nextTrackItem && nextTrackItem.id !== currentTrack.id && (
         <audio src={nextTrackItem.audioUrl} preload="auto" style={{ display: "none" }} />
       )}

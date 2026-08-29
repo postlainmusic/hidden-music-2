@@ -1,11 +1,19 @@
-// 🌌 GLSL Vertex & Fragment Shaders for Genre/Mood-Driven Particle Systems (High-Vibrancy)
+// 🌌 GLSL Vertex & Fragment Shaders for Genre/Mood-Driven Particle Systems (Distinct Sub/Kick/Bass Synesthesia)
 
 export const GenreParticleVertexShader = `
   uniform float uTime;
   uniform float uSubBass;
   uniform float uKick;
+  uniform float uUpperBass;
   uniform float uVocalMid;
   uniform float uHighTreble;
+  uniform float uSubImpact;
+  uniform float uKickImpact;
+  uniform float uBassImpact;
+  uniform float uKickRoll;
+  uniform float uDownbeatPulse;
+  uniform float uSnareFlash;
+  uniform float uBeatProgress;
   uniform int uMoodTier; // 0 = Chill/Poetic, 1 = Cosmic/Ambient, 2 = Trap/Cybernetic
 
   attribute float aScale;
@@ -71,54 +79,68 @@ export const GenreParticleVertexShader = `
 
     // ─────────────────────────────────────────────────────────────
     // TIER 0: CHILL / POETIC / MELANCHOLIC (Sinuous Bioluminescent Mist)
+    // • Sub-Bass: Deep undulating depth waves (Z-axis)
+    // • Melodic Bass: Soft lateral ribbon displacement (Y-axis)
+    // • Kick: Gentle starlight staccato pulses
     // ─────────────────────────────────────────────────────────────
     if (uMoodTier == 0) {
-      float wave = sin(pos.x * 0.35 + uTime * 1.2 + aPhase) * cos(pos.y * 0.3 + uTime * 0.8);
-      pos.z += wave * (1.8 + uVocalMid * 3.5);
-      pos.y += snoise(pos * 0.2 + vec3(0.0, uTime * 0.4, 0.0)) * (1.2 + uSubBass * 2.8);
+      float subWave = sin(pos.x * 0.30 + uTime * 0.8 + aPhase) * (1.5 + uSubImpact * 3.5);
+      float bassWave = cos(pos.y * 0.25 + uTime * 0.6) * (1.2 + uBassImpact * 2.8);
+      pos.z += subWave + (uSubBass * 3.0);
+      pos.y += bassWave + snoise(pos * 0.18 + vec3(0.0, uTime * 0.35, 0.0)) * (1.0 + uVocalMid * 2.5);
+      pos += normalize(pos + vec3(0.001)) * (uKickImpact * 0.8 + uDownbeatPulse * 1.5);
       
       // Color: Deep Indigo & Lavender Violet into Silver Starlight
       vec3 colA = vec3(0.38, 0.42, 0.95);
       vec3 colB = vec3(0.85, 0.55, 1.00);
-      vColor = mix(colA, colB, sin(distFromCenter * 0.25 + uTime * 0.8) * 0.5 + 0.5);
-      vAlpha = (0.75 + uVocalMid * 0.35);
+      vColor = mix(colA, colB, sin(distFromCenter * 0.25 + uTime * 0.8 + uBeatProgress * 3.1415 + uBassImpact * 0.5) * 0.5 + 0.5);
+      vAlpha = (0.75 + uVocalMid * 0.35 + uSubImpact * 0.25);
     }
     // ─────────────────────────────────────────────────────────────
     // TIER 1: COSMIC / MYSTICAL / AMBIENT (Gravitational Nebula Vortex)
+    // • Sub-Bass: Gravitational center expansion (Warp field)
+    // • Melodic Bass: Smooth orbital angular velocity acceleration
+    // • Kick: Sharp radial shockwave rings
     // ─────────────────────────────────────────────────────────────
     else if (uMoodTier == 1) {
-      float rotSpeed = (0.35 + uKick * 0.85) * (1.0 / (distFromCenter * 0.2 + 1.0));
-      float newAngle = angle + uTime * rotSpeed;
+      float rotSpeed = (0.35 + uBassImpact * 0.95 + uDownbeatPulse * 0.5) * (1.0 / (distFromCenter * 0.2 + 1.0));
+      float newAngle = angle + uTime * rotSpeed + uBeatProgress * 0.25;
       pos.x = cos(newAngle) * distFromCenter;
       pos.y = sin(newAngle) * distFromCenter;
-      pos.z += sin(distFromCenter * 0.9 - uTime * 3.0) * (1.0 + uSubBass * 3.5);
+      pos.z += sin(distFromCenter * 0.9 - uTime * 3.0) * (1.0 + uSubImpact * 4.0);
+      pos += normalize(pos + vec3(0.001)) * (uKickImpact * 2.2 + uDownbeatPulse * 1.8);
 
       // Color: Electric Sapphire & Radiant Emerald Aurora
       vec3 colA = vec3(0.20, 0.55, 1.00);
       vec3 colB = vec3(0.10, 0.95, 0.70);
-      vColor = mix(colA, colB, sin(newAngle * 2.0 + uTime * 1.5) * 0.5 + 0.5);
-      vAlpha = (0.80 + uKick * 0.4);
+      vColor = mix(colA, colB, sin(newAngle * 2.0 + uTime * 1.5 + uSubImpact * 0.8) * 0.5 + 0.5);
+      vAlpha = (0.80 + uKickImpact * 0.35 + uSubImpact * 0.25);
     }
     // ─────────────────────────────────────────────────────────────
-    // TIER 2: TRAP / CYBERNETIC / WARP (High-Energy Particle Shockwave)
+    // TIER 2: TRAP / CYBERNETIC / WARP (High-Energy Particle Shockwaves & Fast Rolls)
+    // • Sub-Bass (808 Rumble): Massive outward space expansion
+    // • Kick (Punch): Explosive instantaneous radial burst (+R)
+    // • Kick Rolls: Rapid staccato strobe pulses
     // ─────────────────────────────────────────────────────────────
     else {
       vec3 shockDir = normalize(pos + vec3(0.001));
       float pulseWave = sin(distFromCenter * 2.2 - uTime * 8.0);
-      pos += shockDir * (pulseWave * (0.8 + uKick * 2.5) + uSubBass * 3.2);
+      float kickTotal = uKickImpact * 3.5 + uKickRoll * 4.0 + uDownbeatPulse * 2.5;
+      float subTotal = uSubImpact * 4.2 + uSubBass * 3.0;
+      pos += shockDir * (pulseWave * (0.8 + kickTotal) + subTotal);
 
       // Color: Hyper Neon Violet & Electric Cyan
       vec3 colA = vec3(0.85, 0.15, 1.00);
       vec3 colB = vec3(0.00, 0.95, 1.00);
-      vColor = mix(colA, colB, fract(distFromCenter * 0.4 + uTime * 3.0));
-      vAlpha = (0.85 + uKick * 0.45);
+      vColor = mix(colA, colB, fract(distFromCenter * 0.4 + uTime * 3.0 + uKickRoll * 0.5 + uBassImpact * 0.3));
+      vAlpha = (0.85 + uKickImpact * 0.40 + uKickRoll * 0.40 + uSubImpact * 0.20);
     }
 
     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mvPosition;
 
-    // Dynamic, high-visibility point size scaling with beat and treble sparkle
-    float pSize = aScale * (65.0 / -mvPosition.z) * (1.0 + uKick * 0.8 + uHighTreble * 1.2);
+    // Point size reacts distinctively: Kick expands, Snare sparkles, Sub breathes
+    float pSize = aScale * (65.0 / -mvPosition.z) * (1.0 + uKickImpact * 0.9 + uHighTreble * 1.1 + uSubImpact * 0.5 + uSnareFlash * 0.6);
     gl_PointSize = clamp(pSize, 4.0, 72.0);
   }
 `;

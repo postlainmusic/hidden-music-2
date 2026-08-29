@@ -1,1 +1,7 @@
+# Node modules & dependencies
 node_modules
+.wrangler
+
+# Large local Lossless FLAC binaries (Streamed from Cloudflare R2 hidden-music-vault)
+music/*.flac
+!music/lrc/
