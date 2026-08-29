@@ -9,12 +9,14 @@ import {
   SkipForward,
   ChevronDown,
   Heart,
-  Sparkles,
   Volume2,
   VolumeX,
-  Zap
+  Mic2,
+  Disc3
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { SyncedLyricsView } from "./SyncedLyricsView";
+import { studioBeatEngine } from "../audio/StudioBeatEngine";
 
 export const MobilePlayerDock: React.FC = () => {
   const {
@@ -24,7 +26,6 @@ export const MobilePlayerDock: React.FC = () => {
     duration,
     volume,
     isMuted,
-    bassBoostEnabled,
     favoritedTrackIds,
     togglePlay,
     nextTrack,
@@ -32,12 +33,12 @@ export const MobilePlayerDock: React.FC = () => {
     seek,
     setVolume,
     toggleMute,
-    toggleBassBoost,
     toggleFavoriteTrack,
     getFrequencyData
   } = useAudioStore();
 
   const [isFullOpen, setIsFullOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"cover" | "lyrics">("cover");
   const [isDraggingSeeker, setIsDraggingSeeker] = useState(false);
   const [dragSeekTime, setDragSeekTime] = useState<number | null>(null);
 
@@ -48,6 +49,8 @@ export const MobilePlayerDock: React.FC = () => {
   const fullCurrentTimeRef = useRef<HTMLSpanElement | null>(null);
   const fullDurationRef = useRef<HTMLSpanElement | null>(null);
   const fullSliderRef = useRef<HTMLInputElement | null>(null);
+  const mobileHalationRef = useRef<HTMLDivElement | null>(null);
+  const mobileCoverCardRef = useRef<HTMLDivElement | null>(null);
 
   const formatTime = (seconds: number) => {
     if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) return "0:00";
@@ -87,6 +90,45 @@ export const MobilePlayerDock: React.FC = () => {
 
     return () => unsubscribe();
   }, [isDraggingSeeker]);
+
+  // 60fps Vault-Style Halation Flare & Beat Pulse on Mobile Cover
+  useEffect(() => {
+    let animId: number;
+
+    const loop = () => {
+      const beatState = studioBeatEngine.getBeatState();
+
+      if (mobileHalationRef.current && isPlaying) {
+        const kickVal = Math.max(beatState.kickImpact, beatState.kickRollIntensity);
+        const subVal = beatState.subImpact;
+        const opacity = Math.min(0.85, 0.25 + kickVal * 0.55 + subVal * 0.25);
+        const scale = 1.0 + kickVal * 0.08 + subVal * 0.04;
+        mobileHalationRef.current.style.opacity = String(opacity);
+        mobileHalationRef.current.style.transform = `scale(${scale.toFixed(3)})`;
+      }
+
+      if (mobileCoverCardRef.current && isPlaying) {
+        if (beatState.isSnareHit) {
+          mobileCoverCardRef.current.style.borderColor = "rgba(255, 255, 255, 0.85)";
+          mobileCoverCardRef.current.style.boxShadow = "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 30px rgba(255, 255, 255, 0.6)";
+        } else if (beatState.isKickHit || beatState.isKickRoll) {
+          mobileCoverCardRef.current.style.borderColor = "rgba(239, 68, 68, 0.85)";
+          mobileCoverCardRef.current.style.boxShadow = "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 30px rgba(239, 68, 68, 0.75)";
+        } else {
+          mobileCoverCardRef.current.style.borderColor = "rgba(220, 38, 38, 0.45)";
+          mobileCoverCardRef.current.style.boxShadow = "0 25px 60px rgba(0, 0, 0, 0.95), 0 0 20px rgba(185, 28, 28, 0.4)";
+        }
+      }
+
+      animId = requestAnimationFrame(loop);
+    };
+
+    if (isFullOpen && activeTab === "cover") {
+      loop();
+    }
+
+    return () => cancelAnimationFrame(animId);
+  }, [isFullOpen, activeTab, isPlaying]);
 
   // Live Sound Waveform Visualizer on Mini Dock
   useEffect(() => {
@@ -182,7 +224,7 @@ export const MobilePlayerDock: React.FC = () => {
             overflow: "hidden"
           }}
         >
-          {/* Progress Line on top edge */}
+          {/* Real-time Mini Top Progress Line */}
           <div
             style={{
               position: "absolute",
@@ -190,7 +232,7 @@ export const MobilePlayerDock: React.FC = () => {
               left: 0,
               right: 0,
               height: "2px",
-              background: "rgba(255, 255, 255, 0.1)"
+              background: "rgba(255, 255, 255, 0.15)"
             }}
           >
             <div
@@ -305,7 +347,7 @@ export const MobilePlayerDock: React.FC = () => {
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────
-          TIER 2: FULL-SCREEN NOW PLAYING MODAL
+          TIER 2: FULL-SCREEN NOW PLAYING MODAL (WITH VAULT GLOW & SYNCED LYRICS)
       ────────────────────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {isFullOpen && (
@@ -326,13 +368,13 @@ export const MobilePlayerDock: React.FC = () => {
               position: "fixed",
               inset: 0,
               zIndex: 250,
-              background: "linear-gradient(180deg, rgba(15, 15, 18, 0.96) 0%, rgba(5, 5, 5, 0.98) 100%)",
-              backdropFilter: "blur(32px)",
-              WebkitBackdropFilter: "blur(32px)",
-              paddingTop: "max(16px, env(safe-area-inset-top, 16px))",
-              paddingBottom: "max(24px, env(safe-area-inset-bottom, 24px))",
-              paddingLeft: "24px",
-              paddingRight: "24px",
+              background: "linear-gradient(180deg, rgba(12, 12, 16, 0.98) 0%, rgba(3, 3, 5, 0.99) 100%)",
+              backdropFilter: "blur(36px)",
+              WebkitBackdropFilter: "blur(36px)",
+              paddingTop: "max(14px, env(safe-area-inset-top, 14px))",
+              paddingBottom: "max(20px, env(safe-area-inset-bottom, 20px))",
+              paddingLeft: "20px",
+              paddingRight: "20px",
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
@@ -347,7 +389,7 @@ export const MobilePlayerDock: React.FC = () => {
                   height: "5px",
                   borderRadius: "999px",
                   background: "rgba(255, 255, 255, 0.3)",
-                  marginBottom: "16px"
+                  marginBottom: "12px"
                 }}
               />
 
@@ -359,14 +401,15 @@ export const MobilePlayerDock: React.FC = () => {
                   justifyContent: "space-between"
                 }}
               >
+                {/* Dismiss Button */}
                 <button
                   onClick={() => setIsFullOpen(false)}
                   style={{
                     background: "rgba(255, 255, 255, 0.08)",
                     border: "1px solid rgba(255, 255, 255, 0.12)",
                     borderRadius: "50%",
-                    width: "40px",
-                    height: "40px",
+                    width: "36px",
+                    height: "36px",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -374,96 +417,160 @@ export const MobilePlayerDock: React.FC = () => {
                     cursor: "pointer"
                   }}
                 >
-                  <ChevronDown size={22} />
+                  <ChevronDown size={20} />
                 </button>
 
-                <span
-                  style={{
-                    fontSize: "0.8rem",
-                    fontWeight: 700,
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    color: "rgba(255, 255, 255, 0.6)"
-                  }}
-                >
-                  ĐANG PHÁT TỪ VAULT
-                </span>
-
-                {/* Punchy Bass Boost Toggle on Mobile */}
-                <button
-                  onClick={toggleBassBoost}
+                {/* Mode Switcher: Cover vs Lyrics */}
+                <div
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: "4px",
-                    padding: "6px 12px",
+                    background: "rgba(255, 255, 255, 0.08)",
                     borderRadius: "999px",
-                    background: bassBoostEnabled ? "linear-gradient(135deg, #f43f5e, #8b5cf6)" : "rgba(255, 255, 255, 0.08)",
-                    border: bassBoostEnabled ? "1px solid rgba(244, 63, 94, 0.6)" : "1px solid rgba(255, 255, 255, 0.15)",
-                    fontSize: "0.72rem",
-                    fontWeight: 800,
-                    color: "#ffffff",
-                    cursor: "pointer",
-                    boxShadow: bassBoostEnabled ? "0 0 12px rgba(244, 63, 94, 0.6)" : "none"
+                    padding: "3px",
+                    border: "1px solid rgba(255, 255, 255, 0.12)"
                   }}
                 >
-                  <Zap size={12} fill={bassBoostEnabled ? "#ffffff" : "none"} />
-                  <span>BASS BOOST</span>
-                </button>
+                  <button
+                    onClick={() => setActiveTab("cover")}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      padding: "4px 12px",
+                      borderRadius: "999px",
+                      border: "none",
+                      fontSize: "0.74rem",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      background: activeTab === "cover" ? "#ffffff" : "transparent",
+                      color: activeTab === "cover" ? "#000000" : "rgba(255, 255, 255, 0.6)",
+                      transition: "all 0.2s ease"
+                    }}
+                  >
+                    <Disc3 size={12} />
+                    <span>Bìa</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab("lyrics")}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      padding: "4px 12px",
+                      borderRadius: "999px",
+                      border: "none",
+                      fontSize: "0.74rem",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      background: activeTab === "lyrics" ? "#ffffff" : "transparent",
+                      color: activeTab === "lyrics" ? "#000000" : "rgba(255, 255, 255, 0.6)",
+                      transition: "all 0.2s ease"
+                    }}
+                  >
+                    <Mic2 size={12} />
+                    <span>Lời bài hát</span>
+                  </button>
+                </div>
+
+                <div style={{ width: "36px" }} />
               </div>
             </div>
 
-            {/* Middle: Clean Square Album Cover */}
+            {/* Middle: Either Vault-Style Halation Album Cover OR Synced Lyrics */}
             <div
               style={{
+                flex: 1,
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                margin: "auto 0",
-                position: "relative"
+                margin: "12px 0",
+                position: "relative",
+                minHeight: 0,
+                overflow: "hidden"
               }}
             >
-              <div
-                style={{
-                  width: "min(72vw, 270px)",
-                  height: "min(72vw, 270px)",
-                  borderRadius: "24px",
-                  overflow: "hidden",
-                  boxShadow: "0 24px 60px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.15)",
-                  position: "relative"
-                }}
-              >
-                <img
-                  src={currentTrack.coverUrl}
-                  alt={currentTrack.title}
+              {activeTab === "cover" ? (
+                <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {/* Blazing Crimson Halation Backlight Bloom (Just like in 3D Vault) */}
+                  <div
+                    ref={mobileHalationRef}
+                    style={{
+                      position: "absolute",
+                      inset: "-35px",
+                      borderRadius: "26px",
+                      background: "radial-gradient(circle, rgba(239, 68, 68, 0.95) 0%, rgba(185, 28, 28, 0.65) 45%, rgba(127, 29, 29, 0.25) 70%, transparent 85%)",
+                      filter: "blur(40px)",
+                      pointerEvents: "none",
+                      opacity: 0.35,
+                      transition: "opacity 0.08s ease, transform 0.08s ease"
+                    }}
+                  />
+
+                  <div
+                    ref={mobileCoverCardRef}
+                    style={{
+                      width: "min(66vw, 250px)",
+                      height: "min(66vw, 250px)",
+                      borderRadius: "22px",
+                      overflow: "hidden",
+                      boxShadow: "0 25px 60px rgba(0, 0, 0, 0.95), 0 0 20px rgba(185, 28, 28, 0.4)",
+                      border: "2px solid rgba(220, 38, 38, 0.45)",
+                      position: "relative",
+                      transition: "border-color 0.08s ease, box-shadow 0.08s ease"
+                    }}
+                  >
+                    <img
+                      src={currentTrack.coverUrl}
+                      alt={currentTrack.title}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block"
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                /* Unclipped Smooth Synced Lyrics View */
+                <div
                   style={{
                     width: "100%",
                     height: "100%",
-                    objectFit: "cover",
-                    display: "block"
+                    maxHeight: "min(46vh, 340px)",
+                    position: "relative",
+                    borderRadius: "18px",
+                    overflow: "hidden"
                   }}
-                />
-              </div>
+                >
+                  <SyncedLyricsView onSeek={(t) => seek(t)} />
+                </div>
+              )}
             </div>
 
             {/* Bottom Controls Area */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "20px", width: "100%" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px", width: "100%" }}>
               {/* Title & Favorite */}
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
                 <div style={{ minWidth: 0 }}>
                   <h2
                     style={{
-                      fontSize: "1.35rem",
+                      fontSize: "1.25rem",
                       fontWeight: 800,
                       lineHeight: 1.2,
-                      marginBottom: "4px",
-                      color: "#ffffff"
+                      marginBottom: "3px",
+                      color: "#ffffff",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis"
                     }}
                   >
                     {currentTrack.title}
                   </h2>
-                  <p style={{ fontSize: "0.92rem", color: "rgba(255, 255, 255, 0.6)" }}>
+                  <p style={{ fontSize: "0.85rem", color: "rgba(255, 255, 255, 0.6)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {currentTrack.artist} • {currentTrack.album}
                   </p>
                 </div>
@@ -471,11 +578,11 @@ export const MobilePlayerDock: React.FC = () => {
                 <button
                   onClick={() => toggleFavoriteTrack(currentTrack.id)}
                   style={{
-                    background: isFav ? "rgba(255, 255, 255, 0.15)" : "transparent",
-                    border: "1px solid rgba(255, 255, 255, 0.2)",
+                    background: isFav ? "rgba(239, 68, 68, 0.2)" : "rgba(255, 255, 255, 0.08)",
+                    border: isFav ? "1px solid rgba(239, 68, 68, 0.5)" : "1px solid rgba(255, 255, 255, 0.15)",
                     borderRadius: "50%",
-                    width: "44px",
-                    height: "44px",
+                    width: "40px",
+                    height: "40px",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -483,7 +590,7 @@ export const MobilePlayerDock: React.FC = () => {
                     flexShrink: 0
                   }}
                 >
-                  <Heart size={20} color={isFav ? "#ffffff" : "rgba(255,255,255,0.6)"} fill={isFav ? "#ffffff" : "none"} />
+                  <Heart size={18} color={isFav ? "#ef4444" : "rgba(255,255,255,0.6)"} fill={isFav ? "#ef4444" : "none"} />
                 </button>
               </div>
 
@@ -563,16 +670,16 @@ export const MobilePlayerDock: React.FC = () => {
                       left: 0,
                       height: "4px",
                       borderRadius: "999px",
-                      background: "#ffffff",
+                      background: "linear-gradient(90deg, #ef4444, #f97316)",
                       width: "0%",
                       pointerEvents: "none",
-                      boxShadow: "0 0 8px rgba(255, 255, 255, 0.8)",
+                      boxShadow: "0 0 8px rgba(239, 68, 68, 0.8)",
                       zIndex: 2
                     }}
                   />
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", color: "rgba(255, 255, 255, 0.45)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.76rem", color: "rgba(255, 255, 255, 0.45)" }}>
                   <span ref={fullCurrentTimeRef}>0:00</span>
                   <span ref={fullDurationRef}>{formatTime(effectiveDuration)}</span>
                 </div>
@@ -584,7 +691,7 @@ export const MobilePlayerDock: React.FC = () => {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: "28px"
+                  gap: "24px"
                 }}
               >
                 <button
@@ -594,20 +701,20 @@ export const MobilePlayerDock: React.FC = () => {
                     border: "none",
                     color: "rgba(255, 255, 255, 0.8)",
                     cursor: "pointer",
-                    padding: "10px",
+                    padding: "8px",
                     display: "flex",
                     alignItems: "center"
                   }}
                 >
-                  <SkipBack size={26} />
+                  <SkipBack size={24} />
                 </button>
 
                 <motion.button
                   whileTap={{ scale: 0.9 }}
                   onClick={togglePlay}
                   style={{
-                    width: "68px",
-                    height: "68px",
+                    width: "62px",
+                    height: "62px",
                     borderRadius: "50%",
                     background: "#ffffff",
                     border: "none",
@@ -616,17 +723,17 @@ export const MobilePlayerDock: React.FC = () => {
                     alignItems: "center",
                     justifyContent: "center",
                     cursor: "pointer",
-                    boxShadow: "0 8px 30px rgba(255, 255, 255, 0.4)"
+                    boxShadow: "0 6px 24px rgba(255, 255, 255, 0.4)"
                   }}
                 >
                   {isBuffering ? (
                     <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
-                      <Loader2 size={28} color="#000000" />
+                      <Loader2 size={26} color="#000000" />
                     </motion.div>
                   ) : isPlaying ? (
-                    <Pause size={28} fill="#000000" />
+                    <Pause size={26} fill="#000000" />
                   ) : (
-                    <Play size={28} fill="#000000" style={{ marginLeft: "3px" }} />
+                    <Play size={26} fill="#000000" style={{ marginLeft: "3px" }} />
                   )}
                 </motion.button>
 
@@ -637,12 +744,12 @@ export const MobilePlayerDock: React.FC = () => {
                     border: "none",
                     color: "rgba(255, 255, 255, 0.8)",
                     cursor: "pointer",
-                    padding: "10px",
+                    padding: "8px",
                     display: "flex",
                     alignItems: "center"
                   }}
                 >
-                  <SkipForward size={26} />
+                  <SkipForward size={24} />
                 </button>
               </div>
 
@@ -651,16 +758,16 @@ export const MobilePlayerDock: React.FC = () => {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "14px",
-                  padding: "0 10px",
-                  opacity: 0.8
+                  gap: "12px",
+                  padding: "0 6px",
+                  opacity: 0.85
                 }}
               >
                 <button
                   onClick={toggleMute}
-                  style={{ background: "transparent", border: "none", color: "rgba(255, 255, 255, 0.7)", cursor: "pointer" }}
+                  style={{ background: "transparent", border: "none", color: "rgba(255, 255, 255, 0.7)", cursor: "pointer", padding: "2px" }}
                 >
-                  {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                  {isMuted || volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
                 </button>
 
                 <input
@@ -670,7 +777,11 @@ export const MobilePlayerDock: React.FC = () => {
                   step={0.01}
                   value={isMuted ? 0 : volume}
                   onChange={(e) => setVolume(Number(e.target.value))}
-                  style={{ width: "100%", height: "4px", cursor: "pointer" }}
+                  style={{
+                    flex: 1,
+                    height: "4px",
+                    accentColor: "#ef4444"
+                  }}
                 />
               </div>
             </div>
@@ -680,3 +791,5 @@ export const MobilePlayerDock: React.FC = () => {
     </>
   );
 };
+
+export default MobilePlayerDock;
