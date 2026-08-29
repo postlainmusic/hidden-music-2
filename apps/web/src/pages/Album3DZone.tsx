@@ -306,7 +306,11 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
   const borderRadius = isMobile ? "24px" : "32px";
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.45, ease: "easeInOut" }}
       onMouseMove={handleMouseMove}
       style={{
         position: "fixed",
@@ -643,7 +647,7 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
           4. BOTTOM PLAYBAR DOCK
       ────────────────────────────────────────────────────────────────────── */}
       {isMobile ? <MobilePlayerDock /> : <FloatingPlayerDock />}
-    </div>
+    </motion.div>
   );
 };
 
