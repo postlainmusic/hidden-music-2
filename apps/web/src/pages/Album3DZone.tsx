@@ -11,6 +11,26 @@ interface Album3DZoneProps {
   onBackToVault: () => void;
 }
 
+const hexToRgb = (hex?: string): { r: number; g: number; b: number } => {
+  if (!hex || !hex.startsWith("#")) return { r: 99, g: 102, b: 241 };
+  const clean = hex.replace("#", "");
+  if (clean.length === 3) {
+    return {
+      r: parseInt(clean[0] + clean[0], 16),
+      g: parseInt(clean[1] + clean[1], 16),
+      b: parseInt(clean[2] + clean[2], 16),
+    };
+  }
+  if (clean.length >= 6) {
+    return {
+      r: parseInt(clean.substring(0, 2), 16),
+      g: parseInt(clean.substring(2, 4), 16),
+      b: parseInt(clean.substring(4, 6), 16),
+    };
+  }
+  return { r: 99, g: 102, b: 241 };
+};
+
 const formatDuration = (seconds: number) => {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
@@ -21,48 +41,170 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
   const { currentTrack, isPlaying, playTrack, togglePlay, favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
   const isMobile = useIsMobile();
   
-  // Mobile Flip State (290x290 in-place square flip)
+  // Mobile In-Place Flip State (290x290 square)
   const [isMobileFlipped, setIsMobileFlipped] = useState<boolean>(false);
   
-  // Audio-reactive visual states (Transient Punch & Specular Halo)
-  const [kickImpact, setKickImpact] = useState<number>(0);
-  const [snareFlash, setSnareFlash] = useState<number>(0);
-  const [ambientEnergy, setAmbientEnergy] = useState<number>(0);
-  const [tilt, setTilt] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const cardWrapperRef = useRef<HTMLDivElement | null>(null);
+  const auraGlowRef = useRef<HTMLDivElement | null>(null);
+  const redKickAuraRef = useRef<HTMLDivElement | null>(null);
+  const snareHaloRef = useRef<HTMLDivElement | null>(null);
+  const frontCardRef = useRef<HTMLDivElement | null>(null);
 
-  const cardRef = useRef<HTMLDivElement | null>(null);
+  const mousePos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // 60fps Loop for Transient Beat Detection & Ambient Depth
-  useEffect(() => {
-    let animId: number;
-
-    const updateAudioEffects = () => {
-      if (isPlaying) {
-        const bands = audioAnalyserEngine.getBands();
-        setKickImpact(bands.kickImpact);
-        setSnareFlash(bands.snareFlash);
-        setAmbientEnergy(bands.subBass * 0.4 + bands.kick * 0.4 + bands.lowMid * 0.2);
-      } else {
-        setKickImpact((prev) => prev * 0.85);
-        setSnareFlash((prev) => prev * 0.85);
-        setAmbientEnergy((prev) => prev * 0.85);
-      }
-
-      animId = requestAnimationFrame(updateAudioEffects);
-    };
-
-    animId = requestAnimationFrame(updateAudioEffects);
-    return () => cancelAnimationFrame(animId);
-  }, [isPlaying]);
-
-  // 3D Parallax Tilt Handler (Desktop only)
+  // Mouse tilt tracking (Desktop only)
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isMobile) return;
     const { innerWidth, innerHeight } = window;
-    const x = (e.clientX / innerWidth - 0.5) * 16;
-    const y = (e.clientY / innerHeight - 0.5) * -16;
-    setTilt({ x: y, y: x });
+    mousePos.current = {
+      x: (e.clientX / innerWidth - 0.5) * 16,
+      y: (e.clientY / innerHeight - 0.5) * -16,
+    };
   };
+
+  // High-Performance 60fps Render Loop for Ambient Canvas & Direct DOM Styles
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animId: number;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    let shockwaveRadius = 0;
+    let snareRadius = 0;
+
+    const render = () => {
+      const bands = audioAnalyserEngine.getBands();
+      const primaryRgb = hexToRgb(currentTrack?.palette?.primary || "#6366f1");
+      const accentRgb = hexToRgb(currentTrack?.palette?.accent || "#8b5cf6");
+
+      const kickImpact = bands.kickImpact;
+      const snareFlash = bands.snareFlash;
+      const energy = bands.subBass * 0.5 + bands.kick * 0.35 + bands.lowMid * 0.15;
+
+      // ─────────────────────────────────────────────────────────────
+      // 1. RENDER VOLUMETRIC AMBIENT DEPTH ON CANVAS (Z-INDEX 0)
+      // ─────────────────────────────────────────────────────────────
+      // Deep obsidian base
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, width, height);
+
+      const centerX = width / 2;
+      const centerY = height / 2;
+
+      ctx.globalCompositeOperation = "screen";
+
+      // A. Main Center Ambient Light Field (Breathing with track palette)
+      const baseRadius = Math.min(width, height) * (0.45 + energy * 0.25);
+      const ambientGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, baseRadius);
+      const alpha = isPlaying ? 0.35 + energy * 0.40 : 0.18;
+
+      ambientGrad.addColorStop(0, `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, ${alpha})`);
+      ambientGrad.addColorStop(0.45, `rgba(${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b}, ${alpha * 0.5})`);
+      ambientGrad.addColorStop(0.80, `rgba(20, 25, 45, ${alpha * 0.15})`);
+      ambientGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+      ctx.fillStyle = ambientGrad;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, baseRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // B. Dynamic CRIMSON RED Shockwave Blast on Bass/Kick Hits
+      if (kickImpact > 0.05) {
+        shockwaveRadius = Math.min(width, height) * (0.35 + (1.0 - kickImpact) * 0.45);
+        const redGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, shockwaveRadius);
+        const redAlpha = kickImpact * 0.65;
+
+        redGrad.addColorStop(0, `rgba(239, 68, 68, ${redAlpha})`);
+        redGrad.addColorStop(0.4, `rgba(225, 29, 72, ${redAlpha * 0.5})`);
+        redGrad.addColorStop(0.8, `rgba(180, 20, 50, ${redAlpha * 0.15})`);
+        redGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+        ctx.fillStyle = redGrad;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, shockwaveRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // C. Radiant Specular White Halo Burst on Snare Hits
+      if (snareFlash > 0.05) {
+        snareRadius = Math.min(width, height) * (0.28 + (1.0 - snareFlash) * 0.35);
+        const snareGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, snareRadius);
+        const snareAlpha = snareFlash * 0.55;
+
+        snareGrad.addColorStop(0, `rgba(255, 255, 255, ${snareAlpha})`);
+        snareGrad.addColorStop(0.5, `rgba(210, 230, 255, ${snareAlpha * 0.3})`);
+        snareGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+        ctx.fillStyle = snareGrad;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, snareRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.globalCompositeOperation = "source-over";
+
+      // ─────────────────────────────────────────────────────────────
+      // 2. DIRECT ZERO-LAG DOM UPDATES ON ALBUM COVER (Z-INDEX 20)
+      // ─────────────────────────────────────────────────────────────
+      if (cardWrapperRef.current) {
+        const scale = 1.0 + kickImpact * 0.065;
+        const tiltX = mousePos.current.y;
+        const tiltY = mousePos.current.x;
+        cardWrapperRef.current.style.transform = `scale(${scale}) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+      }
+
+      // Synesthesia Ambient Aura Glow behind card
+      if (auraGlowRef.current) {
+        auraGlowRef.current.style.opacity = `${isPlaying ? 0.65 + energy * 0.35 : 0.25}`;
+      }
+
+      // Punchy Red Kick Shockwave Aura
+      if (redKickAuraRef.current) {
+        redKickAuraRef.current.style.opacity = `${kickImpact > 0.05 ? kickImpact * 0.95 : 0}`;
+      }
+
+      // Snare Specular Halo
+      if (snareHaloRef.current) {
+        snareHaloRef.current.style.opacity = `${snareFlash > 0.05 ? snareFlash * 0.90 : 0}`;
+      }
+
+      // Front Card Dynamic Border & Shadow
+      if (frontCardRef.current) {
+        if (kickImpact > 0.25) {
+          frontCardRef.current.style.borderColor = `rgba(239, 68, 68, ${0.6 + kickImpact * 0.4})`;
+          frontCardRef.current.style.boxShadow = `0 30px 90px rgba(0, 0, 0, 0.95), 0 0 ${40 + kickImpact * 60}px rgba(239, 68, 68, 0.85)`;
+        } else if (snareFlash > 0.30) {
+          frontCardRef.current.style.borderColor = `rgba(255, 255, 255, ${0.7 + snareFlash * 0.3})`;
+          frontCardRef.current.style.boxShadow = `0 30px 90px rgba(0, 0, 0, 0.95), 0 0 ${35 + snareFlash * 45}px rgba(255, 255, 255, 0.75)`;
+        } else {
+          frontCardRef.current.style.borderColor = isPlaying ? (currentTrack?.palette?.primary || "#6366f1") : "rgba(255, 255, 255, 0.25)";
+          frontCardRef.current.style.boxShadow = `0 30px 90px rgba(0, 0, 0, 0.95), 0 0 ${20 + energy * 30}px ${currentTrack?.palette?.glow || "rgba(99, 102, 241, 0.45)"}`;
+        }
+      }
+
+      animId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      cancelAnimationFrame(animId);
+    };
+  }, [currentTrack, isPlaying]);
 
   const handleMobileCardClick = () => {
     if (isMobile) {
@@ -97,9 +239,6 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
     glow: "rgba(99, 102, 241, 0.45)",
   };
 
-  // Physical card scale: Snappy kick punch with clean rest period
-  const currentScale = 1.0 + kickImpact * 0.06;
-
   return (
     <div
       onMouseMove={handleMouseMove}
@@ -115,53 +254,26 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
       }}
     >
       {/* ─────────────────────────────────────────────────────────────────────
-          1. CINEMATIC VOLUMETRIC AMBIENT DEPTH (No WebGL, Ultra-Lightweight)
+          1. 60FPS HARDWARE-ACCELERATED VOLUMETRIC AMBIENT CANVAS (No WebGL)
       ────────────────────────────────────────────────────────────────────── */}
-      {/* Center Deep Ambient Radial Glow breathing with track palette */}
-      <div
+      <canvas
+        ref={canvasRef}
         style={{
           position: "fixed",
           inset: 0,
-          background: `radial-gradient(ellipse at center, ${palette.primary}33 0%, ${palette.accent}18 45%, #000000 80%)`,
-          opacity: isPlaying ? 0.35 + ambientEnergy * 0.45 : 0.20,
-          transition: "opacity 0.25s ease-out",
+          width: "100vw",
+          height: "100dvh",
           pointerEvents: "none",
           zIndex: 0,
         }}
       />
 
-      {/* Dynamic Red Shockwave Ambient Flash on Kick/Bass Impacts */}
+      {/* Cinematic Vignette Overlay */}
       <div
         style={{
           position: "fixed",
           inset: 0,
-          background: "radial-gradient(circle at center, rgba(239, 68, 68, 0.28) 0%, rgba(225, 29, 72, 0.12) 40%, transparent 75%)",
-          opacity: kickImpact * 0.85,
-          pointerEvents: "none",
-          zIndex: 0,
-          transition: "opacity 0.08s ease-out",
-        }}
-      />
-
-      {/* Snare Specular Halo Flash across the screen */}
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "radial-gradient(circle at center, rgba(255, 255, 255, 0.18) 0%, rgba(240, 245, 255, 0.06) 45%, transparent 70%)",
-          opacity: snareFlash * 0.9,
-          pointerEvents: "none",
-          zIndex: 0,
-          transition: "opacity 0.06s ease-out",
-        }}
-      />
-
-      {/* Cinematic Dark Vignette */}
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "radial-gradient(circle at center, transparent 35%, rgba(0, 0, 0, 0.85) 100%)",
+          background: "radial-gradient(circle at center, transparent 35%, rgba(0, 0, 0, 0.82) 100%)",
           pointerEvents: "none",
           zIndex: 1,
         }}
@@ -206,27 +318,28 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
           3. CENTER-STAGE ALBUM COVER & DYNAMIC VOLUMETRIC GLOW AURA
       ────────────────────────────────────────────────────────────────────── */}
       <div
-        ref={cardRef}
+        ref={cardWrapperRef}
         style={{
           position: "relative",
           zIndex: 20,
           width: `${cardSize}px`,
           height: `${cardSize}px`,
           perspective: 1000,
-          transform: `scale(${currentScale}) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
-          transition: "transform 0.10s cubic-bezier(0.16, 1, 0.3, 1)",
+          transform: "scale(1)",
+          transition: "transform 0.08s ease-out",
         }}
       >
         {/* A. Broad Volumetric Synesthesia Aura (Glows & changes color with track) */}
         <div
+          ref={auraGlowRef}
           style={{
             position: "absolute",
-            inset: "-40px",
-            borderRadius: "60px",
-            background: `radial-gradient(circle, ${palette.primary}88 0%, ${palette.secondary}44 45%, transparent 70%)`,
-            filter: "blur(45px)",
-            opacity: isPlaying ? 0.75 + ambientEnergy * 0.35 : 0.35,
-            transition: "opacity 0.25s ease, background 0.6s ease",
+            inset: "-45px",
+            borderRadius: "65px",
+            background: `radial-gradient(circle, ${palette.primary} 0%, ${palette.accent} 45%, transparent 75%)`,
+            filter: "blur(50px)",
+            opacity: 0.45,
+            transition: "opacity 0.2s ease, background 0.6s ease",
             zIndex: 1,
             pointerEvents: "none",
           }}
@@ -234,28 +347,30 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
 
         {/* B. Punchy CRIMSON RED Aura Shockwave on Bass/Kick Hits */}
         <div
+          ref={redKickAuraRef}
           style={{
             position: "absolute",
-            inset: "-55px",
-            borderRadius: "70px",
+            inset: "-60px",
+            borderRadius: "75px",
             background: "radial-gradient(circle, rgba(239, 68, 68, 0.95) 0%, rgba(225, 29, 72, 0.65) 45%, transparent 75%)",
-            filter: "blur(40px)",
-            opacity: kickImpact > 0.05 ? kickImpact * 0.95 : 0,
+            filter: "blur(42px)",
+            opacity: 0,
             zIndex: 2,
             pointerEvents: "none",
-            transition: "opacity 0.06s ease-out",
+            transition: "opacity 0.05s ease-out",
           }}
         />
 
         {/* C. Radiant Specular White/Silver Halo on Snare Hits */}
         <div
+          ref={snareHaloRef}
           style={{
             position: "absolute",
-            inset: "-25px",
-            borderRadius: "50px",
-            background: "radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(200, 220, 255, 0.45) 50%, transparent 75%)",
-            filter: "blur(20px)",
-            opacity: snareFlash > 0.05 ? snareFlash * 0.9 : 0,
+            inset: "-30px",
+            borderRadius: "55px",
+            background: "radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(200, 225, 255, 0.45) 50%, transparent 75%)",
+            filter: "blur(24px)",
+            opacity: 0,
             zIndex: 3,
             pointerEvents: "none",
             transition: "opacity 0.05s ease-out",
@@ -276,8 +391,9 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
             zIndex: 10,
           }}
         >
-          {/* Front Face: High-Res Album Cover with Dynamic Color/Red Edge Specular */}
+          {/* Front Face: High-Res Album Cover Artwork */}
           <div
+            ref={frontCardRef}
             style={{
               position: "absolute",
               inset: 0,
@@ -285,12 +401,8 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
               WebkitBackfaceVisibility: "hidden",
               borderRadius: borderRadius,
               overflow: "hidden",
-              border: kickImpact > 0.35
-                ? "1.5px solid rgba(239, 68, 68, 0.9)"
-                : `1px solid ${isPlaying ? palette.primary : "rgba(255, 255, 255, 0.25)"}`,
-              boxShadow: kickImpact > 0.35
-                ? "0 30px 90px rgba(0, 0, 0, 0.95), 0 0 35px rgba(239, 68, 68, 0.75)"
-                : `0 30px 90px rgba(0, 0, 0, 0.95), 0 0 25px ${palette.glow}`,
+              border: `1px solid ${palette.primary}`,
+              boxShadow: `0 30px 90px rgba(0, 0, 0, 0.95), 0 0 25px ${palette.glow}`,
               background: "#121318",
               transition: "border-color 0.08s ease, box-shadow 0.08s ease",
             }}

@@ -1,4 +1,4 @@
-// 🔬 Precision Web Audio 5-Band Engine with Transient Peak Punch & Rest Periods
+// 🔬 Precision Web Audio 5-Band Engine with Adaptive Transient Peak Punch & Refractory Rest Periods
 
 export interface AudioFrequencyBands {
   subBass: number;       // 20 - 90 Hz
@@ -7,7 +7,7 @@ export interface AudioFrequencyBands {
   vocalMid: number;      // 600 - 3000 Hz
   highTreble: number;    // 3000 - 16000 Hz
   overallEnergy: number; // 0.0 - 1.0
-  kickImpact: number;    // 0.0 - 1.0 Punchy kick pulse with refractory rest window
+  kickImpact: number;    // 0.0 - 1.0 Punchy kick impulse with refractory rest window
   snareFlash: number;    // 0.0 - 1.0 Specular halo flash from snare hits
   isKickHit: boolean;    // Single frame trigger
   isSnareHit: boolean;   // Single frame trigger
@@ -35,14 +35,15 @@ class AudioAnalyserEngine {
     isSnareHit: false,
   };
 
-  private energyHistory: number[] = [];
-  private readonly HISTORY_SIZE = 40;
+  private lowEndHistory: number[] = [];
+  private snareHistory: number[] = [];
+  private readonly HISTORY_SIZE = 35;
 
   // Transient Peak Timing Guards (Refractory Cooldowns)
   private lastKickTimestamp = 0;
   private lastSnareTimestamp = 0;
-  private readonly KICK_COOLDOWN_MS = 210; // Rest period between heavy bass hits for max punch
-  private readonly SNARE_COOLDOWN_MS = 170; // Rest period between snare claps
+  private readonly KICK_COOLDOWN_MS = 180; // Rest period between heavy bass hits for punch
+  private readonly SNARE_COOLDOWN_MS = 150; // Rest period between snare claps
 
   private constructor() {}
 
@@ -74,9 +75,9 @@ class AudioAnalyserEngine {
       if (!this.analyser) {
         this.analyser = this.audioCtx.createAnalyser();
         this.analyser.fftSize = 256;
-        this.analyser.smoothingTimeConstant = 0.70;
-        this.analyser.minDecibels = -85;
-        this.analyser.maxDecibels = -15;
+        this.analyser.smoothingTimeConstant = 0.65;
+        this.analyser.minDecibels = -90;
+        this.analyser.maxDecibels = -10;
         this.dataArray = new Uint8Array(new ArrayBuffer(this.analyser.frequencyBinCount));
       }
 
@@ -142,50 +143,59 @@ class AudioAnalyserEngine {
       const rawKick = getAverageInRange(90, 220);
       const rawLowMid = getAverageInRange(220, 600);
       const rawVocal = getAverageInRange(600, 3000);
-      const rawSnare = getAverageInRange(1200, 4500);
+      const rawSnare = getAverageInRange(1000, 4500);
       const rawTreble = getAverageInRange(3000, 16000);
-      const rawLowEnd = rawSub * 0.6 + rawKick * 0.4;
+      const rawLowEnd = rawSub * 0.65 + rawKick * 0.35;
       const rawOverall = (rawSub * 0.35 + rawKick * 0.25 + rawLowMid * 0.15 + rawVocal * 0.15 + rawTreble * 0.1);
 
       let isKickHit = false;
       let isSnareHit = false;
 
-      if (rawOverall > 0.01) {
-        this.energyHistory.push(rawLowEnd);
-        if (this.energyHistory.length > this.HISTORY_SIZE) {
-          this.energyHistory.shift();
-        }
-        const avgLowEnd = this.energyHistory.reduce((a, b) => a + b, 0) / this.energyHistory.length;
+      if (rawOverall > 0.005) {
+        // Track rolling averages for adaptive relative peak detection
+        this.lowEndHistory.push(rawLowEnd);
+        if (this.lowEndHistory.length > this.HISTORY_SIZE) this.lowEndHistory.shift();
+        const avgLowEnd = this.lowEndHistory.reduce((a, b) => a + b, 0) / this.lowEndHistory.length;
 
-        // 1. Kick / Bass Transient with Cooldown Rest Window
-        if (rawLowEnd > avgLowEnd * 1.35 && rawLowEnd > 0.28 && (now - this.lastKickTimestamp > this.KICK_COOLDOWN_MS)) {
+        this.snareHistory.push(rawSnare);
+        if (this.snareHistory.length > this.HISTORY_SIZE) this.snareHistory.shift();
+        const avgSnare = this.snareHistory.reduce((a, b) => a + b, 0) / this.snareHistory.length;
+
+        // 1. Adaptive Kick / Bass Transient with Cooldown Rest Window
+        if (
+          (rawLowEnd > avgLowEnd * 1.20 && rawLowEnd > 0.06) &&
+          (now - this.lastKickTimestamp > this.KICK_COOLDOWN_MS)
+        ) {
           isKickHit = true;
           this.lastKickTimestamp = now;
           this.smoothedBands.kickImpact = 1.0;
         }
 
-        // 2. Snare / Mid-High Transient Flash with Cooldown
-        if (rawSnare > 0.38 && rawSnare > (this.smoothedBands.lowMid * 1.2) && (now - this.lastSnareTimestamp > this.SNARE_COOLDOWN_MS)) {
+        // 2. Adaptive Snare / Transient Flash with Cooldown
+        if (
+          (rawSnare > avgSnare * 1.25 && rawSnare > 0.08) &&
+          (now - this.lastSnareTimestamp > this.SNARE_COOLDOWN_MS)
+        ) {
           isSnareHit = true;
           this.lastSnareTimestamp = now;
           this.smoothedBands.snareFlash = 1.0;
         }
 
-        const lerp = (curr: number, target: number, attack = 0.65, decay = 0.18) => {
+        const lerp = (curr: number, target: number, attack = 0.7, decay = 0.2) => {
           const rate = target > curr ? attack : decay;
           return curr + (target - curr) * rate;
         };
 
-        this.smoothedBands.subBass = lerp(this.smoothedBands.subBass, rawSub, 0.75, 0.2);
-        this.smoothedBands.kick = lerp(this.smoothedBands.kick, rawKick, 0.8, 0.2);
+        this.smoothedBands.subBass = lerp(this.smoothedBands.subBass, rawSub, 0.8, 0.22);
+        this.smoothedBands.kick = lerp(this.smoothedBands.kick, rawKick, 0.85, 0.22);
         this.smoothedBands.lowMid = lerp(this.smoothedBands.lowMid, rawLowMid, 0.5, 0.15);
         this.smoothedBands.vocalMid = lerp(this.smoothedBands.vocalMid, rawVocal, 0.5, 0.15);
         this.smoothedBands.highTreble = lerp(this.smoothedBands.highTreble, rawTreble, 0.6, 0.18);
         this.smoothedBands.overallEnergy = lerp(this.smoothedBands.overallEnergy, rawOverall, 0.6, 0.18);
 
-        // Exponential Decay for punchy impact release
-        this.smoothedBands.kickImpact *= 0.86;
-        this.smoothedBands.snareFlash *= 0.80;
+        // Exponential Decay for punchy impact release (Refractory decay)
+        this.smoothedBands.kickImpact *= 0.84;
+        this.smoothedBands.snareFlash *= 0.78;
 
         this.smoothedBands.isKickHit = isKickHit;
         this.smoothedBands.isSnareHit = isSnareHit;
@@ -201,8 +211,8 @@ class AudioAnalyserEngine {
     this.smoothedBands.vocalMid *= 0.85;
     this.smoothedBands.highTreble *= 0.85;
     this.smoothedBands.overallEnergy *= 0.85;
-    this.smoothedBands.kickImpact *= 0.85;
-    this.smoothedBands.snareFlash *= 0.85;
+    this.smoothedBands.kickImpact *= 0.80;
+    this.smoothedBands.snareFlash *= 0.75;
     this.smoothedBands.isKickHit = false;
     this.smoothedBands.isSnareHit = false;
     return this.smoothedBands;
