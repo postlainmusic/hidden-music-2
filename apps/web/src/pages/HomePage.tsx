@@ -211,7 +211,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      if (isScrollingRef.current || isTransitioning) return;
+      if (isTransitioning) return;
       const deltaY = touchStartYRef.current - e.changedTouches[0].clientY;
       const deltaX = touchStartXRef.current - e.changedTouches[0].clientX;
 
@@ -266,8 +266,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
   const currentMarbleStep = MARBLE_STEPS[revolverIndex] ?? 0;
   const marbleBaseX = currentMarbleStep * 28;
 
+  // Tính toán vị trí X đối xứng, tự co giãn theo màn hình (Không bao giờ tràn viền)
+  // Section 1: Album ở -200px (trái), Tracks ở +200px (phải) -> Tổng bề ngang 780px hoàn hảo
+  // Section 2: Album ở tâm 0px
   const centerCardX = activeSection === 0
-    ? (isSec1Settled ? -230 : 0)
+    ? (isSec1Settled ? -200 : 0)
     : dragOffset * 0.35;
 
   return (
@@ -283,18 +286,19 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
         justifyContent: "center",
         color: "#ffffff",
         zIndex: 1,
-        background: "transparent"
+        background: "transparent",
+        padding: "0 24px"
       }}
     >
       {/* ─────────────────────────────────────────────────────────────────────
-          UNIFIED STAGE CONTAINER: ZERO UNMOUNTING, ZERO OVERLAPPING FLASH
+          UNIFIED STAGE CONTAINER: TỰ CÂN BẰNG ĐỐI XỨNG & ZERO OVERFLOW
       ────────────────────────────────────────────────────────────────────── */}
       <div
         style={{
           position: "relative",
           width: "100%",
-          maxWidth: "1080px",
-          height: "440px",
+          maxWidth: "880px",
+          height: "380px",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -330,7 +334,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                 }
               }}
               animate={{
-                x: offset === -1 ? -260 + dragOffset * 0.25 : 260 + dragOffset * 0.25,
+                x: offset === -1 ? -250 + dragOffset * 0.25 : 250 + dragOffset * 0.25,
                 scale: 0.82,
                 opacity: isSection2 ? 0.45 : 0,
                 filter: "blur(3px)",
@@ -339,9 +343,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
               transition={{ type: "spring", stiffness: 240, damping: 26, mass: 0.8 }}
               style={{
                 position: "absolute",
-                width: "360px",
-                height: "360px",
-                borderRadius: "32px",
+                width: "330px",
+                height: "330px",
+                borderRadius: "30px",
                 overflow: "hidden",
                 cursor: "pointer",
                 boxShadow: "0 15px 40px rgba(0, 0, 0, 0.8)",
@@ -374,8 +378,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: "16px",
-                    padding: "24px",
+                    gap: "14px",
+                    padding: "20px",
                     position: "relative",
                     color: "#ffffff"
                   }}
@@ -391,29 +395,29 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                       justifyContent: "center"
                     }}
                   >
-                    <Disc3 size={48} color="rgba(255, 255, 255, 0.3)" />
+                    <Disc3 size={44} color="rgba(255, 255, 255, 0.3)" />
                   </div>
-                  <div style={{ zIndex: 1, textAlign: "center", marginTop: "auto", marginBottom: "12px" }}>
+                  <div style={{ zIndex: 1, textAlign: "center", marginTop: "auto", marginBottom: "10px" }}>
                     <div
                       style={{
                         display: "inline-flex",
                         alignItems: "center",
                         gap: "6px",
-                        padding: "6px 14px",
+                        padding: "5px 12px",
                         borderRadius: "999px",
                         background: "rgba(255, 255, 255, 0.08)",
                         border: "1px solid rgba(255, 255, 255, 0.15)",
-                        fontSize: "0.82rem",
+                        fontSize: "0.8rem",
                         fontWeight: 700,
                         letterSpacing: "0.06em",
                         color: "rgba(255, 255, 255, 0.85)",
-                        marginBottom: "6px"
+                        marginBottom: "4px"
                       }}
                     >
-                      <Sparkles size={14} />
+                      <Sparkles size={13} />
                       <span>{slot.title}</span>
                     </div>
-                    <p style={{ fontSize: "0.78rem", color: "rgba(255, 255, 255, 0.45)" }}>
+                    <p style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.45)" }}>
                       {slot.artist}
                     </p>
                   </div>
@@ -465,9 +469,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
               }}
               style={{
                 position: "absolute",
-                width: "360px",
-                height: "360px",
-                borderRadius: "32px",
+                width: "330px",
+                height: "330px",
+                borderRadius: "30px",
                 overflow: "hidden",
                 cursor: isSection2 ? "grab" : isSec1Settled ? "pointer" : "default",
                 boxShadow: "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)",
@@ -500,8 +504,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: "16px",
-                    padding: "24px",
+                    gap: "14px",
+                    padding: "20px",
                     position: "relative",
                     color: "#ffffff"
                   }}
@@ -517,29 +521,29 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                       justifyContent: "center"
                     }}
                   >
-                    <Disc3 size={48} color="rgba(255, 255, 255, 0.3)" />
+                    <Disc3 size={44} color="rgba(255, 255, 255, 0.3)" />
                   </div>
-                  <div style={{ zIndex: 1, textAlign: "center", marginTop: "auto", marginBottom: "12px" }}>
+                  <div style={{ zIndex: 1, textAlign: "center", marginTop: "auto", marginBottom: "10px" }}>
                     <div
                       style={{
                         display: "inline-flex",
                         alignItems: "center",
                         gap: "6px",
-                        padding: "6px 14px",
+                        padding: "5px 12px",
                         borderRadius: "999px",
                         background: "rgba(255, 255, 255, 0.08)",
                         border: "1px solid rgba(255, 255, 255, 0.15)",
-                        fontSize: "0.82rem",
+                        fontSize: "0.8rem",
                         fontWeight: 700,
                         letterSpacing: "0.06em",
                         color: "rgba(255, 255, 255, 0.85)",
-                        marginBottom: "6px"
+                        marginBottom: "4px"
                       }}
                     >
-                      <Sparkles size={14} />
+                      <Sparkles size={13} />
                       <span>{slot.title}</span>
                     </div>
-                    <p style={{ fontSize: "0.78rem", color: "rgba(255, 255, 255, 0.45)" }}>
+                    <p style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.45)" }}>
                       {slot.artist}
                     </p>
                   </div>
@@ -549,23 +553,21 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
           );
         })()}
 
-        {/* ── SECTION 1: 5 TRACKS LIST (RIGHT SIDE) ── */}
+        {/* ── SECTION 1: 5 TRACKS LIST (RIGHT SIDE - THIẾT KẾ ĐỐI XỨNG CÂN BẰNG TÂM) ── */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{
             opacity: activeSection === 0 && isSec1Settled ? 1 : 0,
-            x: activeSection === 0 && isSec1Settled ? 0 : 20,
+            x: activeSection === 0 && isSec1Settled ? 200 : 220,
             pointerEvents: activeSection === 0 && isSec1Settled ? "auto" : "none"
           }}
           transition={{ duration: 0.8, ease: "easeOut" }}
           style={{
             position: "absolute",
-            left: "calc(50% + 20px)",
-            width: "100%",
-            maxWidth: "480px",
+            width: "380px",
             display: "flex",
             flexDirection: "column",
-            gap: "12px",
+            gap: "8px",
             opacity: 0,
             pointerEvents: "none",
             zIndex: 6
@@ -583,8 +585,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  padding: "14px 20px",
-                  borderRadius: "18px",
+                  padding: "10px 16px",
+                  borderRadius: "16px",
                   background: isCurrent
                     ? "rgba(255, 255, 255, 0.12)"
                     : "rgba(255, 255, 255, 0.04)",
@@ -596,23 +598,23 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                   transition: "all 0.25s ease"
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0, flex: 1 }}>
                   <span
                     style={{
-                      fontSize: "0.88rem",
+                      fontSize: "0.82rem",
                       fontWeight: 700,
                       color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.4)",
-                      width: "22px",
+                      width: "20px",
                       textAlign: "center"
                     }}
                   >
                     {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
                   </span>
 
-                  <div style={{ minWidth: 0 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <p
                       style={{
-                        fontSize: "0.98rem",
+                        fontSize: "0.88rem",
                         fontWeight: isCurrent ? 700 : 600,
                         color: "#ffffff",
                         whiteSpace: "nowrap",
@@ -622,14 +624,22 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                     >
                       {track.title}
                     </p>
-                    <p style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.5)" }}>
+                    <p
+                      style={{
+                        fontSize: "0.74rem",
+                        color: "rgba(255, 255, 255, 0.5)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis"
+                      }}
+                    >
                       {track.artist}
                     </p>
                   </div>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                  <span style={{ fontSize: "0.85rem", color: "rgba(255, 255, 255, 0.4)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
+                  <span style={{ fontSize: "0.78rem", color: "rgba(255, 255, 255, 0.4)" }}>
                     {formatDuration(track.duration)}
                   </span>
 
@@ -645,7 +655,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
                     }}
                   >
                     <Heart
-                      size={16}
+                      size={15}
                       color={isFav ? "#ffffff" : "rgba(255, 255, 255, 0.35)"}
                       fill={isFav ? "#ffffff" : "none"}
                     />
@@ -667,7 +677,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick }) => {
           transition={{ duration: 0.5, ease: "easeOut" }}
           style={{
             position: "absolute",
-            bottom: "-10px",
+            bottom: "-14px",
             left: "50%",
             transform: "translateX(-50%)",
             width: "150px",
