@@ -148,9 +148,12 @@ export const App: React.FC = () => {
         ref={audioRef}
         src={currentTrack?.audioUrl || undefined}
         crossOrigin="anonymous"
-        preload="metadata"
+        preload="auto"
         playsInline
-        onPlay={() => useAudioStore.setState({ isPlaying: true })}
+        onPlay={() => {
+          studioBeatEngine.resumeContext();
+          useAudioStore.setState({ isPlaying: true, isBuffering: false });
+        }}
         onPause={() => useAudioStore.setState({ isPlaying: false })}
         onWaiting={() => useAudioStore.setState({ isBuffering: true })}
         onSeeking={() => useAudioStore.setState({ isBuffering: true })}
