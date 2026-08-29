@@ -4,7 +4,6 @@ import { ArrowLeft, Play, Pause, Heart, RotateCcw, Activity } from "lucide-react
 import { useAudioStore, Track, DEFAULT_TRACKS } from "../store/audioStore";
 import { FloatingPlayerDock } from "../components/FloatingPlayerDock";
 import { MobilePlayerDock } from "../components/MobilePlayerDock";
-import { Album3DScene } from "../components/scene3d/Album3DScene";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { studioBeatEngine } from "../audio/StudioBeatEngine";
 
@@ -315,11 +314,6 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
         justifyContent: "center",
       }}
     >
-      {/* ─────────────────────────────────────────────────────────────────────
-          0. THREE.JS WEBGL 3D UNIVERSE (15,000 Genre Particles + Nebula Plane + Kick Ring)
-      ────────────────────────────────────────────────────────────────────── */}
-      <Album3DScene />
-
       {/* ─────────────────────────────────────────────────────────────────────
           1. 60FPS HARDWARE-ACCELERATED VOLUMETRIC AMBIENT LIGHT & KICK SHOCKWAVE (Z-INDEX 1)
       ────────────────────────────────────────────────────────────────────── */}

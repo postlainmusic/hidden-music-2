@@ -49,7 +49,7 @@ async function run() {
   const pageId = 1;
   await send('tools/call', {
     name: 'navigate_page',
-    arguments: { pageId, url: 'https://hiddenmusic.postlain.com' }
+    arguments: { pageId, url: 'http://localhost:5173' }
   });
 
   await new Promise(r => setTimeout(r, 4000));
