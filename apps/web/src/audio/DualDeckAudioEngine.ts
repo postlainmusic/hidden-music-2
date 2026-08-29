@@ -193,16 +193,39 @@ export class DualDeckAudioEngine {
       }
     });
 
-    audio.addEventListener("playing", () => {
+    audio.addEventListener("loadedmetadata", () => {
+      if (this.activeDeckId === deckId && audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+        if (this.currentTrack) {
+          this.currentTrack.duration = audio.duration;
+        }
+        this.broadcastProgress();
+      }
+    });
+
+    audio.addEventListener("durationchange", () => {
+      if (this.activeDeckId === deckId && audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+        if (this.currentTrack) {
+          this.currentTrack.duration = audio.duration;
+        }
+        this.broadcastProgress();
+      }
+    });
+
+    audio.addEventListener("timeupdate", () => {
       if (this.activeDeckId === deckId) {
-        this.setBuffering(false);
-        this.retryCount = 0;
+        this.broadcastProgress();
       }
     });
 
     audio.addEventListener("canplay", () => {
       if (this.activeDeckId === deckId) {
         this.setBuffering(false);
+        if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+          if (this.currentTrack) {
+            this.currentTrack.duration = audio.duration;
+          }
+        }
+        this.broadcastProgress();
       }
     });
 

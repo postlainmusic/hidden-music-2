@@ -184,26 +184,30 @@ export const FloatingPlayerDock: React.FC = () => {
     return () => cancelAnimationFrame(animId);
   }, [isPlaying]);
 
-  const effectiveDuration =
-    latestDurationRef.current > 0
-      ? latestDurationRef.current
-      : duration && duration > 0
-      ? duration
-      : currentTrack?.duration || 1;
+  // ─────────────────────────────────────────────────────────────────────────
+  // HIGH-PRECISION SCRUBBER TRACKING (GROUND-TRUTH AUDIO DURATION SYNCHRONIZED)
+  // ─────────────────────────────────────────────────────────────────────────
+  const getGroundTruthDuration = useCallback((): number => {
+    const activeAudio = dualDeckAudioEngine.getActiveAudio();
+    if (activeAudio && activeAudio.duration && !isNaN(activeAudio.duration) && isFinite(activeAudio.duration) && activeAudio.duration > 0) {
+      return activeAudio.duration;
+    }
+    if (latestDurationRef.current > 0) return latestDurationRef.current;
+    if (duration && duration > 0) return duration;
+    return currentTrack?.duration || 1;
+  }, [duration, currentTrack]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // HIGH-PRECISION SCRUBBER TRACKING
-  // ─────────────────────────────────────────────────────────────────────────
   const calculateSeekTime = useCallback(
     (clientX: number): number => {
       if (!scrubberTrackRef.current) return 0;
       const rect = scrubberTrackRef.current.getBoundingClientRect();
       if (rect.width <= 0) return 0;
       const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      const totalDur = latestDurationRef.current > 0 ? latestDurationRef.current : effectiveDuration;
-      return ratio * totalDur;
+      const totalDur = getGroundTruthDuration();
+      // Clamp to totalDur - 0.25 to prevent skipping to next track on extreme right click
+      return Math.max(0, Math.min(Math.max(0, totalDur - 0.25), ratio * totalDur));
     },
-    [effectiveDuration]
+    [getGroundTruthDuration]
   );
 
   const handleScrubberPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -212,10 +216,10 @@ export const FloatingPlayerDock: React.FC = () => {
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     } catch {}
 
+    const totalDur = getGroundTruthDuration();
     const targetSec = calculateSeekTime(e.clientX);
     dragSeekTimeRef.current = targetSec;
 
-    const totalDur = latestDurationRef.current > 0 ? latestDurationRef.current : effectiveDuration;
     if (currentTimeTextRef.current) {
       currentTimeTextRef.current.textContent = formatTime(targetSec);
     }
@@ -225,12 +229,12 @@ export const FloatingPlayerDock: React.FC = () => {
   };
 
   const handleScrubberPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const totalDur = latestDurationRef.current > 0 ? latestDurationRef.current : effectiveDuration;
+    const totalDur = getGroundTruthDuration();
     const rect = scrubberTrackRef.current?.getBoundingClientRect();
     if (rect && rect.width > 0) {
       const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       setHoverSeekPos(ratio * 100);
-      setHoverSeekTime(ratio * totalDur);
+      setHoverSeekTime(Math.min(totalDur, ratio * totalDur));
     }
 
     if (isDraggingSeekerRef.current) {
