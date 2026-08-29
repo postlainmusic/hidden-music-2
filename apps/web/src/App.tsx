@@ -14,6 +14,7 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"vault" | "explore" | "3d">("vault");
   const {
     currentTrack,
+    queue,
     isPlaying,
     isBuffering,
     volume,
@@ -24,6 +25,15 @@ export const App: React.FC = () => {
     initAudioEngine
   } = useAudioStore();
   const isMobile = useIsMobile();
+
+  // Next-Track Pre-buffer calculation for 0ms transitions (AGENTS.md Rule 2)
+  const nextTrackUrl = React.useMemo(() => {
+    if (!currentTrack || queue.length <= 1) return null;
+    const currentIndex = queue.findIndex((t) => t.id === currentTrack.id);
+    if (currentIndex === -1) return null;
+    const nextIndex = (currentIndex + 1) % queue.length;
+    return queue[nextIndex]?.audioUrl || null;
+  }, [currentTrack, queue]);
 
   useEffect(() => {
     initAudioEngine();
@@ -223,6 +233,17 @@ export const App: React.FC = () => {
         }}
         style={{ display: "none" }}
       />
+
+      {/* 5. Silent Next-Track Pre-Buffer Engine for 0ms Transitions (AGENTS.md Rule 2) */}
+      {nextTrackUrl && (
+        <audio
+          key={nextTrackUrl}
+          src={nextTrackUrl}
+          preload="auto"
+          muted
+          style={{ display: "none" }}
+        />
+      )}
     </div>
   );
 };

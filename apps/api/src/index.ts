@@ -984,6 +984,94 @@ mcpServer.tool(
   }
 );
 
+// High-Performance Enterprise Edge Streaming Endpoint (Cloudflare Worker + Edge Cache + R2 Backbone)
+app.get("/api/stream/:filename", async (c) => {
+  const filename = decodeURIComponent(c.req.param("filename"));
+  const r2Key = `audio/${filename}`;
+
+  if (!c.env.MUSIC_ASSETS) {
+    return c.text("R2 Storage not bound", 500);
+  }
+
+  const cache = (caches as any).default;
+  const cacheKey = new Request(c.req.url, c.req.raw);
+  const rangeHeader = c.req.header("range");
+
+  // Check Edge Cache for full-file requests
+  if (!rangeHeader && cache) {
+    const cachedRes = await cache.match(cacheKey);
+    if (cachedRes) {
+      return cachedRes;
+    }
+  }
+
+  // Fetch from R2 via Cloudflare Private Backbone
+  let r2Object: any = null;
+  try {
+    if (rangeHeader) {
+      const rangeMatch = rangeHeader.match(/bytes=(\d+)-(\d+)?/);
+      if (rangeMatch) {
+        const start = parseInt(rangeMatch[1], 10);
+        const end = rangeMatch[2] ? parseInt(rangeMatch[2], 10) : undefined;
+        r2Object = await c.env.MUSIC_ASSETS.get(r2Key, {
+          range: { offset: start, length: end !== undefined ? end - start + 1 : undefined }
+        });
+      } else {
+        r2Object = await c.env.MUSIC_ASSETS.get(r2Key);
+      }
+    } else {
+      r2Object = await c.env.MUSIC_ASSETS.get(r2Key);
+    }
+  } catch (err: any) {
+    return c.text(`R2 Fetch Error: ${err.message}`, 500);
+  }
+
+  if (!r2Object) {
+    return c.text("Audio file not found in vault", 404);
+  }
+
+  const headers = new Headers();
+  r2Object.writeHttpMetadata(headers);
+  headers.set("etag", r2Object.httpEtag);
+  headers.set("Content-Type", "audio/mp4");
+  headers.set("Accept-Ranges", "bytes");
+  headers.set("Access-Control-Allow-Origin", "*");
+  headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "Range, Content-Type, Authorization");
+  headers.set("Cache-Control", "public, max-age=31536000, s-maxage=31536000, immutable");
+
+  if (r2Object.body) {
+    if (r2Object.range) {
+      const range = r2Object.range as { offset?: number; length?: number };
+      const start = range.offset || 0;
+      const length = range.length || r2Object.size;
+      const end = start + length - 1;
+      headers.set("Content-Range", `bytes ${start}-${end}/${r2Object.size}`);
+      headers.set("Content-Length", length.toString());
+
+      return new Response(r2Object.body, {
+        status: 206,
+        statusText: "Partial Content",
+        headers
+      });
+    }
+
+    headers.set("Content-Length", r2Object.size.toString());
+    const response = new Response(r2Object.body, {
+      status: 200,
+      headers
+    });
+
+    if (!rangeHeader && cache) {
+      c.executionCtx.waitUntil(cache.put(cacheKey, response.clone()));
+    }
+
+    return response;
+  }
+
+  return c.text("Audio body unavailable", 500);
+});
+
 // MCP SSE Endpoints for Gemini Spark
 app.get("/mcp", async (c) => {
   const transport = new SSEServerTransport("/message", (response) => response);
