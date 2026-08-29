@@ -124,40 +124,7 @@ export class StudioBeatEngine {
   }
 
   public async resumeContext(): Promise<void> {
-    try {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextClass) return;
-
-      if (!this.audioCtx) {
-        this.audioCtx = new AudioContextClass();
-      }
-
-      if (this.audioCtx.state === "suspended") {
-        await this.audioCtx.resume();
-      }
-
-      if (!this.analyser && this.audioCtx) {
-        this.analyser = this.audioCtx.createAnalyser();
-        this.analyser.fftSize = 512;
-        this.analyser.smoothingTimeConstant = 0.55;
-        this.analyser.minDecibels = -90;
-        this.analyser.maxDecibels = -10;
-        this.frequencyData = new Uint8Array(new ArrayBuffer(this.analyser.frequencyBinCount));
-        this.timeDomainData = new Uint8Array(new ArrayBuffer(this.analyser.fftSize));
-      }
-
-      if (!this.sourceNode && this.audioCtx && this.analyser && this.currentAudioElement) {
-        try {
-          this.sourceNode = this.audioCtx.createMediaElementSource(this.currentAudioElement);
-          this.sourceNode.connect(this.analyser);
-          this.analyser.connect(this.audioCtx.destination);
-        } catch (e) {
-          console.warn("MediaElementAudioSourceNode connect notice:", e);
-        }
-      }
-    } catch (err) {
-      console.warn("StudioBeatEngine resumeContext notice:", err);
-    }
+    // Pure no-op: native HTML5 audio element outputs directly to hardware speakers with zero blocking
   }
 
   public setTrack(trackIdOrTitle: string): void {
@@ -178,11 +145,40 @@ export class StudioBeatEngine {
   }
 
   public getByteFrequencyData(): Uint8Array {
-    if (this.analyser && this.frequencyData) {
-      this.analyser.getByteFrequencyData(this.frequencyData);
-      return this.frequencyData;
+    if (!this.frequencyData) {
+      this.frequencyData = new Uint8Array(32);
     }
-    return new Uint8Array(32);
+
+    const audio = this.currentAudioElement;
+    const isPlaying = audio && !audio.paused && !audio.ended;
+
+    if (isPlaying) {
+      const energy = this.state.overallEnergy || 0.5;
+      const kickImp = this.state.kickImpact || 0;
+      const snareImp = this.state.snareFlash || 0;
+
+      for (let i = 0; i < 32; i++) {
+        // Synthesize vibrant, beat-reactive spectrum bars based on ground-truth frequency bands
+        let bandVal = 0;
+        if (i < 6) {
+          bandVal = (this.state.subBass * 200) + (kickImp * 55);
+        } else if (i < 14) {
+          bandVal = (this.state.kick * 180) + (this.state.upperBass * 60);
+        } else if (i < 24) {
+          bandVal = (this.state.lowMid * 160) + (snareImp * 70);
+        } else {
+          bandVal = (this.state.vocalMid * 140) + (this.state.highTreble * 100);
+        }
+
+        // Add subtle harmonic modulation
+        const wobble = Math.sin(performance.now() * 0.01 + i * 0.4) * 15;
+        this.frequencyData[i] = Math.min(255, Math.max(10, Math.round(bandVal * energy + wobble)));
+      }
+    } else {
+      this.frequencyData.fill(0);
+    }
+
+    return this.frequencyData;
   }
 
   public getFrequencyData(): Uint8Array {

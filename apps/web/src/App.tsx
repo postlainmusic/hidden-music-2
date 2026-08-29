@@ -31,20 +31,6 @@ export const App: React.FC = () => {
       setAudioElement(audioRef.current);
       studioBeatEngine.attachAudioElement(audioRef.current);
     }
-
-    // Global User Gesture Unlocker for AudioContext
-    const unlockAudio = () => {
-      studioBeatEngine.resumeContext();
-      window.removeEventListener("pointerdown", unlockAudio);
-      window.removeEventListener("keydown", unlockAudio);
-    };
-    window.addEventListener("pointerdown", unlockAudio, { passive: true });
-    window.addEventListener("keydown", unlockAudio, { passive: true });
-
-    return () => {
-      window.removeEventListener("pointerdown", unlockAudio);
-      window.removeEventListener("keydown", unlockAudio);
-    };
   }, [initAudioEngine, setAudioElement]);
 
   useEffect(() => {
@@ -78,7 +64,6 @@ export const App: React.FC = () => {
     }
 
     if (isPlaying) {
-      studioBeatEngine.resumeContext();
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.catch((err) => {
@@ -91,21 +76,6 @@ export const App: React.FC = () => {
       audio.pause();
     }
   }, [currentTrack, isPlaying]);
-
-  // Anti-Hang Buffer Watchdog: If audio is waiting for > 2.5s while playing, clear spinner safely
-  useEffect(() => {
-    if (!isBuffering || !isPlaying) return;
-    const timer = setTimeout(() => {
-      const audio = audioRef.current;
-      if (audio && isPlaying) {
-        useAudioStore.setState({ isBuffering: false });
-        if (audio.paused) {
-          audio.play().catch(() => {});
-        }
-      }
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, [isBuffering, isPlaying]);
 
   return (
     <div style={{ position: "relative", minHeight: "100dvh", width: "100vw", overflowX: "hidden", backgroundColor: "#000000" }}>
@@ -195,18 +165,15 @@ export const App: React.FC = () => {
       {/* 4. Primary Global HTML5 Lossless Audio Engine */}
       <audio
         ref={audioRef}
-        crossOrigin="anonymous"
-        preload="auto"
+        preload="metadata"
         playsInline
-        onPlay={() => {
-          studioBeatEngine.resumeContext();
-          useAudioStore.setState({ isPlaying: true, isBuffering: false });
+        onPlay={(e) => {
+          const isReady = e.currentTarget.readyState >= 3;
+          useAudioStore.setState({ isPlaying: true, isBuffering: !isReady });
         }}
         onPause={() => useAudioStore.setState({ isPlaying: false, isBuffering: false })}
         onWaiting={() => {
-          if (isPlaying) {
-            useAudioStore.setState({ isBuffering: true });
-          }
+          useAudioStore.setState({ isBuffering: true });
         }}
         onProgress={(e) => {
           const audio = e.currentTarget;
