@@ -20,6 +20,7 @@ export const MobilePlayerDock: React.FC = () => {
     isPlaying,
     isBuffering,
     currentTime,
+    bufferedTime,
     duration,
     volume,
     isMuted,
@@ -35,6 +36,8 @@ export const MobilePlayerDock: React.FC = () => {
   } = useAudioStore();
 
   const [isFullOpen, setIsFullOpen] = useState(false);
+  const [isDraggingSeeker, setIsDraggingSeeker] = useState(false);
+  const [dragSeekTime, setDragSeekTime] = useState<number | null>(null);
   const visualizerRef = useRef<HTMLCanvasElement | null>(null);
 
   // Live Sound Waveform Visualizer on Mini Dock
@@ -439,17 +442,50 @@ export const MobilePlayerDock: React.FC = () => {
                 </button>
               </div>
 
-              {/* Scrubber Range Bar */}
+              {/* Scrubber Range Bar with Buffered Bar & Smooth Release-to-Seek */}
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                 <div style={{ position: "relative", display: "flex", alignItems: "center", width: "100%" }}>
                   <input
                     type="range"
                     min={0}
                     max={duration || 100}
-                    value={currentTime}
-                    onChange={(e) => seek(Number(e.target.value))}
-                    style={{ zIndex: 2, height: "24px" }}
+                    value={isDraggingSeeker && dragSeekTime !== null ? dragSeekTime : currentTime}
+                    onMouseDown={() => setIsDraggingSeeker(true)}
+                    onTouchStart={() => setIsDraggingSeeker(true)}
+                    onChange={(e) => setDragSeekTime(Number(e.target.value))}
+                    onMouseUp={() => {
+                      setIsDraggingSeeker(false);
+                      if (dragSeekTime !== null) {
+                        seek(dragSeekTime);
+                        setDragSeekTime(null);
+                      }
+                    }}
+                    onTouchEnd={() => {
+                      setIsDraggingSeeker(false);
+                      if (dragSeekTime !== null) {
+                        seek(dragSeekTime);
+                        setDragSeekTime(null);
+                      }
+                    }}
+                    style={{ zIndex: 3, height: "24px", cursor: "pointer" }}
                   />
+
+                  {/* Buffered Translucent Cache Bar */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      height: "4px",
+                      borderRadius: "999px",
+                      background: "rgba(255, 255, 255, 0.25)",
+                      width: `${duration > 0 ? (Math.min(duration, bufferedTime) / duration) * 100 : 0}%`,
+                      pointerEvents: "none",
+                      zIndex: 1,
+                      transition: "width 0.25s ease"
+                    }}
+                  />
+
+                  {/* Active Played Progress Bar */}
                   <div
                     style={{
                       position: "absolute",
@@ -457,15 +493,16 @@ export const MobilePlayerDock: React.FC = () => {
                       height: "4px",
                       borderRadius: "999px",
                       background: "#ffffff",
-                      width: `${progressPercent}%`,
+                      width: `${isDraggingSeeker && dragSeekTime !== null && duration > 0 ? (dragSeekTime / duration) * 100 : progressPercent}%`,
                       pointerEvents: "none",
-                      boxShadow: "0 0 8px rgba(255, 255, 255, 0.8)"
+                      boxShadow: "0 0 8px rgba(255, 255, 255, 0.8)",
+                      zIndex: 2
                     }}
                   />
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", color: "rgba(255, 255, 255, 0.45)" }}>
-                  <span>{formatTime(currentTime)}</span>
+                  <span>{formatTime(isDraggingSeeker && dragSeekTime !== null ? dragSeekTime : currentTime)}</span>
                   <span>{formatTime(duration)}</span>
                 </div>
               </div>

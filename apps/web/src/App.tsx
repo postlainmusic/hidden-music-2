@@ -175,7 +175,7 @@ export const App: React.FC = () => {
         ref={audioRef}
         src={effectiveAudioUrl || undefined}
         crossOrigin="anonymous"
-        preload="metadata"
+        preload="auto"
         playsInline
         onPlay={() => {
           studioBeatEngine.resumeContext();
@@ -185,6 +185,15 @@ export const App: React.FC = () => {
         onWaiting={() => {
           if (isPlaying) {
             useAudioStore.setState({ isBuffering: true });
+          }
+        }}
+        onProgress={(e) => {
+          const audio = e.currentTarget;
+          if (audio.buffered.length > 0) {
+            try {
+              const bufferedEnd = audio.buffered.end(audio.buffered.length - 1);
+              useAudioStore.setState({ bufferedTime: bufferedEnd });
+            } catch {}
           }
         }}
         onStalled={() => {

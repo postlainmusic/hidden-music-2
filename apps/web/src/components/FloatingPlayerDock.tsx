@@ -32,6 +32,7 @@ export const FloatingPlayerDock: React.FC = () => {
     isPlaying,
     isBuffering,
     currentTime,
+    bufferedTime,
     duration,
     volume,
     isMuted,
@@ -53,13 +54,13 @@ export const FloatingPlayerDock: React.FC = () => {
   const [repeatMode, setRepeatMode] = useState<"off" | "all" | "one">("off");
   const [hoverSeekTime, setHoverSeekTime] = useState<number | null>(null);
   const [hoverSeekPos, setHoverSeekPos] = useState<number>(0);
+  const [isDraggingSeeker, setIsDraggingSeeker] = useState<boolean>(false);
+  const [dragSeekTime, setDragSeekTime] = useState<number | null>(null);
 
   const dockContainerRef = useRef<HTMLDivElement | null>(null);
   const visualizerRef = useRef<HTMLCanvasElement | null>(null);
   const miniCoverRef = useRef<HTMLDivElement | null>(null);
   const volumeSliderRef = useRef<HTMLDivElement | null>(null);
-
-  const isDraggingSeeker = useRef<boolean>(false);
 
   const isFav = currentTrack ? favoritedTrackIds.includes(currentTrack.id) : false;
 
@@ -561,10 +562,10 @@ export const FloatingPlayerDock: React.FC = () => {
             <canvas ref={visualizerRef} width={75} height={18} style={{ marginLeft: "4px" }} />
           </div>
 
-          {/* Timeline & Scrubber with Hover Time Tooltip */}
+          {/* Timeline & Scrubber with Hover Time Tooltip & Buffered Cache Bar */}
           <div style={{ display: "flex", alignItems: "center", gap: "10px", width: "100%" }}>
             <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.45)", minWidth: "32px", textAlign: "right" }}>
-              {formatTime(currentTime)}
+              {formatTime(isDraggingSeeker && dragSeekTime !== null ? dragSeekTime : currentTime)}
             </span>
 
             <div
@@ -601,19 +602,50 @@ export const FloatingPlayerDock: React.FC = () => {
                 </div>
               )}
 
+              {/* Native Slider Input */}
               <input
                 type="range"
                 min={0}
                 max={effectiveDuration}
-                value={currentTime}
-                onMouseDown={() => { isDraggingSeeker.current = true; }}
+                value={isDraggingSeeker && dragSeekTime !== null ? dragSeekTime : currentTime}
+                onMouseDown={() => setIsDraggingSeeker(true)}
+                onTouchStart={() => setIsDraggingSeeker(true)}
                 onChange={(e) => {
-                  seek(Number(e.target.value));
+                  setDragSeekTime(Number(e.target.value));
                 }}
-                onMouseUp={() => { isDraggingSeeker.current = false; }}
-                style={{ width: "100%", height: "4px", zIndex: 2, cursor: "pointer" }}
+                onMouseUp={() => {
+                  setIsDraggingSeeker(false);
+                  if (dragSeekTime !== null) {
+                    seek(dragSeekTime);
+                    setDragSeekTime(null);
+                  }
+                }}
+                onTouchEnd={() => {
+                  setIsDraggingSeeker(false);
+                  if (dragSeekTime !== null) {
+                    seek(dragSeekTime);
+                    setDragSeekTime(null);
+                  }
+                }}
+                style={{ width: "100%", height: "4px", zIndex: 3, cursor: "pointer" }}
               />
 
+              {/* Buffered Stream Progress Bar (Translucent Ice-White) */}
+              <div
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  height: "4px",
+                  borderRadius: "999px",
+                  background: "rgba(255, 255, 255, 0.22)",
+                  width: `${effectiveDuration > 0 ? (Math.min(effectiveDuration, bufferedTime) / effectiveDuration) * 100 : 0}%`,
+                  pointerEvents: "none",
+                  zIndex: 1,
+                  transition: "width 0.25s ease"
+                }}
+              />
+
+              {/* Active Played Progress Bar (Dynamic Palette Gradient) */}
               <div
                 style={{
                   position: "absolute",
@@ -621,9 +653,10 @@ export const FloatingPlayerDock: React.FC = () => {
                   height: "4px",
                   borderRadius: "999px",
                   background: `linear-gradient(90deg, ${currentTrack.palette?.primary || "#6366f1"}, ${currentTrack.palette?.secondary || "#ec4899"})`,
-                  width: `${progressPercent}%`,
+                  width: `${isDraggingSeeker && dragSeekTime !== null && effectiveDuration > 0 ? (dragSeekTime / effectiveDuration) * 100 : progressPercent}%`,
                   pointerEvents: "none",
-                  boxShadow: "0 0 8px rgba(99, 102, 241, 0.6)"
+                  boxShadow: "0 0 8px rgba(99, 102, 241, 0.6)",
+                  zIndex: 2
                 }}
               />
             </div>

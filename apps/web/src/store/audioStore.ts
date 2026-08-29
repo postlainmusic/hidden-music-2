@@ -403,6 +403,7 @@ interface AudioState {
   isPlaying: boolean;
   isBuffering: boolean;
   currentTime: number;
+  bufferedTime: number;
   duration: number;
   volume: number;
   isMuted: boolean;
@@ -467,6 +468,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   isPlaying: false,
   isBuffering: false,
   currentTime: 0,
+  bufferedTime: 0,
   duration: DEFAULT_TRACKS[0].duration,
   volume: 0.85,
   isMuted: false,
