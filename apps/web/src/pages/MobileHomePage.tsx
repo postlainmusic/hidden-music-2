@@ -21,14 +21,12 @@ interface RevolverSlot {
 }
 
 const REVOLVER_SLOTS: RevolverSlot[] = [
-  { id: "hvl", slotNumber: 1, title: "HVL (99%)", artist: "MCK • 30 Tracks", isReal: true, coverUrl: "https://media.postlain.com/covers/HVL_Album_Cover.jpg" }, // Index 0 (Bìa 1 - Tâm)
+  { id: "hvl", slotNumber: 1, title: "HVL (99%)", artist: "MCK • 30 Tracks", isReal: true, coverUrl: "/covers/HVL_Album_Cover.webp" }, // Index 0 (Bìa 1 - Tâm)
   { id: "slot-2", slotNumber: 2, title: "VAULT SLOT 02", artist: "Lossless Ready", isReal: false }, // Index 1 (Bìa 2)
   { id: "slot-3", slotNumber: 3, title: "VAULT SLOT 03", artist: "Lossless Ready", isReal: false }, // Index 2 (Bìa 3 - Sát rìa phải)
   { id: "slot-4", slotNumber: 4, title: "VAULT SLOT 04", artist: "Lossless Ready", isReal: false }, // Index 3 (Bìa 4 - Sát rìa trái)
   { id: "slot-5", slotNumber: 5, title: "VAULT SLOT 05", artist: "Lossless Ready", isReal: false }, // Index 4 (Bìa 5)
 ];
-
-const MARBLE_STEPS = [0, 1, 2, -2, -1];
 
 const formatDuration = (seconds: number) => {
   const m = Math.floor(seconds / 60);
@@ -47,9 +45,10 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
   // Active Section: 0 = Section 1, 1 = Section 2, 2 = Section 3
   const [activeSection, setActiveSection] = useState<number>(0);
   
-  // Section 1 Internal Settled State (starts center -> settles to top after 1.5s)
-  const [isSec1Settled, setIsSec1Settled] = useState<boolean>(false);
+  // Section 1 State: "center" (Bìa nằm giữa) | "revealed" (Bìa trượt lên + 5 bài hát)
+  const [sec1Stage, setSec1Stage] = useState<"center" | "revealed">("center");
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
+  const [isCenteringForVault, setIsCenteringForVault] = useState<boolean>(false);
 
   // Section 2 Revolver Index (0..4)
   const [revolverIndex, setRevolverIndex] = useState<number>(0);
@@ -59,45 +58,83 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
   const touchStartX = useRef<number>(0);
   const isTouchInsideCarousel = useRef<boolean>(false);
 
-  // Initial Sequence: Cover fades in at Center -> rests 1.5s -> glides up & 5 tracks fade in
-  useEffect(() => {
-    const settleTimer = setTimeout(() => {
-      setIsSec1Settled(true);
-    }, 1500);
-
-    return () => clearTimeout(settleTimer);
-  }, []);
-
-  // Chuyển cảnh 1 -> 2 (Tracks fade out -> Bìa trượt về tâm -> Wings mở ra)
-  const handleTransition1To2 = () => {
-    if (isTransitioning || !isSec1Settled) return;
-    setIsTransitioning(true);
-
-    setIsSec1Settled(false); // Trượt bìa về tâm
-
-    setTimeout(() => {
-      setRevolverIndex(0);
-      setActiveSection(1);
-      setTimeout(() => {
-        setIsTransitioning(false);
-      }, 400);
-    }, 1100);
+  const toggleFavorite = (e: React.MouseEvent, trackId: string) => {
+    e.stopPropagation();
+    toggleFavoriteTrack(trackId);
   };
 
-  // Chuyển cảnh 2 -> 1 (Wings thu lại -> Bìa trượt lên -> Tracks fade in)
-  const handleTransition2To1 = () => {
-    if (isTransitioning) return;
-    setIsTransitioning(true);
+  const handleAlbumClick = () => {
+    if (isTransitioning || isCenteringForVault) return;
 
-    setRevolverIndex(0);
-    setActiveSection(0);
+    if (activeSection === 0 && sec1Stage === "revealed") {
+      setIsCenteringForVault(true);
+      setSec1Stage("center"); // Lướt bìa về tâm
 
-    setTimeout(() => {
-      setIsSec1Settled(true);
       setTimeout(() => {
-        setIsTransitioning(false);
-      }, 1100);
-    }, 200);
+        if (onOpen3D) {
+          onOpen3D();
+        }
+        setIsCenteringForVault(false);
+      }, 700);
+    } else {
+      if (onOpen3D) {
+        onOpen3D();
+      }
+    }
+  };
+
+  const handleTrackSelect = (track: Track) => {
+    playTrack(track);
+    if (onOpen3D) {
+      onOpen3D();
+    }
+  };
+
+  const handleScrollDown = () => {
+    if (isTransitioning || isCenteringForVault) return;
+
+    if (activeSection === 0) {
+      if (sec1Stage === "center") {
+        // Bước 1: Trượt lên mở 5 bài hát
+        setIsTransitioning(true);
+        setSec1Stage("revealed");
+        setTimeout(() => setIsTransitioning(false), 500);
+      } else {
+        // Bước 2: Trả bìa về Center trước, sau đó mở wings chuyển qua Section 2
+        setIsTransitioning(true);
+        setSec1Stage("center");
+
+        setTimeout(() => {
+          setRevolverIndex(0);
+          setActiveSection(1);
+          setTimeout(() => setIsTransitioning(false), 450);
+        }, 650);
+      }
+    } else if (activeSection === 1) {
+      setIsTransitioning(true);
+      setActiveSection(2);
+      setTimeout(() => setIsTransitioning(false), 500);
+    }
+  };
+
+  const handleScrollUp = () => {
+    if (isTransitioning || isCenteringForVault) return;
+
+    if (activeSection === 2) {
+      setIsTransitioning(true);
+      setActiveSection(1);
+      setTimeout(() => setIsTransitioning(false), 500);
+    } else if (activeSection === 1) {
+      setIsTransitioning(true);
+      setActiveSection(0);
+      setSec1Stage("center");
+      setRevolverIndex(0);
+      setTimeout(() => setIsTransitioning(false), 600);
+    } else if (activeSection === 0 && sec1Stage === "revealed") {
+      setIsTransitioning(true);
+      setSec1Stage("center");
+      setTimeout(() => setIsTransitioning(false), 500);
+    }
   };
 
   // Touch Gesture Handling
@@ -119,7 +156,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      if (isTransitioning) return;
+      if (isTransitioning || isCenteringForVault) return;
       const deltaY = touchStartY.current - e.changedTouches[0].clientY;
       const deltaX = touchStartX.current - e.changedTouches[0].clientX;
 
@@ -129,22 +166,10 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
         }
       }
 
-      if (deltaY > 60) {
-        if (activeSection === 0 && isSec1Settled) {
-          handleTransition1To2();
-        } else if (activeSection === 1) {
-          setIsTransitioning(true);
-          setActiveSection(2);
-          setTimeout(() => setIsTransitioning(false), 500);
-        }
-      } else if (deltaY < -60) {
-        if (activeSection === 1) {
-          handleTransition2To1();
-        } else if (activeSection === 2) {
-          setIsTransitioning(true);
-          setActiveSection(1);
-          setTimeout(() => setIsTransitioning(false), 500);
-        }
+      if (deltaY > 55) {
+        handleScrollDown();
+      } else if (deltaY < -55) {
+        handleScrollUp();
       }
     };
 
@@ -155,7 +180,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
       window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("touchend", handleTouchEnd);
     };
-  }, [activeSection, isSec1Settled, isTransitioning]);
+  }, [activeSection, sec1Stage, isTransitioning, isCenteringForVault]);
 
   const totalSlots = 5;
   const getSlot = (offset: number) => {
@@ -163,50 +188,34 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
     return { slot: REVOLVER_SLOTS[idx] };
   };
 
-  const handleTrackSelect = (track: Track) => {
-    playTrack(track);
-    if (onOpen3D) {
-      onOpen3D();
-    }
-  };
-
-  const currentMarbleStep = MARBLE_STEPS[revolverIndex] ?? 0;
-  const marbleBaseX = currentMarbleStep * 24;
-
-  const centerCardY = activeSection === 0
-    ? (isSec1Settled ? -135 : 0)
-    : 0;
-
-  const centerCardScale = activeSection === 0
-    ? (isSec1Settled ? 0.58 : 1.0)
-    : 1.0;
-
   return (
     <main
       style={{
         position: "fixed",
         inset: 0,
         width: "100vw",
-        height: "100dvh",
+        height: "100vh",
         overflow: "hidden",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         color: "#ffffff",
         zIndex: 1,
-        background: "transparent"
+        background: "transparent",
+        padding: "0 16px"
       }}
     >
       {/* ─────────────────────────────────────────────────────────────────────
-          UNIFIED STAGE CONTAINER: ZERO UNMOUNTING, ZERO OVERLAPPING FLASH
+          MOBILE UNIFIED STAGE CONTAINER
       ────────────────────────────────────────────────────────────────────── */}
       <div
         style={{
           position: "relative",
           width: "100%",
           maxWidth: "420px",
-          height: "100%",
+          height: "min(80vh, 560px)",
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
           opacity: activeSection === 2 ? 0 : 1,
@@ -214,19 +223,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
           transition: "opacity 0.4s ease-in-out"
         }}
       >
-        {/* Localized metallic sheen glow behind cards in Section 2 */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{
-            opacity: activeSection === 1 ? 0.35 : 0,
-            scale: activeSection === 1 ? 1 : 0.8
-          }}
-          transition={{ duration: 0.6, ease: "easeInOut" }}
-          className="metallic-sheen-glow"
-          style={{ opacity: 0, pointerEvents: "none" }}
-        />
-
-        {/* ── SECTION 2 WINGS: LEFT & RIGHT CARDS (FADE & SLIDE INTO PLACE) ── */}
+        {/* SECTION 2 WINGS: LEFT & RIGHT MINI COVERS */}
         {[-1, 1].map((offset) => {
           const { slot } = getSlot(offset);
           const isSection2 = activeSection === 1;
@@ -241,253 +238,110 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
                 }
               }}
               animate={{
-                x: offset === -1 ? -165 + dragOffset * 0.25 : 165 + dragOffset * 0.25,
-                scale: 0.8,
-                opacity: isSection2 ? 0.45 : 0,
+                x: offset === -1 ? -120 + dragOffset * 0.25 : 120 + dragOffset * 0.25,
+                scale: 0.72,
+                opacity: isSection2 ? 0.4 : 0,
                 filter: "blur(2.5px)",
                 pointerEvents: isSection2 ? "auto" : "none"
               }}
-              transition={{ type: "spring", stiffness: 240, damping: 26, mass: 0.8 }}
+              transition={{ type: "spring", stiffness: 240, damping: 26 }}
               style={{
                 position: "absolute",
-                width: "min(76vw, 280px)",
-                height: "min(76vw, 280px)",
-                borderRadius: "28px",
+                top: "14%",
+                width: "220px",
+                height: "220px",
+                borderRadius: "22px",
                 overflow: "hidden",
-                cursor: "pointer",
-                boxShadow: "0 15px 35px rgba(0, 0, 0, 0.8)",
-                border: slot.isReal
-                  ? "1px solid rgba(255, 255, 255, 0.3)"
-                  : "1.5px solid rgba(255, 255, 255, 0.22)",
-                background: slot.isReal
-                  ? "#18181b"
-                  : "linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%)",
-                backdropFilter: slot.isReal ? "none" : "blur(20px)",
-                WebkitBackdropFilter: slot.isReal ? "none" : "blur(20px)",
-                opacity: 0,
-                pointerEvents: "none",
+                boxShadow: "0 12px 30px rgba(0, 0, 0, 0.8)",
+                border: "1px solid rgba(255, 255, 255, 0.2)",
+                background: "#18181b",
                 zIndex: 5
               }}
             >
               {slot.isReal ? (
-                <img
-                  src={slot.coverUrl}
-                  alt={slot.title}
-                  loading="eager"
-                  style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none", display: "block" }}
-                />
+                <img src={slot.coverUrl} alt={slot.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               ) : (
-                <div
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "12px",
-                    padding: "20px",
-                    position: "relative",
-                    color: "#ffffff"
-                  }}
-                >
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: "15%",
-                      borderRadius: "50%",
-                      border: "1px dashed rgba(255, 255, 255, 0.15)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center"
-                    }}
-                  >
-                    <Disc3 size={32} color="rgba(255, 255, 255, 0.3)" />
-                  </div>
-                  <div style={{ zIndex: 1, textAlign: "center", marginTop: "auto", marginBottom: "8px" }}>
-                    <div
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        padding: "4px 10px",
-                        borderRadius: "999px",
-                        background: "rgba(255, 255, 255, 0.08)",
-                        border: "1px solid rgba(255, 255, 255, 0.15)",
-                        fontSize: "0.72rem",
-                        fontWeight: 700,
-                        letterSpacing: "0.06em",
-                        color: "rgba(255, 255, 255, 0.8)",
-                        marginBottom: "4px"
-                      }}
-                    >
-                      <Sparkles size={12} />
-                      <span>{slot.title}</span>
-                    </div>
-                    <p style={{ fontSize: "0.7rem", color: "rgba(255, 255, 255, 0.45)" }}>
-                      {slot.artist}
-                    </p>
-                  </div>
+                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Disc3 size={32} color="rgba(255, 255, 255, 0.3)" />
                 </div>
               )}
             </motion.div>
           );
         })}
 
-        {/* ── THE SINGLE PERSISTENT CENTER CARD (HVL OR CURRENT REVOLVER SLOT) ── */}
+        {/* PERSISTENT MAIN CENTER CARD */}
         {(() => {
           const { slot } = getSlot(0);
           const isSection2 = activeSection === 1;
 
           return (
             <motion.div
-              layoutId="album-hero-cover"
+              layoutId="mobile-album-cover"
               drag={isSection2 ? "x" : false}
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.4}
-              initial={{ opacity: 0, scale: 0.96 }}
               onDrag={(_, info) => {
                 if (isSection2) setDragOffset(info.offset.x);
               }}
               onDragEnd={(_, info) => {
                 setDragOffset(0);
-                const offsetVal = info.offset.x;
-                const velocity = info.velocity.x;
-
-                if (offsetVal < -30 || velocity < -120) {
+                if (info.offset.x < -30 || info.velocity.x < -120) {
                   setRevolverIndex((prev) => (prev + 1) % totalSlots);
-                } else if (offsetVal > 30 || velocity > 120) {
+                } else if (info.offset.x > 30 || info.velocity.x > 120) {
                   setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
                 }
               }}
-              whileTap={isSection2 ? { scale: 0.98 } : {}}
-              onClick={() => {
-                if (onOpen3D) {
-                  onOpen3D();
-                }
-              }}
+              onClick={handleAlbumClick}
               animate={{
-                x: isSection2 ? dragOffset * 0.35 : 0,
-                y: centerCardY,
-                scale: centerCardScale,
+                y: activeSection === 0 && sec1Stage === "revealed" && !isCenteringForVault ? -145 : 0,
+                scale: activeSection === 0 && sec1Stage === "revealed" && !isCenteringForVault ? 0.78 : 1.0,
+                x: dragOffset * 0.35,
                 opacity: 1.0
               }}
               transition={{
-                y: { duration: 1.1, ease: [0.16, 1, 0.3, 1] },
-                scale: { duration: 1.1, ease: [0.16, 1, 0.3, 1] },
-                opacity: { duration: 0.4, ease: "easeOut" },
-                x: { duration: 0.2, ease: "easeOut" }
+                y: { duration: 0.65, ease: [0.16, 1, 0.3, 1] },
+                scale: { duration: 0.45, ease: "easeOut" }
               }}
               style={{
                 position: "absolute",
-                width: "min(76vw, 280px)",
-                height: "min(76vw, 280px)",
-                borderRadius: "28px",
+                top: activeSection === 0 && sec1Stage === "revealed" && !isCenteringForVault ? "10%" : "22%",
+                width: "min(68vw, 260px)",
+                height: "min(68vw, 260px)",
+                borderRadius: "24px",
                 overflow: "hidden",
-                cursor: isSection2 ? "grab" : isSec1Settled ? "pointer" : "default",
-                boxShadow: isSection2
-                  ? "0 28px 70px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)"
-                  : isSec1Settled
-                  ? "0 14px 35px rgba(0, 0, 0, 0.85), 0 0 20px rgba(255, 255, 255, 0.2)"
-                  : "0 28px 70px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)",
-                border: slot.isReal
-                  ? "1px solid rgba(255, 255, 255, 0.3)"
-                  : "1.5px solid rgba(255, 255, 255, 0.22)",
-                background: slot.isReal
-                  ? "#18181b"
-                  : "linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%)",
-                backdropFilter: slot.isReal ? "none" : "blur(20px)",
-                WebkitBackdropFilter: slot.isReal ? "none" : "blur(20px)",
+                cursor: "pointer",
+                boxShadow: "0 20px 60px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)",
+                border: "1px solid rgba(255, 255, 255, 0.3)",
+                background: "#18181b",
                 zIndex: 10
               }}
             >
               {slot.isReal ? (
-                <img
-                  src={slot.coverUrl}
-                  alt={slot.title}
-                  loading="eager"
-                  decoding="async"
-                  fetchPriority="high"
-                  style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none", display: "block" }}
-                />
+                <img src={slot.coverUrl} alt={slot.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               ) : (
-                <div
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "12px",
-                    padding: "20px",
-                    position: "relative",
-                    color: "#ffffff"
-                  }}
-                >
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: "15%",
-                      borderRadius: "50%",
-                      border: "1px dashed rgba(255, 255, 255, 0.15)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center"
-                    }}
-                  >
-                    <Disc3 size={32} color="rgba(255, 255, 255, 0.3)" />
-                  </div>
-                  <div style={{ zIndex: 1, textAlign: "center", marginTop: "auto", marginBottom: "8px" }}>
-                    <div
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        padding: "4px 10px",
-                        borderRadius: "999px",
-                        background: "rgba(255, 255, 255, 0.08)",
-                        border: "1px solid rgba(255, 255, 255, 0.15)",
-                        fontSize: "0.72rem",
-                        fontWeight: 700,
-                        letterSpacing: "0.06em",
-                        color: "rgba(255, 255, 255, 0.8)",
-                        marginBottom: "4px"
-                      }}
-                    >
-                      <Sparkles size={12} />
-                      <span>{slot.title}</span>
-                    </div>
-                    <p style={{ fontSize: "0.7rem", color: "rgba(255, 255, 255, 0.45)" }}>
-                      {slot.artist}
-                    </p>
-                  </div>
+                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Disc3 size={40} color="rgba(255, 255, 255, 0.3)" />
                 </div>
               )}
             </motion.div>
           );
         })()}
 
-        {/* ── SECTION 1: 5 TRACKS LIST (BOTTOM HALF) ── */}
+        {/* SECTION 1: 5 TRACKS LIST ON MOBILE */}
         <motion.div
-          initial={{ opacity: 0 }}
           animate={{
-            opacity: activeSection === 0 && isSec1Settled ? 1 : 0,
-            y: activeSection === 0 && isSec1Settled ? 0 : 20,
-            pointerEvents: activeSection === 0 && isSec1Settled ? "auto" : "none"
+            opacity: activeSection === 0 && sec1Stage === "revealed" && !isCenteringForVault ? 1 : 0,
+            y: activeSection === 0 && sec1Stage === "revealed" && !isCenteringForVault ? 110 : 150,
+            pointerEvents: activeSection === 0 && sec1Stage === "revealed" && !isCenteringForVault ? "auto" : "none"
           }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
+          transition={{ duration: 0.45, ease: "easeOut" }}
           style={{
             position: "absolute",
-            top: "calc(50% - 35px)",
             width: "100%",
             maxWidth: "340px",
-            padding: "0 16px",
             display: "flex",
             flexDirection: "column",
             gap: "6px",
-            opacity: 0,
-            pointerEvents: "none",
             zIndex: 6
           }}
         >
@@ -503,147 +357,126 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  padding: "9px 12px",
-                  borderRadius: "15px",
-                  background: isCurrent
-                    ? "rgba(255, 255, 255, 0.12)"
-                    : "rgba(255, 255, 255, 0.04)",
-                  border: isCurrent
-                    ? "1px solid rgba(255, 255, 255, 0.3)"
-                    : "1px solid rgba(255, 255, 255, 0.07)",
-                  boxShadow: isCurrent ? "0 4px 16px rgba(255, 255, 255, 0.15)" : "none",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease"
+                  padding: "8px 12px",
+                  borderRadius: "14px",
+                  background: isCurrent ? "rgba(255, 255, 255, 0.14)" : "rgba(255, 255, 255, 0.04)",
+                  border: isCurrent ? "1px solid rgba(255, 255, 255, 0.35)" : "1px solid rgba(255, 255, 255, 0.08)",
+                  cursor: "pointer"
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: 1 }}>
-                  <span
-                    style={{
-                      fontSize: "0.78rem",
-                      fontWeight: 700,
-                      color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.4)",
-                      width: "18px",
-                      textAlign: "center"
-                    }}
-                  >
+                  <span style={{ fontSize: "0.76rem", fontWeight: 700, color: isCurrent ? "#ffffff" : "rgba(255,255,255,0.4)" }}>
                     {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
                   </span>
-
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <p
-                      style={{
-                        fontSize: "0.85rem",
-                        fontWeight: isCurrent ? 700 : 600,
-                        color: "#ffffff",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis"
-                      }}
-                    >
+                    <p style={{ fontSize: "0.82rem", fontWeight: isCurrent ? 700 : 600, color: "#ffffff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {track.title}
                     </p>
-                    <p
-                      style={{
-                        fontSize: "0.7rem",
-                        color: "rgba(255, 255, 255, 0.5)",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis"
-                      }}
-                    >
+                    <p style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {track.artist}
                     </p>
                   </div>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-                  <span style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.4)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)" }}>
                     {formatDuration(track.duration)}
                   </span>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFavoriteTrack(track.id);
-                    }}
-                    style={{
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: "4px",
-                      display: "flex",
-                      alignItems: "center"
-                    }}
-                  >
-                    <Heart
-                      size={14}
-                      color={isFav ? "#ffffff" : "rgba(255, 255, 255, 0.35)"}
-                      fill={isFav ? "#ffffff" : "none"}
-                    />
+                  <button onClick={(e) => toggleFavorite(e, track.id)} style={{ background: "transparent", border: "none", padding: "2px" }}>
+                    <Heart size={14} color={isFav ? "#ffffff" : "rgba(255,255,255,0.35)"} fill={isFav ? "#ffffff" : "none"} />
                   </button>
                 </div>
               </div>
             );
           })}
-
-          <div style={{ textAlign: "center", opacity: 0.35, fontSize: "0.68rem", letterSpacing: "0.08em", marginTop: "4px" }}>
-            VUỐT LÊN ĐỂ TIẾP TỤC
-          </div>
         </motion.div>
 
-        {/* ── SECTION 2: 5-POINT MAGNETIC ROLLING MARBLE CAPSULE ── */}
+        {/* SECTION 2: 5-POINT INTERACTIVE CAPSULE ON MOBILE */}
         <motion.div
-          initial={{ opacity: 0 }}
           animate={{
             opacity: activeSection === 1 ? 1 : 0,
-            y: activeSection === 1 ? 0 : 20,
+            y: activeSection === 1 ? 130 : 160,
             pointerEvents: activeSection === 1 ? "auto" : "none"
           }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
           style={{
             position: "absolute",
-            bottom: "calc(50% - 190px)",
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: "130px",
-            height: "26px",
-            borderRadius: "13px",
-            background: "rgba(255, 255, 255, 0.08)",
-            border: "1px solid rgba(255, 255, 255, 0.18)",
-            backdropFilter: "blur(14px)",
-            WebkitBackdropFilter: "blur(14px)",
+            width: "150px",
+            height: "30px",
+            borderRadius: "999px",
+            background: "rgba(18, 18, 22, 0.75)",
+            border: "1px solid rgba(255, 255, 255, 0.20)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.2)",
-            opacity: 0,
-            pointerEvents: "none",
-            zIndex: 20,
-            overflow: "hidden"
+            justifyContent: "space-between",
+            padding: "0 10px",
+            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.25)",
+            zIndex: 20
           }}
         >
-          <motion.div
-            animate={{
-              x: Math.max(-52, Math.min(52, marbleBaseX - dragOffset * 0.1))
-            }}
-            transition={{ type: "spring", stiffness: 260, damping: 26, mass: 0.7 }}
-            style={{
-              width: "16px",
-              height: "16px",
-              borderRadius: "50%",
-              background: "radial-gradient(circle at 35% 35%, #ffffff 0%, #d4d4d8 60%, #71717a 100%)",
-              boxShadow: "0 0 12px rgba(255, 255, 255, 0.75), 0 2px 6px rgba(0, 0, 0, 0.8)",
-              border: "1px solid rgba(255, 255, 255, 0.9)",
-              zIndex: 2
-            }}
-          />
+          {[0, 1, 2, 3, 4].map((slotIdx) => {
+            const isSelected = revolverIndex === slotIdx;
+            return (
+              <button
+                key={slotIdx}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setRevolverIndex(slotIdx);
+                }}
+                style={{
+                  position: "relative",
+                  width: "22px",
+                  height: "22px",
+                  borderRadius: "50%",
+                  background: "transparent",
+                  border: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  padding: 0
+                }}
+              >
+                <span
+                  style={{
+                    width: isSelected ? "7px" : "4.5px",
+                    height: isSelected ? "7px" : "4.5px",
+                    borderRadius: "50%",
+                    background: isSelected ? "#ffffff" : "rgba(255, 255, 255, 0.3)",
+                    boxShadow: isSelected ? "0 0 8px rgba(255, 255, 255, 0.9)" : "none",
+                    transition: "all 0.25s ease"
+                  }}
+                />
+
+                {isSelected && (
+                  <motion.span
+                    layoutId="active-marble-indicator-mobile"
+                    transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                    style={{
+                      position: "absolute",
+                      inset: "1px",
+                      borderRadius: "50%",
+                      border: "1.5px solid rgba(255, 255, 255, 0.8)",
+                      pointerEvents: "none"
+                    }}
+                  />
+                )}
+              </button>
+            );
+          })}
         </motion.div>
       </div>
 
-      {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 3: BẮT BUỘC ẨN LÚC ĐẦU
-      ────────────────────────────────────────────────────────────────────── */}
-      <div
+      {/* SECTION 3: MOBILE EXPLORE UNIVERSE */}
+      <motion.div
+        animate={{
+          opacity: activeSection === 2 ? 1 : 0,
+          y: activeSection === 2 ? 0 : 40,
+          pointerEvents: activeSection === 2 ? "auto" : "none"
+        }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
         style={{
           position: "absolute",
           inset: 0,
@@ -651,47 +484,60 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: "20px",
+          padding: "80px 20px",
           textAlign: "center",
-          padding: "0 20px",
-          opacity: activeSection === 2 ? 1 : 0,
-          pointerEvents: activeSection === 2 ? "auto" : "none",
-          transition: "opacity 0.45s ease-in-out",
           zIndex: 10
         }}
       >
-        <motion.button
-          whileTap={{ scale: 0.94 }}
-          onClick={onExploreClick}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "12px",
-            width: "100%",
-            maxWidth: "320px",
-            padding: "18px 24px",
-            fontSize: "0.95rem",
-            fontWeight: 800,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            borderRadius: "999px",
-            background: "#ffffff",
-            color: "#000000",
-            border: "none",
-            boxShadow: "0 8px 30px rgba(255, 255, 255, 0.4)",
-            cursor: "pointer"
-          }}
-        >
-          <span>CHUYỂN QUA EXPLORE</span>
-          <ArrowRight size={18} />
-        </motion.button>
-
-        <p style={{ fontSize: "0.78rem", color: "rgba(255, 255, 255, 0.5)", lineHeight: 1.5 }}>
-          Khám phá không gian âm thanh lossless mở rộng
+        <h2 style={{ fontSize: "1.8rem", fontWeight: 800, marginBottom: "12px", letterSpacing: "0.04em" }}>
+          EXPLORE UNIVERSE
+        </h2>
+        <p style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: "0.85rem", maxWidth: "340px", marginBottom: "28px", lineHeight: 1.5 }}>
+          Không gian âm nhạc mở rộng đang được kết nối với hệ sinh thái streaming chất lượng phòng thu độc quyền.
         </p>
-      </div>
-
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%", maxWidth: "260px" }}>
+          <button
+            onClick={() => handleAlbumClick()}
+            style={{
+              padding: "12px 24px",
+              borderRadius: "999px",
+              background: "#ffffff",
+              color: "#000000",
+              fontWeight: 800,
+              fontSize: "0.9rem",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px"
+            }}
+          >
+            <span>Vào 3D Vault (HVL)</span>
+            <ArrowRight size={15} />
+          </button>
+          <button
+            onClick={() => {
+              setActiveSection(0);
+              setSec1Stage("center");
+            }}
+            style={{
+              padding: "12px 24px",
+              borderRadius: "999px",
+              background: "rgba(255, 255, 255, 0.08)",
+              color: "#ffffff",
+              fontWeight: 700,
+              fontSize: "0.9rem",
+              border: "1px solid rgba(255, 255, 255, 0.18)",
+              cursor: "pointer"
+            }}
+          >
+            Quay lại Showcase
+          </button>
+        </div>
+      </motion.div>
     </main>
   );
 };
+
+export default MobileHomePage;

@@ -22,14 +22,12 @@ interface RevolverSlot {
 }
 
 const REVOLVER_SLOTS: RevolverSlot[] = [
-  { id: "hvl", slotNumber: 1, title: "HVL (99%)", artist: "MCK • 30 Tracks", isReal: true, coverUrl: "https://media.postlain.com/covers/HVL_Album_Cover.jpg" }, // Index 0 (Bìa 1 - Tâm)
+  { id: "hvl", slotNumber: 1, title: "HVL (99%)", artist: "MCK • 30 Tracks", isReal: true, coverUrl: "/covers/HVL_Album_Cover.webp" }, // Index 0 (Bìa 1 - Tâm)
   { id: "slot-2", slotNumber: 2, title: "VAULT SLOT 02", artist: "Lossless Ready", isReal: false }, // Index 1 (Bìa 2)
   { id: "slot-3", slotNumber: 3, title: "VAULT SLOT 03", artist: "Lossless Ready", isReal: false }, // Index 2 (Bìa 3 - Sát rìa phải)
   { id: "slot-4", slotNumber: 4, title: "VAULT SLOT 04", artist: "Lossless Ready", isReal: false }, // Index 3 (Bìa 4 - Sát rìa trái)
   { id: "slot-5", slotNumber: 5, title: "VAULT SLOT 05", artist: "Lossless Ready", isReal: false }, // Index 4 (Bìa 5)
 ];
-
-const MARBLE_STEPS = [0, 1, 2, -2, -1];
 
 const formatDuration = (seconds: number) => {
   const m = Math.floor(seconds / 60);
@@ -48,9 +46,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
   // Section Navigation: 0 = Section 1 (Tracklist), 1 = Section 2 (Carousel), 2 = Section 3 (Explore)
   const [activeSection, setActiveSection] = useState<number>(0);
 
-  // Section 1 Internal Settled State (starts center -> settles to left after 1.5s)
-  const [isSec1Settled, setIsSec1Settled] = useState<boolean>(false);
+  // Section 1 State: "center" (Bìa nằm giữa) | "revealed" (Bìa lệch trái + 5 bài hát)
+  const [sec1Stage, setSec1Stage] = useState<"center" | "revealed">("center");
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
+  const [isCenteringForVault, setIsCenteringForVault] = useState<boolean>(false);
 
   // Section 2 Carousel Revolver Index (0..4)
   const [revolverIndex, setRevolverIndex] = useState<number>(0);
@@ -61,23 +60,32 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
   const touchStartXRef = useRef(0);
   const isTouchInsideCarousel = useRef<boolean>(false);
 
-  // Initial Sequence: Cover fades in at Center -> rests 1.5s -> glides left & 5 tracks fade in
-  useEffect(() => {
-    const settleTimer = setTimeout(() => {
-      setIsSec1Settled(true);
-    }, 1500);
-
-    return () => clearTimeout(settleTimer);
-  }, []);
-
   const toggleFavorite = (e: React.MouseEvent, trackId: string) => {
     e.stopPropagation();
     toggleFavoriteTrack(trackId);
   };
 
-  const handleAlbumClick = (_albumName?: string) => {
-    if (onOpen3D) {
-      onOpen3D();
+  // ─────────────────────────────────────────────────────────────────────────
+  // CLICK ALBUM COVER REACTIVE FLOW:
+  // Nếu bìa đang lệch trái (như ảnh 3) -> Trả về Center từ từ -> Nghỉ 250ms -> Vào 3D Vault
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleAlbumClick = (albumName?: string) => {
+    if (isTransitioning || isCenteringForVault) return;
+
+    if (activeSection === 0 && sec1Stage === "revealed") {
+      setIsCenteringForVault(true);
+      setSec1Stage("center"); // Lướt bìa về tâm
+
+      setTimeout(() => {
+        if (onOpen3D) {
+          onOpen3D();
+        }
+        setIsCenteringForVault(false);
+      }, 750); // Khoảng nghỉ react mượt mà sau khi bìa đã đáp trọn tại tâm
+    } else {
+      if (onOpen3D) {
+        onOpen3D();
+      }
     }
   };
 
@@ -88,43 +96,71 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
     }
   };
 
-  // Section 1 ➔ Section 2 (Tracks fade out 0.3s -> Album glides center 1.0s -> Wings open 0.4s)
-  const handleTransition1To2 = () => {
-    if (isTransitioning || !isSec1Settled) return;
-    setIsTransitioning(true);
+  // ─────────────────────────────────────────────────────────────────────────
+  // FLOW CHUYỂN CẢNH CUỘN TRANG (CHÍNH XÁC THEO YÊU CẦU):
+  // Sec1 Center -> (Scroll down) -> Sec1 Revealed (Bìa trái + 5 bài)
+  // Sec1 Revealed -> (Scroll down) -> Bìa trượt về Center trước -> Sau đó mở 2 cánh Sec2
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleScrollDown = () => {
+    if (isTransitioning || isCenteringForVault) return;
 
-    setIsSec1Settled(false); // Trượt bìa về tâm
+    if (activeSection === 0) {
+      if (sec1Stage === "center") {
+        // Bước 1: Mở ra (bìa trượt sang trái, 5 bài hiện)
+        setIsTransitioning(true);
+        setSec1Stage("revealed");
+        setTimeout(() => setIsTransitioning(false), 500);
+      } else {
+        // Bước 2: Trả bìa về Center trước, sau đó mở wings chuyển qua Section 2
+        setIsTransitioning(true);
+        setSec1Stage("center"); // Trả bìa về tâm
 
-    setTimeout(() => {
-      setRevolverIndex(0);
-      setActiveSection(1);
+        setTimeout(() => {
+          setRevolverIndex(0);
+          setActiveSection(1); // Mở 2 cánh carousel
+          setTimeout(() => setIsTransitioning(false), 450);
+        }, 650);
+      }
+    } else if (activeSection === 1) {
+      // Sec2 -> Sec3 (Explore)
+      isScrollingRef.current = true;
+      setActiveSection(2);
       setTimeout(() => {
-        setIsTransitioning(false);
-      }, 400);
-    }, 1100);
+        isScrollingRef.current = false;
+      }, 600);
+    }
   };
 
-  // Section 2 ➔ Section 1 (Carousel wings close -> Album glides left -> Tracks fade in)
-  const handleTransition2To1 = () => {
-    if (isTransitioning) return;
-    setIsTransitioning(true);
+  const handleScrollUp = () => {
+    if (isTransitioning || isCenteringForVault) return;
 
-    setRevolverIndex(0);
-    setActiveSection(0);
-
-    setTimeout(() => {
-      setIsSec1Settled(true);
+    if (activeSection === 2) {
+      // Sec3 -> Sec2
+      isScrollingRef.current = true;
+      setActiveSection(1);
       setTimeout(() => {
-        setIsTransitioning(false);
-      }, 1100);
-    }, 200);
+        isScrollingRef.current = false;
+      }, 600);
+    } else if (activeSection === 1) {
+      // Sec2 -> Sec1 (Thu cánh về và giữ bìa ở Center)
+      setIsTransitioning(true);
+      setActiveSection(0);
+      setSec1Stage("center");
+      setRevolverIndex(0);
+      setTimeout(() => setIsTransitioning(false), 600);
+    } else if (activeSection === 0 && sec1Stage === "revealed") {
+      // Sec1 Revealed -> Sec1 Center (Thu 5 bài, trả bìa về giữa)
+      setIsTransitioning(true);
+      setSec1Stage("center");
+      setTimeout(() => setIsTransitioning(false), 500);
+    }
   };
 
   // Wheel, Keydown, and Touch Event Handling
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      if (isScrollingRef.current || isTransitioning) return;
+      if (isScrollingRef.current || isTransitioning || isCenteringForVault) return;
 
       if (activeSection === 1) {
         const target = e.target as HTMLElement | null;
@@ -141,30 +177,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
       }
 
       if (e.deltaY > 35) {
-        if (activeSection === 0 && isSec1Settled) {
-          handleTransition1To2();
-        } else if (activeSection === 1) {
-          isScrollingRef.current = true;
-          setActiveSection(2);
-          setTimeout(() => {
-            isScrollingRef.current = false;
-          }, 600);
-        }
+        handleScrollDown();
       } else if (e.deltaY < -35) {
-        if (activeSection === 1) {
-          handleTransition2To1();
-        } else if (activeSection === 2) {
-          isScrollingRef.current = true;
-          setActiveSection(1);
-          setTimeout(() => {
-            isScrollingRef.current = false;
-          }, 600);
-        }
+        handleScrollUp();
       }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isScrollingRef.current || isTransitioning) return;
+      if (isScrollingRef.current || isTransitioning || isCenteringForVault) return;
 
       if (activeSection === 1) {
         if (e.key === "ArrowLeft") {
@@ -177,25 +197,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
       }
 
       if (e.key === "ArrowDown" || e.key === "PageDown") {
-        if (activeSection === 0 && isSec1Settled) {
-          handleTransition1To2();
-        } else if (activeSection === 1) {
-          isScrollingRef.current = true;
-          setActiveSection(2);
-          setTimeout(() => {
-            isScrollingRef.current = false;
-          }, 600);
-        }
+        handleScrollDown();
       } else if (e.key === "ArrowUp" || e.key === "PageUp") {
-        if (activeSection === 1) {
-          handleTransition2To1();
-        } else if (activeSection === 2) {
-          isScrollingRef.current = true;
-          setActiveSection(1);
-          setTimeout(() => {
-            isScrollingRef.current = false;
-          }, 600);
-        }
+        handleScrollUp();
       }
     };
 
@@ -216,7 +220,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      if (isTransitioning) return;
+      if (isTransitioning || isCenteringForVault) return;
       const deltaY = touchStartYRef.current - e.changedTouches[0].clientY;
       const deltaX = touchStartXRef.current - e.changedTouches[0].clientX;
 
@@ -227,25 +231,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
       }
 
       if (deltaY > 50) {
-        if (activeSection === 0 && isSec1Settled) {
-          handleTransition1To2();
-        } else if (activeSection === 1) {
-          isScrollingRef.current = true;
-          setActiveSection(2);
-          setTimeout(() => {
-            isScrollingRef.current = false;
-          }, 600);
-        }
+        handleScrollDown();
       } else if (deltaY < -50) {
-        if (activeSection === 1) {
-          handleTransition2To1();
-        } else if (activeSection === 2) {
-          isScrollingRef.current = true;
-          setActiveSection(1);
-          setTimeout(() => {
-            isScrollingRef.current = false;
-          }, 600);
-        }
+        handleScrollUp();
       }
     };
 
@@ -260,7 +248,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
       window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("touchend", handleTouchEnd);
     };
-  }, [activeSection, isSec1Settled, isTransitioning]);
+  }, [activeSection, sec1Stage, isTransitioning, isCenteringForVault]);
 
   const totalSlots = 5;
   const getSlot = (offset: number) => {
@@ -268,14 +256,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
     return { slot: REVOLVER_SLOTS[idx] };
   };
 
-  const currentMarbleStep = MARBLE_STEPS[revolverIndex] ?? 0;
-  const marbleBaseX = currentMarbleStep * 28;
-
-  // Tính toán vị trí X đối xứng, tự co giãn theo màn hình (Không bao giờ tràn viền)
-  // Section 1: Album ở -200px (trái), Tracks ở +200px (phải) -> Tổng bề ngang 780px hoàn hảo
-  // Section 2: Album ở tâm 0px
+  // Tính toán vị trí X của bìa trung tâm:
+  // Section 1 "center": 0px (Tâm đối xứng)
+  // Section 1 "revealed": -200px (Lệch trái để mở 5 bài bên phải)
+  // Section 2: 0px (+ dragOffset khi người dùng kéo tay)
   const centerCardX = activeSection === 0
-    ? (isSec1Settled ? -200 : 0)
+    ? (sec1Stage === "revealed" ? -200 : 0)
     : dragOffset * 0.35;
 
   return (
@@ -458,8 +444,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
                   setRevolverIndex((prev) => (prev - 1 + totalSlots) % totalSlots);
                 }
               }}
-              whileHover={isSec1Settled && activeSection === 0 ? { scale: 1.02 } : {}}
-              whileTap={isSection2 ? { scale: 0.98 } : {}}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => {
                 handleAlbumClick(slot.title);
               }}
@@ -469,9 +455,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
                 opacity: 1.0
               }}
               transition={{
-                x: { duration: 1.1, ease: [0.16, 1, 0.3, 1] },
-                scale: { duration: 0.4, ease: "easeOut" },
-                opacity: { duration: 0.4, ease: "easeOut" }
+                x: { duration: 0.65, ease: [0.16, 1, 0.3, 1] },
+                scale: { duration: 0.35, ease: "easeOut" },
+                opacity: { duration: 0.35, ease: "easeOut" }
               }}
               style={{
                 position: "absolute",
@@ -479,7 +465,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
                 height: "330px",
                 borderRadius: "30px",
                 overflow: "hidden",
-                cursor: isSection2 ? "grab" : isSec1Settled ? "pointer" : "default",
+                cursor: "pointer",
                 boxShadow: "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 1px 2px rgba(255, 255, 255, 0.3)",
                 border: slot.isReal
                   ? "1px solid rgba(255, 255, 255, 0.3)"
@@ -563,11 +549,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
         <motion.div
           initial={{ opacity: 0 }}
           animate={{
-            opacity: activeSection === 0 && isSec1Settled ? 1 : 0,
-            x: activeSection === 0 && isSec1Settled ? 200 : 220,
-            pointerEvents: activeSection === 0 && isSec1Settled ? "auto" : "none"
+            opacity: activeSection === 0 && sec1Stage === "revealed" && !isCenteringForVault ? 1 : 0,
+            x: activeSection === 0 && sec1Stage === "revealed" && !isCenteringForVault ? 200 : 220,
+            pointerEvents: activeSection === 0 && sec1Stage === "revealed" && !isCenteringForVault ? "auto" : "none"
           }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
+          transition={{ duration: 0.45, ease: "easeOut" }}
           style={{
             position: "absolute",
             width: "380px",
@@ -672,106 +658,167 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
           })}
         </motion.div>
 
-        {/* ── SECTION 2: 5-POINT MAGNETIC ROLLING MARBLE CAPSULE ── */}
+        {/* ── SECTION 2: 5-POINT INTERACTIVE MAGNETIC ROLLING MARBLE CAPSULE ── */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{
             opacity: activeSection === 1 ? 1 : 0,
-            y: activeSection === 1 ? 0 : 20,
+            y: activeSection === 1 ? 0 : 15,
             pointerEvents: activeSection === 1 ? "auto" : "none"
           }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
           style={{
             position: "absolute",
-            bottom: "-14px",
+            bottom: "-42px",
             left: "50%",
             transform: "translateX(-50%)",
-            width: "150px",
-            height: "28px",
-            borderRadius: "14px",
-            background: "rgba(255, 255, 255, 0.08)",
-            border: "1px solid rgba(255, 255, 255, 0.18)",
-            backdropFilter: "blur(14px)",
-            WebkitBackdropFilter: "blur(14px)",
+            width: "160px",
+            height: "32px",
+            borderRadius: "999px",
+            background: "rgba(18, 18, 22, 0.75)",
+            border: "1px solid rgba(255, 255, 255, 0.20)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.2)",
+            justifyContent: "space-between",
+            padding: "0 12px",
+            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.25)",
             opacity: 0,
             pointerEvents: "none",
-            zIndex: 20,
-            overflow: "hidden"
+            zIndex: 20
           }}
         >
-          <motion.div
-            animate={{
-              x: Math.max(-60, Math.min(60, marbleBaseX - dragOffset * 0.1))
-            }}
-            transition={{ type: "spring", stiffness: 260, damping: 26, mass: 0.7 }}
-            style={{
-              width: "18px",
-              height: "18px",
-              borderRadius: "50%",
-              background: "radial-gradient(circle at 35% 35%, #ffffff 0%, #d4d4d8 60%, #71717a 100%)",
-              boxShadow: "0 0 12px rgba(255, 255, 255, 0.75), 0 2px 6px rgba(0, 0, 0, 0.8)",
-              border: "1px solid rgba(255, 255, 255, 0.9)",
-              zIndex: 2
-            }}
-          />
+          {/* 5 Interactive Clickable Slots */}
+          {[0, 1, 2, 3, 4].map((slotIdx) => {
+            const isSelected = revolverIndex === slotIdx;
+            return (
+              <button
+                key={slotIdx}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setRevolverIndex(slotIdx);
+                }}
+                style={{
+                  position: "relative",
+                  width: "24px",
+                  height: "24px",
+                  borderRadius: "50%",
+                  background: "transparent",
+                  border: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  padding: 0
+                }}
+              >
+                {/* Background Slot Dot */}
+                <span
+                  style={{
+                    width: isSelected ? "8px" : "5px",
+                    height: isSelected ? "8px" : "5px",
+                    borderRadius: "50%",
+                    background: isSelected ? "#ffffff" : "rgba(255, 255, 255, 0.3)",
+                    boxShadow: isSelected ? "0 0 10px rgba(255, 255, 255, 0.9)" : "none",
+                    transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
+                  }}
+                />
+
+                {/* Active Glowing Marble Ring */}
+                {isSelected && (
+                  <motion.span
+                    layoutId="active-marble-indicator"
+                    transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                    style={{
+                      position: "absolute",
+                      inset: "2px",
+                      borderRadius: "50%",
+                      border: "1.5px solid rgba(255, 255, 255, 0.8)",
+                      pointerEvents: "none"
+                    }}
+                  />
+                )}
+              </button>
+            );
+          })}
         </motion.div>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────
-          SECTION 3 (ACTIVE === 2)
+          SECTION 3: EXPLORE UNIVERSE VIEWPORT
       ────────────────────────────────────────────────────────────────────── */}
-      <div
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{
+          opacity: activeSection === 2 ? 1 : 0,
+          y: activeSection === 2 ? 0 : 40,
+          pointerEvents: activeSection === 2 ? "auto" : "none"
+        }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
         style={{
           position: "absolute",
           inset: 0,
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          padding: "0 24px",
-          opacity: activeSection === 2 ? 1 : 0,
-          pointerEvents: activeSection === 2 ? "auto" : "none",
-          transition: "opacity 0.45s ease-in-out",
+          padding: "100px 24px",
+          textAlign: "center",
+          opacity: 0,
+          pointerEvents: "none",
           zIndex: 10
         }}
       >
-        <motion.button
-          initial={{ opacity: 0.4, scale: 0.98 }}
-          whileHover={{
-            opacity: 1,
-            scale: 1.05,
-            boxShadow: "0 0 50px rgba(255, 255, 255, 0.45)",
-            background: "#ffffff",
-            color: "#000000"
-          }}
-          whileTap={{ scale: 0.95 }}
-          onClick={onExploreClick}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "14px",
-            padding: "20px 52px",
-            fontSize: "1.05rem",
-            fontWeight: 800,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            borderRadius: "999px",
-            background: "rgba(255, 255, 255, 0.08)",
-            color: "#ffffff",
-            border: "1px solid rgba(255, 255, 255, 0.2)",
-            backdropFilter: "blur(16px)",
-            cursor: "pointer",
-            transition: "all 0.35s cubic-bezier(0.16, 1, 0.3, 1)"
-          }}
-        >
-          <span>CHUYỂN QUA EXPLORE</span>
-          <ArrowRight size={20} />
-        </motion.button>
-      </div>
-
+        <h2 style={{ fontSize: "2.4rem", fontWeight: 800, marginBottom: "16px", letterSpacing: "0.04em" }}>
+          EXPLORE UNIVERSE
+        </h2>
+        <p style={{ color: "rgba(255, 255, 255, 0.6)", maxWidth: "520px", marginBottom: "36px", lineHeight: 1.6 }}>
+          Không gian âm nhạc mở rộng đang được kết nối với hệ sinh thái streaming chất lượng phòng thu độc quyền.
+        </p>
+        <div style={{ display: "flex", gap: "16px" }}>
+          <button
+            onClick={() => handleAlbumClick()}
+            style={{
+              padding: "14px 32px",
+              borderRadius: "999px",
+              background: "#ffffff",
+              color: "#000000",
+              fontWeight: 800,
+              fontSize: "0.95rem",
+              border: "none",
+              cursor: "pointer",
+              boxShadow: "0 8px 24px rgba(255, 255, 255, 0.3)",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px"
+            }}
+          >
+            <span>Vào 3D Vault (HVL)</span>
+            <ArrowRight size={16} />
+          </button>
+          <button
+            onClick={() => {
+              setActiveSection(0);
+              setSec1Stage("center");
+            }}
+            style={{
+              padding: "14px 28px",
+              borderRadius: "999px",
+              background: "rgba(255, 255, 255, 0.08)",
+              color: "#ffffff",
+              fontWeight: 700,
+              fontSize: "0.95rem",
+              border: "1px solid rgba(255, 255, 255, 0.18)",
+              cursor: "pointer"
+            }}
+          >
+            Quay lại Showcase
+          </button>
+        </div>
+      </motion.div>
     </main>
   );
 };
+
+export default HomePage;
