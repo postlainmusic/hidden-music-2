@@ -6,7 +6,7 @@
     },
     "filesystem": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "c:\\Users\\Admin\\Documents\\github\\hidden-music-2"]
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "c:\\Users\\Admin\\Downloads\\hidden-music-2"]
     },
     "fetch": {
       "command": "npx",
