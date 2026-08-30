@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, ArrowRight, Disc3, Sparkles, Play, Pause } from "lucide-react";
-import { useAudioStore, Track } from "../store/audioStore";
+import { Heart, ArrowRight } from "lucide-react";
+import { useAudioStore, Track, VaultSlot } from "../store/audioStore";
+import { SquareVinylSleeve } from "../components/home/SquareVinylSleeve";
+import { MagneticMarbleIndicator } from "../components/home/MagneticMarbleIndicator";
+import { MetallicSheenGlow } from "../components/home/MetallicSheenGlow";
 
 const HVL_COVER = "/covers/HVL_Album_Cover.webp";
 
@@ -24,69 +27,67 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
     favoritedTrackIds,
     toggleFavoriteTrack,
     topFavoriteTracks,
-    sections,
     vaultSlots,
     queue
   } = useAudioStore();
 
-  const enabledSections = sections && sections.length > 0
-    ? sections.filter((s) => s.is_enabled === 1).sort((a, b) => a.order_index - b.order_index)
-    : [
-        {
-          id: "sec-album-showcase",
-          title: "HVL (99%) Showcase",
-          template_type: "album_showcase" as const,
-          order_index: 1,
-          is_enabled: 1,
-          config: {
-            album_id: "hvl-99",
-            title: "HVL (99%)",
-            artist: "MCK",
-            cover_url: HVL_COVER,
-            description: "Album phòng thu đầu tay gồm 30 bài hát Lossless FLAC độc quyền."
-          }
-        },
-        {
-          id: "sec-cover-flow",
-          title: "Vault Slots 3D Cover Flow",
-          template_type: "cover_flow" as const,
-          order_index: 2,
-          is_enabled: 1,
-          config: { slots_count: 5 }
-        },
-        {
-          id: "sec-explore-universe",
-          title: "Explore Universe Portal",
-          template_type: "explore_universe" as const,
-          order_index: 3,
-          is_enabled: 1,
-          config: {
-            headline: "EXPLORE UNIVERSE",
-            subtext: "Không gian âm nhạc mở rộng đang được kết nối với hệ sinh thái streaming độc quyền."
-          }
-        }
-      ];
-
-  const [activeSectionIndex, setActiveSectionIndex] = useState<number>(0);
+  const [activeSection, setActiveSection] = useState<number>(0);
   const [sec1Stage, setSec1Stage] = useState<"center" | "revealed">("center");
+  const [isCenteringForVault, setIsCenteringForVault] = useState<boolean>(false);
   const [revolverIndex, setRevolverIndex] = useState<number>(2);
 
   const touchStartY = useRef<number>(0);
-  const displayTracks = topFavoriteTracks && topFavoriteTracks.length > 0 ? topFavoriteTracks : queue.slice(0, 5);
-  const activeSection = enabledSections[activeSectionIndex] || enabledSections[0];
+  const touchStartX = useRef<number>(0);
+  const hasTouchMovedRef = useRef<boolean>(false);
 
-  const activeSlots = vaultSlots && vaultSlots.length >= 5
+  const displayTracks = topFavoriteTracks && topFavoriteTracks.length > 0
+    ? topFavoriteTracks
+    : queue.slice(0, 5);
+
+  const activeSlots: VaultSlot[] = vaultSlots && vaultSlots.length >= 5
     ? vaultSlots.slice(0, 5)
     : [
-        { id: "slot-4", slot_number: 4, title: "VAULT SLOT 04", artist: "Lossless Ready", cover_url: "", status: "locked" as const },
-        { id: "slot-5", slot_number: 5, title: "VAULT SLOT 05", artist: "Lossless Ready", cover_url: "", status: "locked" as const },
-        { id: "slot-1", slot_number: 1, title: "HVL (99%)", artist: "MCK • 30 Tracks", cover_url: HVL_COVER, status: "live" as const },
-        { id: "slot-2", slot_number: 2, title: "VAULT SLOT 02", artist: "Lossless Ready", cover_url: "", status: "coming_soon" as const },
-        { id: "slot-3", slot_number: 3, title: "VAULT SLOT 03", artist: "Lossless Ready", cover_url: "", status: "locked" as const }
+        { id: "slot-4", slot_number: 4, title: "VAULT SLOT 04", artist: "Lossless Ready", cover_url: "", status: "locked" },
+        { id: "slot-5", slot_number: 5, title: "VAULT SLOT 05", artist: "Lossless Ready", cover_url: "", status: "locked" },
+        { id: "slot-1", slot_number: 1, title: "HVL (99%)", artist: "MCK • 30 Tracks", cover_url: HVL_COVER, status: "live" },
+        { id: "slot-2", slot_number: 2, title: "VAULT SLOT 02", artist: "Lossless Ready", cover_url: "", status: "coming_soon" },
+        { id: "slot-3", slot_number: 3, title: "VAULT SLOT 03", artist: "Lossless Ready", cover_url: "", status: "locked" }
       ];
+
+  const handleAlbumClick = (slot?: VaultSlot) => {
+    if (hasTouchMovedRef.current) return;
+    if (slot && slot.status !== "live") return;
+
+    if (activeSection === 0 && sec1Stage === "revealed") {
+      setIsCenteringForVault(true);
+      setSec1Stage("center");
+      setTimeout(() => {
+        if (onOpen3D) onOpen3D();
+        setIsCenteringForVault(false);
+      }, 700);
+    } else if (activeSection === 0 && sec1Stage === "center") {
+      setSec1Stage("revealed");
+    } else {
+      if (onOpen3D) onOpen3D();
+    }
+  };
+
+  const handleTrackSelect = (track: Track) => {
+    if (hasTouchMovedRef.current) return;
+    playTrack(track);
+    if (onOpen3D) onOpen3D();
+  };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
+    touchStartX.current = e.touches[0].clientX;
+    hasTouchMovedRef.current = false;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const dx = Math.abs(e.touches[0].clientX - touchStartX.current);
+    const dy = Math.abs(e.touches[0].clientY - touchStartY.current);
+    if (dx > 8 || dy > 8) hasTouchMovedRef.current = true;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -94,18 +95,24 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
     if (Math.abs(deltaY) > 40) {
       if (deltaY > 0) {
         // Swipe up
-        if (activeSection.template_type === "album_showcase" && sec1Stage === "center") {
-          setSec1Stage("revealed");
-        } else if (activeSectionIndex < enabledSections.length - 1) {
-          setSec1Stage("center");
-          setActiveSectionIndex((prev) => prev + 1);
+        if (activeSection === 0) {
+          if (sec1Stage === "center") setSec1Stage("revealed");
+          else {
+            setSec1Stage("center");
+            setActiveSection(1);
+          }
+        } else if (activeSection === 1) {
+          setActiveSection(2);
         }
       } else {
         // Swipe down
-        if (activeSection.template_type === "album_showcase" && sec1Stage === "revealed") {
+        if (activeSection === 2) {
+          setActiveSection(1);
+        } else if (activeSection === 1) {
+          setActiveSection(0);
+          setSec1Stage("revealed");
+        } else if (activeSection === 0 && sec1Stage === "revealed") {
           setSec1Stage("center");
-        } else if (activeSectionIndex > 0) {
-          setActiveSectionIndex((prev) => prev - 1);
         }
       }
     }
@@ -114,6 +121,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
   return (
     <div
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       style={{
         position: "fixed",
@@ -124,167 +132,158 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: "80px 20px 100px",
-        overflow: "hidden"
+        padding: "60px 20px 80px",
+        overflow: "hidden",
+        userSelect: "none"
       }}
     >
-      {/* Navigation Indicators */}
-      <div style={{ position: "fixed", right: "14px", top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", gap: "8px", zIndex: 40 }}>
-        {enabledSections.map((sec, i) => (
-          <div
-            key={sec.id || i}
-            onClick={() => setActiveSectionIndex(i)}
-            style={{
-              width: i === activeSectionIndex ? "6px" : "4px",
-              height: i === activeSectionIndex ? "20px" : "4px",
-              borderRadius: "999px",
-              backgroundColor: i === activeSectionIndex ? "#ffffff" : "rgba(255, 255, 255, 0.3)",
-              transition: "all 0.3s ease"
-            }}
-          />
-        ))}
-      </div>
-
       <AnimatePresence mode="wait">
-        {/* TEMPLATE 1: ALBUM SHOWCASE */}
-        {activeSection.template_type === "album_showcase" && (
+        {/* ── SECTION 1: MINIMAL ALBUM SHOWCASE ── */}
+        {activeSection === 0 && (
           <motion.div
-            key="mob-sec-album"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
+            key="mob-sec-1"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             style={{ width: "100%", maxWidth: "340px", display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}
           >
             <motion.div
-              animate={{ y: sec1Stage === "revealed" ? -15 : 0 }}
-              onClick={() => {
-                if (sec1Stage === "center") setSec1Stage("revealed");
-                else if (onOpen3D) onOpen3D();
-              }}
-              style={{
-                width: "220px",
-                height: "280px",
-                borderRadius: "20px",
-                overflow: "hidden",
-                boxShadow: "0 16px 40px rgba(0,0,0,0.8), 0 0 30px rgba(99, 102, 241, 0.3)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                display: "flex",
-                flexDirection: "column"
-              }}
+              animate={{ y: sec1Stage === "revealed" ? -20 : 0 }}
+              transition={{ duration: isCenteringForVault ? 0.7 : 0.5, ease: [0.16, 1, 0.3, 1] }}
+              onClick={() => handleAlbumClick(activeSlots[2])}
             >
-              <img src={activeSection.config?.cover_url || HVL_COVER} alt="Cover" style={{ width: "100%", height: "210px", objectFit: "cover" }} />
-              <div style={{ flex: 1, padding: "10px 14px", background: "rgba(10, 10, 15, 0.9)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 800 }}>{activeSection.config?.title || "HVL (99%)"}</h4>
-                <span style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.5)" }}>{activeSection.config?.artist || "MCK"} • 30 Tracks</span>
-              </div>
+              <SquareVinylSleeve
+                coverUrl={HVL_COVER}
+                title="HVL (99%)"
+                size={230}
+                isActive={true}
+              />
             </motion.div>
 
             {sec1Stage === "revealed" && (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}
               >
-                {displayTracks.slice(0, 4).map((track, i) => (
-                  <div
-                    key={track.id || i}
-                    onClick={() => {
-                      playTrack(track);
-                      if (onOpen3D) onOpen3D();
-                    }}
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: "12px",
-                      backgroundColor: "rgba(255, 255, 255, 0.06)",
-                      border: "1px solid rgba(255, 255, 255, 0.08)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between"
-                    }}
-                  >
-                    <span style={{ fontSize: "0.8rem", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {track.title}
-                    </span>
-                    <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>{formatDuration(track.duration)}</span>
-                  </div>
-                ))}
+                {displayTracks.slice(0, 4).map((track, i) => {
+                  const isFav = favoritedTrackIds.includes(track.id);
+                  const isPlayingThis = isPlaying && currentTrack?.id === track.id;
+
+                  return (
+                    <div
+                      key={track.id || i}
+                      onClick={() => handleTrackSelect(track)}
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: "10px",
+                        backgroundColor: isPlayingThis ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.03)",
+                        backdropFilter: "blur(16px)",
+                        border: "1px solid rgba(255, 255, 255, 0.08)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between"
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0, flex: 1 }}>
+                        <span style={{ fontSize: "0.7rem", color: "rgba(255, 255, 255, 0.4)", fontWeight: 700 }}>0{i + 1}</span>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <p style={{ margin: 0, fontSize: "0.82rem", fontWeight: 600, color: "#ffffff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {track.title}
+                          </p>
+                          <p style={{ margin: 0, fontSize: "0.68rem", color: "rgba(255, 255, 255, 0.4)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {track.artist}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{ fontSize: "0.7rem", color: "rgba(255, 255, 255, 0.35)" }}>{formatDuration(track.duration)}</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavoriteTrack(track.id);
+                          }}
+                          style={{ background: "none", border: "none", color: isFav ? "#ffffff" : "rgba(255,255,255,0.3)" }}
+                        >
+                          <Heart size={13} fill={isFav ? "#ffffff" : "none"} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </motion.div>
             )}
           </motion.div>
         )}
 
-        {/* TEMPLATE 2: COVER FLOW */}
-        {activeSection.template_type === "cover_flow" && (
+        {/* ── SECTION 2: 3D COVER FLOW (PURE SLEEVES) ── */}
+        {activeSection === 1 && (
           <motion.div
-            key="mob-sec-coverflow"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            style={{ width: "100%", maxWidth: "340px", display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}
+            key="mob-sec-2"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ width: "100%", maxWidth: "340px", display: "flex", flexDirection: "column", alignItems: "center", gap: "24px", position: "relative" }}
           >
+            <MetallicSheenGlow isVisible={true} />
+
             <div
-              onClick={() => {
-                if (onOpen3D) onOpen3D();
-              }}
-              style={{
-                width: "240px",
-                height: "300px",
-                borderRadius: "20px",
-                overflow: "hidden",
-                boxShadow: "0 20px 40px rgba(0,0,0,0.8), 0 0 30px rgba(99, 102, 241, 0.3)",
-                border: "1px solid rgba(99, 102, 241, 0.4)",
-                display: "flex",
-                flexDirection: "column"
-              }}
+              onClick={() => handleAlbumClick(activeSlots[revolverIndex])}
+              style={{ position: "relative", zIndex: 10 }}
             >
-              <img src={HVL_COVER} alt="Cover" style={{ width: "100%", height: "230px", objectFit: "cover" }} />
-              <div style={{ flex: 1, padding: "10px 14px", background: "rgba(10, 10, 15, 0.9)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                <span style={{ fontSize: "0.68rem", color: "#34d399", fontWeight: 800 }}>SLOT 01 • MASTER LOSSLESS</span>
-                <h4 style={{ margin: "2px 0 0", fontSize: "0.95rem", fontWeight: 700 }}>HVL (99%)</h4>
-              </div>
+              <SquareVinylSleeve
+                coverUrl={activeSlots[revolverIndex]?.cover_url}
+                title={activeSlots[revolverIndex]?.title}
+                size={240}
+                isPlaceholder={activeSlots[revolverIndex]?.status !== "live" || !activeSlots[revolverIndex]?.cover_url}
+                isActive={true}
+              />
+            </div>
+
+            {/* 5-Dot Indicator */}
+            <div style={{ position: "relative", zIndex: 10 }}>
+              <MagneticMarbleIndicator
+                isVisible={true}
+                totalSlots={5}
+                activeIndex={revolverIndex}
+                onSelectIndex={(idx) => setRevolverIndex(idx)}
+              />
             </div>
           </motion.div>
         )}
 
-        {/* OTHER TEMPLATES */}
-        {activeSection.template_type !== "album_showcase" && activeSection.template_type !== "cover_flow" && (
+        {/* ── SECTION 3: EXPLORE UNIVERSE ── */}
+        {activeSection === 2 && (
           <motion.div
-            key="mob-sec-other"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            style={{
-              width: "100%",
-              maxWidth: "340px",
-              padding: "28px 20px",
-              borderRadius: "24px",
-              backgroundColor: "rgba(10, 11, 16, 0.85)",
-              border: "1px solid rgba(255, 255, 255, 0.12)",
-              textAlign: "center",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "14px"
-            }}
+            key="mob-sec-3"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            style={{ width: "100%", maxWidth: "300px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "16px" }}
           >
-            <h3 style={{ fontSize: "1.4rem", fontWeight: 800, margin: 0 }}>{activeSection.title}</h3>
+            <h3 style={{ fontSize: "1.8rem", fontWeight: 800, margin: 0, letterSpacing: "0.06em" }}>EXPLORE UNIVERSE</h3>
             <p style={{ fontSize: "0.82rem", color: "rgba(255, 255, 255, 0.55)", margin: 0, lineHeight: 1.5 }}>
-              {activeSection.config?.subheadline || activeSection.config?.bio || activeSection.config?.subtext || activeSection.config?.quote || "Nội dung đang được cập nhật từ Admin Studio."}
+              Không gian âm nhạc mở rộng đang được kết nối với hệ sinh thái streaming độc quyền.
             </p>
             <button
-              onClick={onOpen3D}
+              onClick={() => handleAlbumClick(activeSlots[2])}
               style={{
-                padding: "10px 24px",
+                padding: "12px 28px",
                 borderRadius: "999px",
-                background: "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)",
+                background: "#ffffff",
+                color: "#000000",
+                fontWeight: 800,
+                fontSize: "0.88rem",
                 border: "none",
-                color: "#ffffff",
-                fontWeight: 700,
-                fontSize: "0.84rem",
-                marginTop: "6px"
+                marginTop: "8px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
               }}
             >
-              Vào 3D Zone
+              <span>Vào 3D Vault</span>
+              <ArrowRight size={15} />
             </button>
           </motion.div>
         )}
