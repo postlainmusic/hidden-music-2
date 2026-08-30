@@ -155,6 +155,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
     currentTrack,
     isPlaying,
     togglePlay,
+    updateSection,
     seedHvlToD1
   } = useAudioStore();
   const isMobile = useIsMobile();
@@ -495,6 +496,33 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
     }
   };
 
+  // 7b. Delete Album / Release
+  const handleDeleteAlbum = async (albumId: string, albumTitle: string) => {
+    if (!window.confirm(`⚠️ Bạn có chắc chắn muốn xóa bản phát hành "${albumTitle}" và TOÀN BỘ bài hát bên trong khỏi Cloudflare D1? Hành động này không thể hoàn tác!`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/albums/${albumId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Đã xóa bản phát hành "${albumTitle}" thành công!`);
+        await fetchAlbums();
+        loadAlbums();
+        const remaining = adminAlbums.filter((a) => a.id !== albumId);
+        if (remaining.length > 0) {
+          setSelectedAlbumId(remaining[0].id);
+        }
+      } else {
+        showToast(data.error || "Lỗi xóa bản phát hành");
+      }
+    } catch (e: any) {
+      showToast(e.message || "Lỗi kết nối");
+    }
+  };
+
   // 8. Auto-Fetch Synced Lyrics From LRCLIB into Form
   const handleFetchLyricsForForm = async () => {
     if (!trackForm.title.trim()) {
@@ -710,15 +738,21 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
 
   // Section Add / Delete / Toggle
   const handleToggleSection = async (section: DynamicSection) => {
+    const isCurrentlyActive = Boolean(section.is_active ?? section.is_enabled);
+    const newActive = !isCurrentlyActive;
+
+    // Optimistic UI update in 0ms
+    updateSection(section.id, { is_active: newActive, is_enabled: newActive ? 1 : 0 });
+
     try {
       const res = await fetch(`${API_BASE}/api/admin/sections/${section.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ is_active: section.is_active ? 0 : 1 })
+        body: JSON.stringify({ is_enabled: newActive ? 1 : 0, is_active: newActive })
       });
       const data = await res.json();
       if (data.success) {
-        showToast(`Đã ${section.is_active ? "ẩn" : "bật"} Section: ${section.title}`);
+        showToast(`Đã ${newActive ? "bật" : "ẩn"} Section: ${section.title}`);
         loadSections();
       }
     } catch (err) {
@@ -752,8 +786,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
         body: JSON.stringify({
           title: preset.name,
           template_type: preset.type,
+          order_index: newOrder,
           sort_order: newOrder,
-          is_active: 1,
+          is_enabled: 1,
+          is_active: true,
           config: preset.defaultCfg
         })
       });
@@ -1049,6 +1085,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
                       <img
                         src={album.cover_url || HVL_COVER}
                         alt={album.title}
+                        onError={(e) => { e.currentTarget.src = HVL_COVER; }}
                         style={{ width: "52px", height: "52px", borderRadius: "10px", objectFit: "cover" }}
                       />
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -1076,6 +1113,30 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
                           {album.track_count || selectedAlbumTracks.length} tracks Lossless
                         </p>
                       </div>
+                      
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteAlbum(album.id, album.title);
+                        }}
+                        title={`Xóa bản phát hành "${album.title}"`}
+                        style={{
+                          padding: "8px",
+                          borderRadius: "8px",
+                          backgroundColor: "rgba(239, 68, 68, 0.1)",
+                          border: "1px solid rgba(239, 68, 68, 0.25)",
+                          color: "#f87171",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          transition: "all 0.2s"
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.25)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.1)")}
+                      >
+                        <Trash2 size={15} />
+                      </button>
                     </div>
                   );
                 })}
@@ -1100,6 +1161,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
                   <img
                     src={currentAlbum?.cover_url || HVL_COVER}
                     alt={currentAlbum?.title}
+                    onError={(e) => { e.currentTarget.src = HVL_COVER; }}
                     style={{ width: "64px", height: "64px", borderRadius: "12px", objectFit: "cover" }}
                   />
                   <div>
@@ -1153,6 +1215,26 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
                   >
                     <Plus size={14} />
                     <span>Thêm Bài Hát (Thủ Công)</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDeleteAlbum(currentAlbum.id, currentAlbum.title)}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: "10px",
+                      backgroundColor: "rgba(239, 68, 68, 0.12)",
+                      border: "1px solid rgba(239, 68, 68, 0.3)",
+                      color: "#f87171",
+                      fontSize: "0.82rem",
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      cursor: "pointer"
+                    }}
+                  >
+                    <Trash2 size={14} />
+                    <span>Xóa Release</span>
                   </button>
 
                   <button

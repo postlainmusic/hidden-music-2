@@ -35,6 +35,9 @@ export const AdminLiveInspectorHUD: React.FC<Props> = ({
     const token = localStorage.getItem("vault_token");
     const API_BASE = "https://hidden-music-api.postlain-music.workers.dev";
 
+    // Optimistic UI update in 0ms
+    updateSection(activeEditingSection.id, { title, config });
+
     try {
       const res = await fetch(`${API_BASE}/api/admin/sections/${activeEditingSection.id}`, {
         method: "PUT",
@@ -43,8 +46,7 @@ export const AdminLiveInspectorHUD: React.FC<Props> = ({
       });
       const data = await res.json();
       if (data.success) {
-        // Update local zustand store state
-        updateSection(activeEditingSection.id, { title, config });
+        useAudioStore.getState().loadSections();
       }
     } catch (e) {
       console.warn("Live HUD save notice:", e);

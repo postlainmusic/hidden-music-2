@@ -41,8 +41,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
   const [activeEditingSection, setActiveEditingSection] = useState<DynamicSection | null>(null);
 
   // Active enabled sections from D1 store, fallback to default 3 core sections
-  const activeSections: DynamicSection[] = sections && sections.filter((s) => s.is_active).length > 0
-    ? sections.filter((s) => s.is_active)
+  const activeSections: DynamicSection[] = sections && sections.filter((s) => Boolean(s.is_active ?? s.is_enabled)).length > 0
+    ? sections.filter((s) => Boolean(s.is_active ?? s.is_enabled))
     : [
         { id: "sec-default-1", title: "Album Showcase", subtitle: "Top 5 Bài Hát", template_type: "album_showcase", sort_order: 1, is_active: true },
         { id: "sec-default-2", title: "3D Cover Flow", subtitle: "Băng chuyền 3D", template_type: "cover_flow", sort_order: 2, is_active: true },
@@ -256,9 +256,37 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
     }
   }
 
-  const currentAlbumObj = albums.find((a) => a.id === secConfig.album_id) || albums[0];
-  const albumCover = currentAlbumObj?.cover_url || secConfig.cover_url || HVL_COVER;
-  const albumTitle = currentAlbumObj?.title || secConfig.title || "HVL (99%)";
+  const currentAlbumObj = albums.find((a) => a.id === secConfig.album_id);
+  const albumCover = secConfig.cover_url || currentAlbumObj?.cover_url || HVL_COVER;
+  const albumTitle = secConfig.title || currentAlbumObj?.title || "HVL (99%)";
+
+  // Dynamic 5 Slots for 3D Cover Flow parsed directly from secConfig (or fallback to vaultSlots)
+  const getDynamicSlot = (num: number): VaultSlot => {
+    const key = `slot_${num}`;
+    const albumId = secConfig[`${key}_album_id`];
+    const matchedAlbum = albums.find((a) => a.id === albumId);
+    const isCenter = num === 1;
+    const fallbackVaultSlot = vaultSlots.find((s) => s.slot_number === num);
+
+    return {
+      id: `slot-${num}`,
+      slot_number: num,
+      album_id: albumId || fallbackVaultSlot?.album_id || (isCenter ? "hvl-99" : null),
+      title: secConfig[`${key}_title`] || matchedAlbum?.title || fallbackVaultSlot?.title || (isCenter ? "HVL (99%)" : `VAULT SLOT 0${num}`),
+      artist: secConfig[`${key}_artist`] || matchedAlbum?.artist || fallbackVaultSlot?.artist || (isCenter ? "MCK" : "Lossless Ready"),
+      cover_url: secConfig[`${key}_cover`] || matchedAlbum?.cover_url || fallbackVaultSlot?.cover_url || (isCenter ? HVL_COVER : ""),
+      badge: secConfig[`${key}_badge`] || fallbackVaultSlot?.badge || (isCenter ? "Master Lossless" : "Locked"),
+      status: (secConfig[`${key}_status`] || fallbackVaultSlot?.status || (isCenter ? "live" : "locked")) as any
+    };
+  };
+
+  const dynamicCoverFlowSlots: VaultSlot[] = [
+    getDynamicSlot(4),
+    getDynamicSlot(5),
+    getDynamicSlot(1),
+    getDynamicSlot(2),
+    getDynamicSlot(3)
+  ];
 
   return (
     <main
@@ -396,11 +424,11 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
 
               <SleeveCarouselRevolver
                 isVisible={true}
-                slots={activeSlots}
+                slots={dynamicCoverFlowSlots}
                 revolverIndex={revolverIndex}
                 onSelectSlot={(offset) => {
                   if (!hasTouchMovedRef.current) {
-                    setRevolverIndex((prev) => (prev + offset + activeSlots.length) % activeSlots.length);
+                    setRevolverIndex((prev) => (prev + offset + dynamicCoverFlowSlots.length) % dynamicCoverFlowSlots.length);
                   }
                 }}
                 onOpenVault={(slot) => handleAlbumClick(slot)}

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Save, Disc3, Sparkles, Sliders, CheckCircle2, Music2, Eye } from "lucide-react";
+import { X, Save, Disc3, Sparkles, Sliders, CheckCircle2, Music2, Eye, Image as ImageIcon } from "lucide-react";
 import { DynamicSection } from "../../store/audioStore";
+
+const HVL_COVER = "/covers/HVL_Album_Cover.webp";
 
 interface Props {
   isOpen: boolean;
@@ -16,8 +18,8 @@ export const SectionElementEditorModal: React.FC<Props> = ({
   isOpen,
   onClose,
   section,
-  albums,
-  allTracks,
+  albums = [],
+  allTracks = [],
   onSave
 }) => {
   if (!isOpen || !section) return null;
@@ -28,15 +30,19 @@ export const SectionElementEditorModal: React.FC<Props> = ({
 
   useEffect(() => {
     setTitle(section.title || "");
-    setConfig(section.config || {});
+    const parsedConfig = typeof section.config === "string"
+      ? JSON.parse(section.config)
+      : (section.config || {});
+    setConfig(parsedConfig);
   }, [section]);
 
   const templateType = section.template_type;
 
-  // Selected Album Tracks (if template requires album)
+  // Resolved Album
   const selectedAlbumId = config.album_id || (albums[0]?.id || "hvl-99");
+  const selectedAlbumObj = albums.find((a) => a.id === selectedAlbumId) || albums[0];
   const albumTracks = allTracks.filter((t) => (t.albumId || t.album_id) === selectedAlbumId);
-  const displayTracks = albumTracks.length > 0 ? albumTracks : allTracks.slice(0, 5);
+  const displayTracks = albumTracks.length > 0 ? albumTracks : allTracks;
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -54,8 +60,8 @@ export const SectionElementEditorModal: React.FC<Props> = ({
         style={{
           position: "fixed",
           inset: 0,
-          backgroundColor: "rgba(0, 0, 0, 0.85)",
-          backdropFilter: "blur(20px)",
+          backgroundColor: "rgba(0, 0, 0, 0.88)",
+          backdropFilter: "blur(24px)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -69,13 +75,13 @@ export const SectionElementEditorModal: React.FC<Props> = ({
           exit={{ scale: 0.94, opacity: 0, y: 10 }}
           style={{
             width: "100%",
-            maxWidth: "760px",
-            maxHeight: "90vh",
+            maxWidth: "800px",
+            maxHeight: "92vh",
             overflowY: "auto",
             backgroundColor: "#0b0b12",
             borderRadius: "24px",
             border: "1px solid rgba(255, 255, 255, 0.15)",
-            boxShadow: "0 24px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(99, 102, 241, 0.2)",
+            boxShadow: "0 24px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(99, 102, 241, 0.25)",
             padding: "28px",
             display: "flex",
             flexDirection: "column",
@@ -92,7 +98,7 @@ export const SectionElementEditorModal: React.FC<Props> = ({
                 </h2>
               </div>
               <p style={{ margin: "4px 0 0", fontSize: "0.78rem", color: "rgba(255, 255, 255, 0.5)" }}>
-                Template: <span style={{ color: "#818cf8", fontWeight: 700 }}>{templateType}</span> • Tinh chỉnh trực quan các thành phần UI
+                Template: <span style={{ color: "#818cf8", fontWeight: 700 }}>{templateType}</span> • Tinh chỉnh trực quan các thành phần UI với Dropdown có sẵn
               </p>
             </div>
             <button
@@ -141,15 +147,32 @@ export const SectionElementEditorModal: React.FC<Props> = ({
           ══════════════════════════════════════════════════════════════════════════ */}
           {templateType === "album_showcase" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-              {/* Element 1: Album Selection */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
-                <div>
-                  <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.75)" }}>
-                    1. Gán Bản Phát Hành (Album / Single / EP)
+              {/* Element 1: Album Selection with Live Thumbnail Preview */}
+              <div style={{ padding: "16px", borderRadius: "14px", backgroundColor: "rgba(255, 255, 255, 0.03)", border: "1px solid rgba(255, 255, 255, 0.08)", display: "flex", alignItems: "center", gap: "16px" }}>
+                <img
+                  src={config.cover_url || selectedAlbumObj?.cover_url || HVL_COVER}
+                  alt="Album Cover Preview"
+                  onError={(e) => { e.currentTarget.src = HVL_COVER; }}
+                  style={{ width: "64px", height: "64px", borderRadius: "10px", objectFit: "cover", border: "1px solid rgba(255, 255, 255, 0.2)" }}
+                />
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#a5b4fc" }}>
+                    1. Gán Bản Phát Hành Cho Showcase (Album / Single / EP)
                   </label>
                   <select
-                    value={selectedAlbumId}
-                    onChange={(e) => setConfig({ ...config, album_id: e.target.value })}
+                    value={config.album_id || selectedAlbumId}
+                    onChange={(e) => {
+                      const alb = albums.find((a) => a.id === e.target.value);
+                      if (alb) {
+                        setConfig({
+                          ...config,
+                          album_id: alb.id,
+                          title: alb.title,
+                          artist: alb.artist,
+                          cover_url: alb.cover_url
+                        });
+                      }
+                    }}
                     style={{
                       width: "100%",
                       padding: "10px 14px",
@@ -157,7 +180,9 @@ export const SectionElementEditorModal: React.FC<Props> = ({
                       backgroundColor: "#161622",
                       border: "1px solid rgba(255, 255, 255, 0.15)",
                       color: "#ffffff",
-                      marginTop: "6px"
+                      marginTop: "6px",
+                      fontSize: "0.85rem",
+                      fontWeight: 600
                     }}
                   >
                     {albums.map((alb) => (
@@ -167,10 +192,13 @@ export const SectionElementEditorModal: React.FC<Props> = ({
                     ))}
                   </select>
                 </div>
+              </div>
 
+              {/* Element 2: Sleeve Style & Glow */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
                 <div>
                   <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.75)" }}>
-                    2. Phong Cách Vỏ Đĩa (Sleeve Element Style)
+                    2. Phong Cách Vỏ Đĩa 3D (Sleeve Style)
                   </label>
                   <select
                     value={config.sleeve_style || "foil_shrinkwrap"}
@@ -190,9 +218,34 @@ export const SectionElementEditorModal: React.FC<Props> = ({
                     <option value="hologram_glass">Vỏ Mica Nhựa Trong Suốt (Hologram Glass)</option>
                   </select>
                 </div>
+
+                <div>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.75)" }}>
+                    3. Bảng Màu Hào Quang (Glow Preset)
+                  </label>
+                  <select
+                    value={config.glow_preset || "indigo"}
+                    onChange={(e) => setConfig({ ...config, glow_preset: e.target.value })}
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      borderRadius: "10px",
+                      backgroundColor: "#161622",
+                      border: "1px solid rgba(255, 255, 255, 0.15)",
+                      color: "#ffffff",
+                      marginTop: "6px"
+                    }}
+                  >
+                    <option value="indigo">Indigo Aura (Tím Huyền Bí MCK)</option>
+                    <option value="magenta">Magenta / Cyber Neon (Hồng Neon)</option>
+                    <option value="emerald">Emerald / Lossless Green (Xanh Lục Bảo)</option>
+                    <option value="gold">Gold Master / Vinyl Shine (Vàng Hoàng Kim)</option>
+                    <option value="monochrome">Monochrome Titanium (Đơn Sắc Bạc)</option>
+                  </select>
+                </div>
               </div>
 
-              {/* Element 2: 5 Tracks Selection for Minimal Tracklist Overlay */}
+              {/* Element 3: 5 Tracks Selection for Minimal Tracklist Overlay */}
               <div
                 style={{
                   padding: "16px",
@@ -206,10 +259,10 @@ export const SectionElementEditorModal: React.FC<Props> = ({
               >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <label style={{ fontSize: "0.82rem", fontWeight: 800, color: "#a5b4fc" }}>
-                    3. Chọn 5 Bài Hát Hiển Thị Trong Bảng Nổi (Minimal Tracklist Overlay 01..05)
+                    4. Chọn 5 Bài Hát Hiển Thị Trong Bảng Nổi (Minimal Tracklist Overlay 01..05)
                   </label>
                   <span style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.45)" }}>
-                    Đã chọn 5 slot
+                    {displayTracks.length} bài hát khả dụng
                   </span>
                 </div>
 
@@ -234,7 +287,7 @@ export const SectionElementEditorModal: React.FC<Props> = ({
                             fontSize: "0.82rem"
                           }}
                         >
-                          {albumTracks.map((t, idx) => (
+                          {displayTracks.map((t, idx) => (
                             <option key={t.id} value={t.id}>
                               {idx + 1}. {t.title} ({t.artist})
                             </option>
@@ -245,115 +298,163 @@ export const SectionElementEditorModal: React.FC<Props> = ({
                   })}
                 </div>
               </div>
-
-              {/* Element 3: Ambient Glow & 3D Parameters */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
-                <div>
-                  <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.75)" }}>
-                    4. Bảng Màu Hào Quang (Metallic Ambient Glow)
-                  </label>
-                  <select
-                    value={config.glow_preset || "indigo"}
-                    onChange={(e) => setConfig({ ...config, glow_preset: e.target.value })}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: "10px",
-                      backgroundColor: "#161622",
-                      border: "1px solid rgba(255, 255, 255, 0.15)",
-                      color: "#ffffff",
-                      marginTop: "6px"
-                    }}
-                  >
-                    <option value="indigo">Indigo Aura (Mặc định MCK)</option>
-                    <option value="magenta">Magenta / Cyber Neon</option>
-                    <option value="emerald">Emerald / Lossless Green</option>
-                    <option value="gold">Gold Master / Vinyl Shine</option>
-                    <option value="monochrome">Monochrome Titanium / Dark Silver</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.75)" }}>
-                    5. Tốc Độ Xoay & Nghiêng 3D Vinyl
-                  </label>
-                  <select
-                    value={config.spin_speed || "normal"}
-                    onChange={(e) => setConfig({ ...config, spin_speed: e.target.value })}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      borderRadius: "10px",
-                      backgroundColor: "#161622",
-                      border: "1px solid rgba(255, 255, 255, 0.15)",
-                      color: "#ffffff",
-                      marginTop: "6px"
-                    }}
-                  >
-                    <option value="slow">Êm Ái (Chậm - 60s/vòng)</option>
-                    <option value="normal">Tiêu Chuẩn (Vừa - 30s/vòng)</option>
-                    <option value="fast">Năng Động (Nhanh - 15s/vòng)</option>
-                    <option value="static">Cố Định Không Xoay (Static 3D Case)</option>
-                  </select>
-                </div>
-              </div>
             </div>
           )}
 
           {/* ══════════════════════════════════════════════════════════════════════════
-              TEMPLATE 2: 3D COVER FLOW 5 SLOTS
+              TEMPLATE 2: 3D COVER FLOW 5 SLOTS (WITH DROPDOWNS FROM D1)
           ══════════════════════════════════════════════════════════════════════════ */}
           {templateType === "cover_flow" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
               <p style={{ margin: 0, fontSize: "0.8rem", color: "#a5b4fc", fontWeight: 700 }}>
-                Cấu hình trực quan 5 Vault Slots trên vòng xoay 3D Revolver (Slot 1 mặc định tâm giữa #3):
+                ⚡ Cấu hình 5 Vault Slots trên vòng xoay 3D Revolver (Chọn Album có sẵn trong D1 hoặc nhập tùy biến):
               </p>
 
               {[1, 2, 3, 4, 5].map((slotNumber) => {
                 const isCenter = slotNumber === 1;
+                const slotKey = `slot_${slotNumber}`;
+                const currentAlbumId = config[`${slotKey}_album_id`] || (isCenter ? "hvl-99" : "");
+                const currentCover = config[`${slotKey}_cover`] || (isCenter ? HVL_COVER : "");
+                const currentTitle = config[`${slotKey}_title`] || (isCenter ? "HVL (99%)" : `VAULT SLOT 0${slotNumber}`);
+                const currentArtist = config[`${slotKey}_artist`] || (isCenter ? "MCK" : "Lossless Ready");
+                const currentBadge = config[`${slotKey}_badge`] || (isCenter ? "Master Lossless" : "Locked");
+                const currentStatus = config[`${slotKey}_status`] || (isCenter ? "live" : "locked");
+
                 return (
                   <div
                     key={slotNumber}
                     style={{
-                      padding: "12px 16px",
-                      borderRadius: "12px",
-                      backgroundColor: isCenter ? "rgba(99, 102, 241, 0.15)" : "rgba(255, 255, 255, 0.03)",
+                      padding: "14px",
+                      borderRadius: "14px",
+                      backgroundColor: isCenter ? "rgba(99, 102, 241, 0.12)" : "rgba(255, 255, 255, 0.03)",
                       border: isCenter ? "1px solid #6366f1" : "1px solid rgba(255, 255, 255, 0.08)",
-                      display: "grid",
-                      gridTemplateColumns: "100px 1fr 140px 120px",
-                      alignItems: "center",
-                      gap: "12px"
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "10px"
                     }}
                   >
-                    <span style={{ fontSize: "0.78rem", fontWeight: 800, color: isCenter ? "#a5b4fc" : "rgba(255,255,255,0.6)" }}>
-                      Slot #{slotNumber} {isCenter ? "(Tâm #3)" : ""}
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <span style={{ fontSize: "0.8rem", fontWeight: 800, color: isCenter ? "#a5b4fc" : "#cbd5e1" }}>
+                          Slot #{slotNumber} {isCenter ? "(Đĩa Tâm Giữa #3)" : ""}
+                        </span>
+                        {isCenter && (
+                          <span style={{ padding: "2px 6px", borderRadius: "4px", backgroundColor: "#6366f1", color: "#ffffff", fontSize: "0.62rem", fontWeight: 800 }}>
+                            HERO SLOT
+                          </span>
+                        )}
+                      </div>
 
-                    <input
-                      type="text"
-                      placeholder={`Tiêu đề Slot ${slotNumber}`}
-                      value={config[`slot_${slotNumber}_title`] || (isCenter ? "HVL (99%)" : `VAULT SLOT 0${slotNumber}`)}
-                      onChange={(e) => setConfig({ ...config, [`slot_${slotNumber}_title`]: e.target.value })}
-                      style={{ padding: "6px 10px", borderRadius: "8px", backgroundColor: "#161622", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", fontSize: "0.8rem" }}
-                    />
+                      {/* Status Dropdown */}
+                      <select
+                        value={currentStatus}
+                        onChange={(e) => setConfig({ ...config, [`${slotKey}_status`]: e.target.value })}
+                        style={{
+                          padding: "4px 8px",
+                          borderRadius: "6px",
+                          backgroundColor: "#161622",
+                          border: "1px solid rgba(255, 255, 255, 0.15)",
+                          color: currentStatus === "live" ? "#34d399" : currentStatus === "coming_soon" ? "#fbbf24" : "rgba(255, 255, 255, 0.5)",
+                          fontSize: "0.72rem",
+                          fontWeight: 700
+                        }}
+                      >
+                        <option value="live">Live (Đang Mở)</option>
+                        <option value="coming_soon">Coming Soon (Sắp Ra Mắt)</option>
+                        <option value="locked">Locked (Khóa)</option>
+                      </select>
+                    </div>
 
-                    <input
-                      type="text"
-                      placeholder="Badge (Master Lossless)"
-                      value={config[`slot_${slotNumber}_badge`] || (isCenter ? "Master Lossless" : "Locked")}
-                      onChange={(e) => setConfig({ ...config, [`slot_${slotNumber}_badge`]: e.target.value })}
-                      style={{ padding: "6px 10px", borderRadius: "8px", backgroundColor: "#161622", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", fontSize: "0.8rem" }}
-                    />
+                    {/* Quick Dropdown: Pick from existing D1 Albums/Singles */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                      {currentCover ? (
+                        <img
+                          src={currentCover}
+                          alt={`Slot ${slotNumber} Cover`}
+                          onError={(e) => { e.currentTarget.src = HVL_COVER; }}
+                          style={{ width: "42px", height: "42px", borderRadius: "8px", objectFit: "cover", border: "1px solid rgba(255, 255, 255, 0.15)" }}
+                        />
+                      ) : (
+                        <div style={{ width: "42px", height: "42px", borderRadius: "8px", backgroundColor: "rgba(255, 255, 255, 0.05)", border: "1px dashed rgba(255, 255, 255, 0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.4)" }}>
+                          <Disc3 size={18} />
+                        </div>
+                      )}
 
-                    <select
-                      value={config[`slot_${slotNumber}_status`] || (isCenter ? "live" : "locked")}
-                      onChange={(e) => setConfig({ ...config, [`slot_${slotNumber}_status`]: e.target.value })}
-                      style={{ padding: "6px 10px", borderRadius: "8px", backgroundColor: "#161622", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", fontSize: "0.8rem" }}
-                    >
-                      <option value="live">Live (Mở)</option>
-                      <option value="coming_soon">Coming Soon</option>
-                      <option value="locked">Locked (Khóa)</option>
-                    </select>
+                      <div style={{ flex: 1 }}>
+                        <select
+                          value={currentAlbumId}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (!val) {
+                              setConfig({
+                                ...config,
+                                [`${slotKey}_album_id`]: "",
+                                [`${slotKey}_title`]: `VAULT SLOT 0${slotNumber}`,
+                                [`${slotKey}_artist`]: "Lossless Ready",
+                                [`${slotKey}_cover`]: "",
+                                [`${slotKey}_badge`]: "Locked",
+                                [`${slotKey}_status`]: "locked"
+                              });
+                            } else {
+                              const alb = albums.find((a) => a.id === val);
+                              if (alb) {
+                                setConfig({
+                                  ...config,
+                                  [`${slotKey}_album_id`]: alb.id,
+                                  [`${slotKey}_title`]: alb.title,
+                                  [`${slotKey}_artist`]: alb.artist,
+                                  [`${slotKey}_cover`]: alb.cover_url,
+                                  [`${slotKey}_badge`]: alb.type === "single" ? "Single Lossless" : "Master Lossless",
+                                  [`${slotKey}_status`]: "live"
+                                });
+                              }
+                            }
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            borderRadius: "8px",
+                            backgroundColor: "#161622",
+                            border: "1px solid rgba(255, 255, 255, 0.15)",
+                            color: "#ffffff",
+                            fontSize: "0.82rem",
+                            fontWeight: 600
+                          }}
+                        >
+                          <option value="">[Chọn Bản Phát Hành Có Sẵn Trong D1...]</option>
+                          {albums.map((alb) => (
+                            <option key={alb.id} value={alb.id}>
+                              {alb.title} • {alb.artist} ({alb.type?.toUpperCase() || "ALBUM"})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Detail inputs */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                      <input
+                        type="text"
+                        placeholder="Tên Bản Thu"
+                        value={currentTitle}
+                        onChange={(e) => setConfig({ ...config, [`${slotKey}_title`]: e.target.value })}
+                        style={{ padding: "7px 10px", borderRadius: "8px", backgroundColor: "#161622", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", fontSize: "0.78rem" }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Nghệ Sĩ"
+                        value={currentArtist}
+                        onChange={(e) => setConfig({ ...config, [`${slotKey}_artist`]: e.target.value })}
+                        style={{ padding: "7px 10px", borderRadius: "8px", backgroundColor: "#161622", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", fontSize: "0.78rem" }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Huy Hiệu (Master Lossless)"
+                        value={currentBadge}
+                        onChange={(e) => setConfig({ ...config, [`${slotKey}_badge`]: e.target.value })}
+                        style={{ padding: "7px 10px", borderRadius: "8px", backgroundColor: "#161622", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", fontSize: "0.78rem" }}
+                      />
+                    </div>
                   </div>
                 );
               })}
@@ -365,6 +466,35 @@ export const SectionElementEditorModal: React.FC<Props> = ({
           ══════════════════════════════════════════════════════════════════════════ */}
           {templateType === "hero_banner" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              {/* Quick autofill from D1 Album */}
+              <div style={{ padding: "12px", borderRadius: "10px", backgroundColor: "rgba(99, 102, 241, 0.1)", border: "1px solid rgba(99, 102, 241, 0.3)" }}>
+                <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "#a5b4fc" }}>
+                  ⚡ Tự Động Nạp Dữ Liệu Từ Album / Single Có Sẵn:
+                </label>
+                <select
+                  onChange={(e) => {
+                    const alb = albums.find((a) => a.id === e.target.value);
+                    if (alb) {
+                      setConfig({
+                        ...config,
+                        headline: alb.title,
+                        subheadline: `Bản phát hành ${alb.type?.toUpperCase()} mới nhất từ ${alb.artist}. Chất lượng Lossless phòng thu 24-bit.`,
+                        banner_url: alb.cover_url,
+                        badge_text: `BẢN PHÁT HÀNH ${alb.type?.toUpperCase() || "MỚI"}`
+                      });
+                    }
+                  }}
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", backgroundColor: "#161622", border: "1px solid rgba(255, 255, 255, 0.15)", color: "#ffffff", marginTop: "4px", fontSize: "0.8rem" }}
+                >
+                  <option value="">-- Chọn Release Để Nạp Nhanh --</option>
+                  {albums.map((alb) => (
+                    <option key={alb.id} value={alb.id}>
+                      {alb.title} ({alb.artist} • {alb.type?.toUpperCase()})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.75)" }}>Tiêu Đề Banner (Headline)</label>
                 <input
@@ -386,7 +516,7 @@ export const SectionElementEditorModal: React.FC<Props> = ({
               </div>
 
               <div>
-                <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.75)" }}>URL Ảnh / Video Banner 16:9 Cinema</label>
+                <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.75)" }}>URL Ảnh Banner 16:9 Cinema</label>
                 <input
                   type="text"
                   value={config.banner_url || ""}
@@ -481,9 +611,9 @@ export const SectionElementEditorModal: React.FC<Props> = ({
                   <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.75)" }}>Link Spotify / Social</label>
                   <input
                     type="text"
-                    value={config.social_link || ""}
+                    value={config.spotify_url || ""}
                     placeholder="https://open.spotify.com/artist/..."
-                    onChange={(e) => setConfig({ ...config, social_link: e.target.value })}
+                    onChange={(e) => setConfig({ ...config, spotify_url: e.target.value })}
                     style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "#161622", border: "1px solid rgba(255, 255, 255, 0.12)", color: "#fff", marginTop: "4px" }}
                   />
                 </div>
@@ -518,24 +648,21 @@ export const SectionElementEditorModal: React.FC<Props> = ({
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                 <div>
-                  <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.75)" }}>Đèn Hào Quang Ambilight</label>
-                  <select
-                    value={config.ambilight_intensity || "high"}
-                    onChange={(e) => setConfig({ ...config, ambilight_intensity: e.target.value })}
+                  <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.75)" }}>Huy Hiệu Chất Lượng</label>
+                  <input
+                    type="text"
+                    value={config.quality_badge || "4K MASTER"}
+                    onChange={(e) => setConfig({ ...config, quality_badge: e.target.value })}
                     style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "#161622", border: "1px solid rgba(255, 255, 255, 0.12)", color: "#fff", marginTop: "4px" }}
-                  >
-                    <option value="high">Sáng Mạnh (Rực rỡ Cinema)</option>
-                    <option value="medium">Vừa Phải (Dịu nhẹ)</option>
-                    <option value="none">Tắt Đèn Hào Quang</option>
-                  </select>
+                  />
                 </div>
 
                 <div>
-                  <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.75)" }}>Đạo Diễn / Sản Xuất Tag</label>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.75)" }}>Poster URL (Tùy chọn)</label>
                   <input
                     type="text"
-                    value={config.director_tag || "PostLain Cinema 4K Master"}
-                    onChange={(e) => setConfig({ ...config, director_tag: e.target.value })}
+                    value={config.poster_url || ""}
+                    onChange={(e) => setConfig({ ...config, poster_url: e.target.value })}
                     style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "#161622", border: "1px solid rgba(255, 255, 255, 0.12)", color: "#fff", marginTop: "4px" }}
                   />
                 </div>

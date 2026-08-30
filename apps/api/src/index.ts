@@ -810,6 +810,10 @@ app.get("/api/sections", async (c) => {
       if (results && results.length > 0) {
         const parsed = results.map((r: any) => ({
           ...r,
+          is_active: r.is_enabled === 1,
+          is_enabled: r.is_enabled,
+          sort_order: r.order_index,
+          order_index: r.order_index,
           config: r.config_json ? JSON.parse(r.config_json) : {}
         }));
         return c.json({ success: true, sections: parsed });
@@ -914,6 +918,10 @@ app.get("/api/admin/sections", async (c) => {
 
   const parsed = (results || []).map((r: any) => ({
     ...r,
+    is_active: r.is_enabled === 1,
+    is_enabled: r.is_enabled,
+    sort_order: r.order_index,
+    order_index: r.order_index,
     config: r.config_json ? JSON.parse(r.config_json) : {}
   }));
 
@@ -926,23 +934,34 @@ app.post("/api/admin/sections", async (c) => {
   if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);
 
   const body = await c.req.json();
-  const { title, template_type, order_index = 1, is_enabled = 1, config = {} } = body;
+  const {
+    title,
+    template_type,
+    order_index,
+    sort_order,
+    is_enabled,
+    is_active,
+    config = {}
+  } = body;
+
+  const activeVal = is_enabled !== undefined ? is_enabled : (is_active !== undefined ? (is_active ? 1 : 0) : 1);
+  const orderVal = order_index !== undefined ? order_index : (sort_order !== undefined ? sort_order : 1);
 
   const id = `sec_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-  const configJson = JSON.stringify(config);
+  const configJson = typeof config === "string" ? config : JSON.stringify(config);
 
   // If inserting at specific index, shift existing sections
   await c.env.DB.prepare(
     "UPDATE home_sections SET order_index = order_index + 1 WHERE order_index >= ?"
   )
-    .bind(order_index)
+    .bind(orderVal)
     .run();
 
   await c.env.DB.prepare(`
     INSERT INTO home_sections (id, title, template_type, order_index, is_enabled, config_json, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
   `)
-    .bind(id, title, template_type, order_index, is_enabled ? 1 : 0, configJson)
+    .bind(id, title, template_type, orderVal, activeVal ? 1 : 0, configJson)
     .run();
 
   return c.json({ success: true, id, message: "Đã tạo Section mới thành công!" });
@@ -955,7 +974,7 @@ app.put("/api/admin/sections/:id", async (c) => {
 
   const id = c.req.param("id");
   const body = await c.req.json();
-  const { title, template_type, order_index, is_enabled, config } = body;
+  const { title, template_type, order_index, sort_order, is_enabled, is_active, config } = body;
 
   const updates: string[] = ["updated_at = datetime('now')"];
   const values: any[] = [];
@@ -968,17 +987,19 @@ app.put("/api/admin/sections/:id", async (c) => {
     updates.push("template_type = ?");
     values.push(template_type);
   }
-  if (order_index !== undefined) {
+  if (order_index !== undefined || sort_order !== undefined) {
+    const orderVal = order_index !== undefined ? order_index : sort_order;
     updates.push("order_index = ?");
-    values.push(order_index);
+    values.push(orderVal);
   }
-  if (is_enabled !== undefined) {
+  if (is_enabled !== undefined || is_active !== undefined) {
+    const activeVal = is_enabled !== undefined ? is_enabled : (is_active ? 1 : 0);
     updates.push("is_enabled = ?");
-    values.push(is_enabled ? 1 : 0);
+    values.push(activeVal ? 1 : 0);
   }
   if (config !== undefined) {
     updates.push("config_json = ?");
-    values.push(JSON.stringify(config));
+    values.push(typeof config === "string" ? config : JSON.stringify(config));
   }
 
   values.push(id);
@@ -1012,7 +1033,7 @@ app.post("/api/admin/sections/reorder", async (c) => {
   if (Array.isArray(items)) {
     for (const item of items) {
       await c.env.DB.prepare("UPDATE home_sections SET order_index = ? WHERE id = ?")
-        .bind(item.order_index, item.id)
+        .bind(item.order_index ?? item.sort_order, item.id)
         .run();
     }
   }
@@ -1100,11 +1121,18 @@ app.delete("/api/admin/albums/:id", async (c) => {
   if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);
 
   const id = c.req.param("id");
-  // Cascade delete child tracks
+  // Cascade delete child tracks & user favorites
+  const { results: childTracks } = await c.env.DB.prepare("SELECT id FROM tracks WHERE album_id = ?").bind(id).all();
+  if (childTracks && childTracks.length > 0) {
+    for (const t of childTracks) {
+      await c.env.DB.prepare("DELETE FROM user_favorites WHERE track_id = ?").bind((t as any).id).run();
+    }
+  }
   await c.env.DB.prepare("DELETE FROM tracks WHERE album_id = ?").bind(id).run();
+  await c.env.DB.prepare("UPDATE vault_slots SET album_id = NULL, status = 'coming_soon' WHERE album_id = ?").bind(id).run();
   await c.env.DB.prepare("DELETE FROM albums WHERE id = ?").bind(id).run();
 
-  return c.json({ success: true, message: "Đã xóa Album và toàn bộ tracks liên kết thành công!" });
+  return c.json({ success: true, message: "Đã xóa bản phát hành và toàn bộ bài hát liên kết thành công!" });
 });
 
 // Seed 30 HVL tracks and Album into Cloudflare D1

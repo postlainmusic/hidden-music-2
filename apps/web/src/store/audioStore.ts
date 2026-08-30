@@ -62,11 +62,16 @@ export type SectionTemplateType =
 export interface HomeSection {
   id: string;
   title: string;
+  subtitle?: string;
   template_type: SectionTemplateType;
-  order_index: number;
-  is_enabled: number;
+  order_index?: number;
+  sort_order?: number;
+  is_enabled?: number | boolean;
+  is_active?: boolean;
   config: Record<string, any>;
 }
+
+export type DynamicSection = HomeSection;
 
 export interface VaultSlot {
   id: string;
@@ -561,6 +566,7 @@ interface AudioState {
   loadAlbums: () => Promise<void>;
   loadTracks: (albumId?: string) => Promise<void>;
   selectAlbum: (album: Album | null) => void;
+  updateSection: (sectionId: string, updates: Partial<HomeSection>) => void;
   seedHvlToD1: () => Promise<{ success: boolean; message: string }>;
 }
 
@@ -833,11 +839,35 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       const res = await fetch("https://hidden-music-api.postlain-music.workers.dev/api/sections");
       const data = await res.json();
       if (data.success && Array.isArray(data.sections) && data.sections.length > 0) {
-        set({ sections: data.sections });
+        const mapped = data.sections.map((s: any) => ({
+          ...s,
+          is_active: Boolean(s.is_active ?? s.is_enabled),
+          is_enabled: s.is_enabled ?? (s.is_active ? 1 : 0),
+          sort_order: s.sort_order ?? s.order_index ?? 1,
+          order_index: s.order_index ?? s.sort_order ?? 1,
+          config: typeof s.config === "string" ? JSON.parse(s.config) : (s.config || {})
+        }));
+        set({ sections: mapped });
       }
     } catch (err) {
       console.warn("Load sections fallback:", err);
     }
+  },
+
+  updateSection: (sectionId: string, updates: Partial<HomeSection>) => {
+    const { sections } = get();
+    const updated = sections.map((s) => {
+      if (s.id === sectionId) {
+        return {
+          ...s,
+          ...updates,
+          config: updates.config ? { ...s.config, ...updates.config } : s.config,
+          is_active: updates.is_active !== undefined ? updates.is_active : (updates.is_enabled !== undefined ? Boolean(updates.is_enabled) : s.is_active)
+        };
+      }
+      return s;
+    });
+    set({ sections: updated });
   },
 
   loadTopFavorites: async () => {
