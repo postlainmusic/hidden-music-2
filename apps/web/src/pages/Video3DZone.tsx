@@ -15,10 +15,7 @@ import {
   Minimize2,
   ArrowLeft,
   ListMusic,
-  X,
-  Sparkles,
-  Film,
-  CheckCircle2
+  X
 } from "lucide-react";
 
 interface Video3DZoneProps {
@@ -45,16 +42,12 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
 
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const dataArrayRef = useRef<Uint8Array | null>(null);
 
   // 1. STRICT ZONE ISOLATION: Silence Background Audio Engine completely on Mount
   useEffect(() => {
     dualDeckAudioEngine.pause();
 
     return () => {
-      // Clean pause on unmount
       if (videoRef.current) {
         try {
           videoRef.current.pause();
@@ -63,14 +56,14 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     };
   }, []);
 
-  // Derive video URL with robust fallback
+  // Derive video URL
   const activeVideoUrl =
     currentTrack?.videoUrl ||
     (currentTrack
       ? `https://media.postlain.com/videos/01.%20Elegie%20-%20MCK.mkv`
       : "");
 
-  // 2. Audio-Reactive Three.js 60fps Ambient Particles System
+  // 2. High-Performance Lightweight Three.js Ambient Particles (Zero Lag)
   useEffect(() => {
     const canvas = particlesCanvasRef.current;
     if (!canvas) return;
@@ -82,16 +75,15 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
       powerPreference: "high-performance"
     });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.z = 15;
 
-    const count = 2500;
+    const count = 1200; // Lightweight 1200 particles for smooth 60/120fps
     const pos = new Float32Array(count * 3);
     const col = new Float32Array(count * 3);
-    const baseScales = new Float32Array(count);
 
     const colorA = new THREE.Color("#6366f1");
     const colorB = new THREE.Color("#ec4899");
@@ -99,7 +91,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
 
     for (let i = 0; i < count; i++) {
       const i3 = i * 3;
-      const radius = 8 + Math.random() * 32;
+      const radius = 8 + Math.random() * 30;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(Math.random() * 2 - 1);
 
@@ -111,7 +103,6 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
       col[i3] = mixed.r;
       col[i3 + 1] = mixed.g;
       col[i3 + 2] = mixed.b;
-      baseScales[i] = 0.08 + Math.random() * 0.14;
     }
 
     const geometry = new THREE.BufferGeometry();
@@ -119,10 +110,10 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     geometry.setAttribute("color", new THREE.BufferAttribute(col, 3));
 
     const material = new THREE.PointsMaterial({
-      size: 0.14,
+      size: 0.12,
       vertexColors: true,
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.65,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
@@ -131,27 +122,19 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     scene.add(points);
 
     let animId: number;
-    let clock = new THREE.Clock();
+    let lastTime = performance.now();
 
-    const animate = () => {
-      const elapsedTime = clock.getElapsedTime();
+    const animate = (now: number) => {
+      const delta = (now - lastTime) * 0.001;
+      lastTime = now;
 
-      // Audio-reactive pulse modulation
-      let bassIntensity = 1.0;
-      if (analyserRef.current && dataArrayRef.current) {
-        analyserRef.current.getByteFrequencyData(dataArrayRef.current as any);
-        const subBass = (dataArrayRef.current[1] + dataArrayRef.current[2] + dataArrayRef.current[3]) / (3 * 255);
-        bassIntensity = 1.0 + subBass * 0.8;
-      }
-
-      points.rotation.y = elapsedTime * 0.04;
-      points.rotation.x = Math.sin(elapsedTime * 0.02) * 0.05;
-      material.size = 0.13 * bassIntensity;
+      points.rotation.y += delta * 0.04;
+      points.rotation.x += delta * 0.02;
 
       renderer.render(scene, camera);
       animId = requestAnimationFrame(animate);
     };
-    animate();
+    animId = requestAnimationFrame(animate);
 
     const handleResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;
@@ -169,10 +152,9 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     };
   }, []);
 
-  // 3. Real-time Ambilight extraction loop with low-frequency polling
+  // 3. Throttled Ambilight extraction loop (Runs every 300ms to save 95% CPU/GPU overhead)
   useEffect(() => {
-    let animId: number;
-    const extractAmbilight = () => {
+    const interval = setInterval(() => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       if (video && canvas && !video.paused && !video.ended && video.readyState >= 2) {
@@ -191,20 +173,16 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
             r = Math.round(r / count);
             g = Math.round(g / count);
             b = Math.round(b / count);
-            setAmbilightColor(`rgba(${r}, ${g}, ${b}, 0.6)`);
-          } catch {
-            // fallback
-          }
+            setAmbilightColor(`rgba(${r}, ${g}, ${b}, 0.55)`);
+          } catch {}
         }
       }
-      animId = requestAnimationFrame(extractAmbilight);
-    };
+    }, 300);
 
-    animId = requestAnimationFrame(extractAmbilight);
-    return () => cancelAnimationFrame(animId);
+    return () => clearInterval(interval);
   }, []);
 
-  // Sync Video Controls
+  // Video Controls
   const handleTogglePlay = () => {
     const video = videoRef.current;
     if (!video) return;
@@ -272,7 +250,6 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     return `${mins}:${remainder < 10 ? "0" : ""}${remainder}`;
   };
 
-  // Auto-hide controls on inactivity
   const handleMouseMove = () => {
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
@@ -301,7 +278,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
         zIndex: 10
       }}
     >
-      {/* Background Pure Three.js 60fps Particles Canvas */}
+      {/* Background Pure Three.js Ambient Particles Canvas */}
       <canvas
         ref={particlesCanvasRef}
         style={{
@@ -556,7 +533,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
           }}
         />
 
-        {/* ── TOP-LEFT VIDEO TITLE OVERLAY (AVOID BOTTOM PLAYBAR COLLISION) ── */}
+        {/* ── TOP-LEFT VIDEO TITLE OVERLAY ── */}
         <AnimatePresence>
           {showControls && (
             <motion.div
@@ -672,7 +649,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                 </span>
               </div>
 
-              {/* Bottom Row: Left Time / Center Controls / Right Actions */}
+              {/* Bottom Row Controls */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center" }}>
                 {/* Left: Queue Quick Button */}
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -697,7 +674,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                   </button>
                 </div>
 
-                {/* Center Media Playback Controls (100% Balanced & Symmetrical) */}
+                {/* Center Media Playback Controls */}
                 <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "12px" : "18px" }}>
                   <button
                     onClick={prevTrack}

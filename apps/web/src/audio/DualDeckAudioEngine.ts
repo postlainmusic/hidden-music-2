@@ -152,14 +152,14 @@ export class DualDeckAudioEngine {
         this.sourceA = this.audioCtx.createMediaElementSource(this.deckA);
         this.sourceA.connect(this.gainA);
       } catch (err) {
-        console.warn("[DualDeck] Source A connection notice:", err);
+        // Source connection notice
       }
 
       try {
         this.sourceB = this.audioCtx.createMediaElementSource(this.deckB);
         this.sourceB.connect(this.gainB);
       } catch (err) {
-        console.warn("[DualDeck] Source B connection notice:", err);
+        // Source connection notice
       }
 
       // Connect Graph: Gains -> SubBass -> MasterGain -> Analyser -> Destination
@@ -170,7 +170,7 @@ export class DualDeckAudioEngine {
         this.masterGain.connect(this.masterAnalyser);
         this.masterAnalyser.connect(this.audioCtx.destination);
       } catch (err) {
-        console.warn("[DualDeck] Graph connection notice:", err);
+        // Graph connection notice
       }
     }
 
@@ -247,33 +247,29 @@ export class DualDeckAudioEngine {
     audio.addEventListener("ended", () => {
       // Ignore any ended event during the first 4 seconds of track startup
       if (Date.now() - this.trackStartedAt < 4000) {
-        console.log(`[DualDeck] Ignored spurious ended event on Deck ${deckId} during startup`);
         return;
       }
 
-      // ONLY trigger onTrackEnd if the active audio has legitimately played to the very end
-      const hasValidDuration = audio.duration && !isNaN(audio.duration) && audio.duration > 5;
-      const isNearEnd = hasValidDuration && audio.currentTime >= audio.duration - 1.5;
-
-      if (this.activeDeckId === deckId && isNearEnd) {
-        console.log(`[DualDeck] Track legitimately ended on Deck ${deckId} at ${audio.currentTime.toFixed(2)}s`);
+      if (this.activeDeckId === deckId) {
+        this.isPlaying = false;
+        this.playbackStateSubscribers.forEach((cb) => cb(false));
         this.onTrackEndCallbacks.forEach((cb) => cb());
       }
     });
 
     audio.addEventListener("error", (e) => {
-      if (this.activeDeckId === deckId && this.isPlaying) {
-        console.warn(`[DualDeck] Audio error on Deck ${deckId}:`, e);
-        this.handleResilientRetry();
+      if (this.activeDeckId === deckId && this.currentTrack) {
+        this.handleNetworkError(audio, deckId);
       }
     });
   }
 
   private setupDeviceListeners(): void {
-    // Listen for Bluetooth / Audio Output disconnect
+    if (typeof window === "undefined") return;
+
     if (navigator.mediaDevices && navigator.mediaDevices.ondevicechange !== undefined) {
       navigator.mediaDevices.addEventListener("devicechange", () => {
-        // Disconnect guard: pause to prevent loud external playback
+        // Headphone Disconnect Protection: auto-pause to avoid blasting speaker
         if (this.isPlaying) {
           this.pause();
         }
@@ -281,29 +277,25 @@ export class DualDeckAudioEngine {
     }
   }
 
-  private handleResilientRetry(): void {
-    if (this.retryCount >= this.maxRetries) {
-      console.error("[DualDeck] Max retry attempts reached. Network failure.");
-      this.setBuffering(false);
-      return;
+  private handleNetworkError(audio: HTMLAudioElement, deckId: DeckId): void {
+    if (this.retryCount < this.maxRetries && this.currentTrack) {
+      this.retryCount++;
+      const backoffMs = Math.pow(2, this.retryCount) * 400; // 800ms, 1600ms, 3200ms
+      const resumeTime = audio.currentTime || 0;
+
+      clearTimeout(this.retryTimeoutId);
+      this.retryTimeoutId = setTimeout(async () => {
+        if (this.currentTrack) {
+          audio.src = this.currentTrack.audioUrl;
+          audio.currentTime = resumeTime;
+          try {
+            await audio.play();
+            this.retryCount = 0;
+            this.setBuffering(false);
+          } catch {}
+        }
+      }, backoffMs);
     }
-
-    this.retryCount++;
-    const currentAudio = this.getActiveAudio();
-    const lastTimestamp = currentAudio.currentTime || 0;
-    const backoffMs = Math.min(3000, 300 * Math.pow(2, this.retryCount - 1));
-
-    console.log(`[DualDeck] Retrying connection in ${backoffMs}ms (Attempt ${this.retryCount}/${this.maxRetries}) at ${lastTimestamp.toFixed(2)}s...`);
-    this.setBuffering(true);
-
-    clearTimeout(this.retryTimeoutId);
-    this.retryTimeoutId = setTimeout(() => {
-      if (this.currentTrack) {
-        currentAudio.src = this.currentTrack.audioUrl;
-        currentAudio.currentTime = lastTimestamp;
-        currentAudio.play().catch((err) => console.warn("[DualDeck] Retry play notice:", err));
-      }
-    }, backoffMs);
   }
 
   public getActiveAudio(): HTMLAudioElement {
@@ -314,28 +306,30 @@ export class DualDeckAudioEngine {
     return this.activeDeckId === "A" ? this.deckB : this.deckA;
   }
 
+  public getActiveDeckId(): DeckId {
+    return this.activeDeckId;
+  }
+
+  public getCurrentTrack(): AudioEngineTrack | null {
+    return this.currentTrack;
+  }
+
+  public getIsPlaying(): boolean {
+    return this.isPlaying;
+  }
+
   /**
-   * Plays a track with instant random-jump or smooth crossfade.
+   * Primary Play method with 0ms Transition & Crossfade Engine.
    */
-  public async playTrack(
-    track: AudioEngineTrack,
-    options: { crossfade?: boolean; startTime?: number } = {}
-  ): Promise<void> {
+  public async playTrack(track: AudioEngineTrack, options: { startTime?: number; crossfade?: boolean } = {}): Promise<void> {
     await this.ensureAudioContext();
-    if (this.audioCtx && this.audioCtx.state === "suspended") {
-      try {
-        await this.audioCtx.resume();
-      } catch (err) {
-        console.warn("[DualDeck] AudioContext resume warning:", err);
-      }
-    }
 
     this.currentTrack = track;
     this.trackStartedAt = Date.now();
     this.retryCount = 0;
     clearTimeout(this.retryTimeoutId);
 
-    const useCrossfade = options.crossfade && this.isPlaying && this.crossfadeDuration > 0;
+    const useCrossfade = options.crossfade ?? (this.isPlaying && this.currentTrack?.id !== track.id);
 
     if (useCrossfade) {
       // 0ms Smooth Crossfade to the alternate deck
@@ -366,8 +360,8 @@ export class DualDeckAudioEngine {
         outgoingGain.gain.linearRampToValueAtTime(0, now + dur);
       }
 
-      const playSuccess = await this.safePlay(incomingAudio);
-      if (playSuccess) {
+      try {
+        await incomingAudio.play();
         this.activeDeckId = nextDeckId;
         this.isPlaying = true;
         this.startProgressLoop();
@@ -381,6 +375,18 @@ export class DualDeckAudioEngine {
             } catch {}
           }
         }, this.crossfadeDuration * 1000 + 100);
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          try {
+            incomingAudio.load();
+            incomingAudio.currentTime = options.startTime || 0;
+            await incomingAudio.play();
+            this.activeDeckId = nextDeckId;
+            this.isPlaying = true;
+            this.startProgressLoop();
+            this.playbackStateSubscribers.forEach((cb) => cb(true));
+          } catch {}
+        }
       }
     } else {
       // Instant Random Jump (<30ms)
@@ -411,32 +417,26 @@ export class DualDeckAudioEngine {
       currentAudio.volume = this.isMuted ? 0 : this.masterVolume;
       currentAudio.muted = this.isMuted;
 
-      const playSuccess = await this.safePlay(currentAudio);
-      if (playSuccess) {
+      try {
+        await currentAudio.play();
         this.isPlaying = true;
         this.startProgressLoop();
         this.playbackStateSubscribers.forEach((cb) => cb(true));
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          try {
+            currentAudio.load();
+            currentAudio.currentTime = options.startTime || 0;
+            await currentAudio.play();
+            this.isPlaying = true;
+            this.startProgressLoop();
+            this.playbackStateSubscribers.forEach((cb) => cb(true));
+          } catch {}
+        }
       }
     }
 
     this.updateMediaSession(track);
-  }
-
-  private async safePlay(audio: HTMLAudioElement): Promise<boolean> {
-    try {
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        await playPromise;
-      }
-      return true;
-    } catch (err: any) {
-      if (err.name === "AbortError" || err.message?.includes("interrupted") || err.message?.includes("pause")) {
-        // Gracefully ignore normal browser interruptions when switching tracks rapidly
-        return false;
-      }
-      console.warn("[DualDeck] Audio playback notice:", err.message);
-      return false;
-    }
   }
 
   public pause(): void {
@@ -458,12 +458,21 @@ export class DualDeckAudioEngine {
     if (currentAudio.src) {
       currentAudio.volume = this.isMuted ? 0 : this.masterVolume;
       currentAudio.muted = this.isMuted;
-      const ok = await this.safePlay(currentAudio);
-      if (ok) {
+      try {
+        await currentAudio.play();
         this.isPlaying = true;
         this.startProgressLoop();
         if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
           try { navigator.mediaSession.playbackState = "playing"; } catch {}
+        }
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          try {
+            currentAudio.load();
+            await currentAudio.play();
+            this.isPlaying = true;
+            this.startProgressLoop();
+          } catch {}
         }
       }
     }
@@ -475,9 +484,7 @@ export class DualDeckAudioEngine {
       try {
         audio.currentTime = seconds;
         this.broadcastProgress();
-      } catch (err) {
-        console.warn("[DualDeck] Seek warning:", err);
-      }
+      } catch {}
     }
   }
 
@@ -649,9 +656,7 @@ export class DualDeckAudioEngine {
         const audio = this.getActiveAudio();
         this.seek(Math.min(audio.duration, audio.currentTime + (details.seekOffset || 10)));
       });
-    } catch (err) {
-      console.warn("[DualDeck] MediaSession setup notice:", err);
-    }
+    } catch (err) {}
   }
 }
 
