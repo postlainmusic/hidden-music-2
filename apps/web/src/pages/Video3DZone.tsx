@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAudioStore, Track } from "../store/audioStore";
 import { dualDeckAudioEngine } from "../audio/DualDeckAudioEngine";
@@ -15,6 +15,7 @@ import {
   Minimize2,
   ArrowLeft,
   ListMusic,
+  Loader2,
   X
 } from "lucide-react";
 
@@ -23,14 +24,18 @@ interface Video3DZoneProps {
 }
 
 export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => {
-  const { currentTrack, queue, playTrack, nextTrack, prevTrack } = useAudioStore();
+  const { currentTrack, queue } = useAudioStore();
   const isMobile = useIsMobile();
+
+  // Local Video Track State (Completely decoupled from Audio FLAC streaming)
+  const [selectedVideoTrack, setSelectedVideoTrack] = useState<Track>(() => currentTrack || queue[0]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
+  const [isVideoBuffering, setIsVideoBuffering] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
@@ -43,7 +48,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 1. STRICT ZONE ISOLATION: Silence Background Audio Engine completely on Mount
+  // 1. STRICT ISOLATION: Silence Background Audio Engine completely on Mount
   useEffect(() => {
     dualDeckAudioEngine.pause();
 
@@ -56,12 +61,39 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     };
   }, []);
 
-  // Derive video URL
-  const activeVideoUrl =
-    currentTrack?.videoUrl ||
-    (currentTrack
-      ? `https://media.postlain.com/videos/01.%20Elegie%20-%20MCK.mkv`
-      : "");
+  // Derive Video URL with safe URL encoding
+  const activeVideoUrl = useMemo(() => {
+    if (selectedVideoTrack?.videoUrl) return selectedVideoTrack.videoUrl;
+    if (selectedVideoTrack?.title) {
+      return `https://media.postlain.com/videos/${encodeURIComponent(selectedVideoTrack.title)}%20-%20MCK.mkv`;
+    }
+    return `https://media.postlain.com/videos/01.%20Elegie%20-%20MCK.mkv`;
+  }, [selectedVideoTrack]);
+
+  // Handle Video Selection from Queue (ZERO FLAC DOWNLOAD)
+  const handleSelectVideo = (track: Track) => {
+    setSelectedVideoTrack(track);
+    useAudioStore.setState({ currentTrack: track });
+    dualDeckAudioEngine.pause(); // Guarantee Audio is paused and not downloading FLAC
+    setIsVideoBuffering(true);
+    if (videoRef.current) {
+      videoRef.current.load();
+      videoRef.current.play().catch(() => {});
+    }
+    if (isMobile) setIsQueueOpen(false);
+  };
+
+  const handleNextVideo = () => {
+    const currentIndex = queue.findIndex((t) => t.id === selectedVideoTrack.id);
+    const nextIndex = (currentIndex + 1) % queue.length;
+    handleSelectVideo(queue[nextIndex]);
+  };
+
+  const handlePrevVideo = () => {
+    const currentIndex = queue.findIndex((t) => t.id === selectedVideoTrack.id);
+    const prevIndex = (currentIndex - 1 + queue.length) % queue.length;
+    handleSelectVideo(queue[prevIndex]);
+  };
 
   // 2. High-Performance Lightweight Three.js Ambient Particles (Zero Lag)
   useEffect(() => {
@@ -81,7 +113,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.z = 15;
 
-    const count = 1200; // Lightweight 1200 particles for smooth 60/120fps
+    const count = 1200;
     const pos = new Float32Array(count * 3);
     const col = new Float32Array(count * 3);
 
@@ -152,7 +184,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     };
   }, []);
 
-  // 3. Throttled Ambilight extraction loop (Runs every 300ms to save 95% CPU/GPU overhead)
+  // 3. Throttled Ambilight extraction loop (Runs every 350ms to save CPU)
   useEffect(() => {
     const interval = setInterval(() => {
       const video = videoRef.current;
@@ -177,7 +209,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
           } catch {}
         }
       }
-    }, 300);
+    }, 350);
 
     return () => clearInterval(interval);
   }, []);
@@ -200,6 +232,9 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     if (video) {
       setCurrentTime(video.currentTime);
       setDuration(video.duration || 0);
+      if (video.readyState >= 3 && isVideoBuffering) {
+        setIsVideoBuffering(false);
+      }
     }
   };
 
@@ -314,7 +349,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
         }}
       />
 
-      {/* ── TOP HEADER BAR (MINIMALIST APPLE LIQUID GLASS) ── */}
+      {/* ── TOP HEADER BAR ── */}
       <AnimatePresence>
         {showControls && (
           <motion.div
@@ -439,18 +474,11 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
             {/* Video List Items */}
             <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px", marginTop: "16px" }}>
               {queue.map((track, idx) => {
-                const isCurrent = track.id === currentTrack?.id;
+                const isCurrent = track.id === selectedVideoTrack?.id;
                 return (
                   <div
                     key={track.id}
-                    onClick={() => {
-                      playTrack(track);
-                      if (videoRef.current) {
-                        videoRef.current.load();
-                        videoRef.current.play().catch(() => {});
-                      }
-                      if (isMobile) setIsQueueOpen(false);
-                    }}
+                    onClick={() => handleSelectVideo(track)}
                     style={{
                       padding: "10px 12px",
                       borderRadius: "12px",
@@ -495,7 +523,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
         )}
       </AnimatePresence>
 
-      {/* ── MAIN 3D CINEMA VIDEO SCREEN CONTAINER (WITH AESTHETIC LAYOUT SHIFT) ── */}
+      {/* ── MAIN 3D CINEMA VIDEO SCREEN CONTAINER ── */}
       <motion.div
         animate={{
           x: isQueueOpen && !isMobile ? 160 : 0,
@@ -515,15 +543,19 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
           zIndex: 20
         }}
       >
-        {/* Custom Clean HTML5 Video Element */}
+        {/* Custom Clean Progressive HTML5 Video Element */}
         <video
           ref={videoRef}
           src={activeVideoUrl}
           playsInline
           autoPlay
-          preload="auto"
+          preload="metadata"
+          onWaiting={() => setIsVideoBuffering(true)}
+          onPlaying={() => setIsVideoBuffering(false)}
+          onCanPlay={() => setIsVideoBuffering(false)}
+          onLoadedData={() => setIsVideoBuffering(false)}
           onTimeUpdate={handleTimeUpdate}
-          onEnded={nextTrack}
+          onEnded={handleNextVideo}
           onClick={handleTogglePlay}
           style={{
             width: "100%",
@@ -532,6 +564,35 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
             cursor: "pointer"
           }}
         />
+
+        {/* ── FAST BUFFERING SPINNER OVERLAY ── */}
+        <AnimatePresence>
+          {isVideoBuffering && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "12px",
+                backgroundColor: "rgba(0, 0, 0, 0.4)",
+                backdropFilter: "blur(6px)",
+                zIndex: 32,
+                pointerEvents: "none"
+              }}
+            >
+              <Loader2 size={36} color="#a5b4fc" className="animate-spin" />
+              <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.8)", letterSpacing: "0.04em" }}>
+                Đang nạp luồng video...
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── TOP-LEFT VIDEO TITLE OVERLAY ── */}
         <AnimatePresence>
@@ -557,13 +618,13 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                 cursor: "pointer"
               }}
             >
-              <div style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: isVideoPlaying ? "#34d399" : "#f59e0b" }} />
+              <div style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: isVideoPlaying && !isVideoBuffering ? "#34d399" : "#f59e0b" }} />
               <div style={{ display: "flex", flexDirection: "column" }}>
                 <span style={{ color: "#ffffff", fontWeight: 800, fontSize: isMobile ? "0.78rem" : "0.88rem", letterSpacing: "0.02em" }}>
-                  {currentTrack?.title || "MCK Music Video"}
+                  {selectedVideoTrack?.title || "MCK Music Video"}
                 </span>
                 <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: "0.7rem" }}>
-                  {currentTrack?.artist || "MCK"} • {currentTrack?.album || "HVL"}
+                  {selectedVideoTrack?.artist || "MCK"} • {selectedVideoTrack?.album || "HVL"}
                 </span>
               </div>
             </motion.div>
@@ -571,7 +632,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
         </AnimatePresence>
 
         {/* Center Big Play/Pause Splash Icon on Pause */}
-        {!isVideoPlaying && (
+        {!isVideoPlaying && !isVideoBuffering && (
           <div
             onClick={handleTogglePlay}
             style={{
@@ -605,7 +666,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
           </div>
         )}
 
-        {/* ── BESPOKE PERFECTLY CENTERED BOTTOM CONTROL DOCK ── */}
+        {/* ── BESPOKE BOTTOM CONTROL DOCK ── */}
         <AnimatePresence>
           {showControls && (
             <motion.div
@@ -677,7 +738,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                 {/* Center Media Playback Controls */}
                 <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "12px" : "18px" }}>
                   <button
-                    onClick={prevTrack}
+                    onClick={handlePrevVideo}
                     style={{
                       background: "none",
                       border: "none",
@@ -709,7 +770,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                   </button>
 
                   <button
-                    onClick={nextTrack}
+                    onClick={handleNextVideo}
                     style={{
                       background: "none",
                       border: "none",
