@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAudioStore } from "../store/audioStore";
-import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import {
   Play,
@@ -17,12 +16,50 @@ import {
   Film
 } from "lucide-react";
 
-// Ambient Video Particles Background
-const VideoBackgroundUniverse: React.FC = () => {
-  const pointsRef = useRef<THREE.Points>(null!);
-  const count = 3500;
+interface Video3DZoneProps {
+  onBackTo3DAlbum: () => void;
+}
 
-  const [positions, colors] = useMemo(() => {
+export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => {
+  const { currentTrack, queue, nextTrack, prevTrack } = useAudioStore();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const particlesCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  const [isVideoPlaying, setIsVideoPlaying] = useState(true);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [ambilightColor, setAmbilightColor] = useState("rgba(99, 102, 241, 0.45)");
+  const [showControls, setShowControls] = useState(true);
+
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Derive video URL
+  const activeVideoUrl = currentTrack?.videoUrl || (currentTrack ? `https://media.postlain.com/videos/01.%20Elegie%20-%20MCK.mkv` : "");
+
+  // Native Pure Three.js 60fps Ambient Particles System (Zero Bundle Overhead)
+  useEffect(() => {
+    const canvas = particlesCanvasRef.current;
+    if (!canvas) return;
+
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      alpha: true,
+      antialias: false,
+      powerPreference: "high-performance"
+    });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.z = 15;
+
+    const count = 3000;
     const pos = new Float32Array(count * 3);
     const col = new Float32Array(count * 3);
     const colorA = new THREE.Color("#6366f1");
@@ -43,63 +80,47 @@ const VideoBackgroundUniverse: React.FC = () => {
       col[i3 + 1] = mixed.g;
       col[i3 + 2] = mixed.b;
     }
-    return [pos, col];
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    geometry.setAttribute("color", new THREE.BufferAttribute(col, 3));
+
+    const material = new THREE.PointsMaterial({
+      size: 0.12,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.65,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    const points = new THREE.Points(geometry, material);
+    scene.add(points);
+
+    let animId: number;
+    const animate = () => {
+      points.rotation.y += 0.001;
+      points.rotation.x += 0.0005;
+      renderer.render(scene, camera);
+      animId = requestAnimationFrame(animate);
+    };
+    animate();
+
+    const handleResize = () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    };
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", handleResize);
+      geometry.dispose();
+      material.dispose();
+      renderer.dispose();
+    };
   }, []);
-
-  useFrame((_, delta) => {
-    if (pointsRef.current) {
-      pointsRef.current.rotation.y += delta * 0.03;
-      pointsRef.current.rotation.x += delta * 0.015;
-    }
-  });
-
-  return (
-    <points ref={pointsRef}>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          args={[positions, 3]}
-        />
-        <bufferAttribute
-          attach="attributes-color"
-          args={[colors, 3]}
-        />
-      </bufferGeometry>
-      <pointsMaterial
-        size={0.12}
-        vertexColors
-        transparent
-        opacity={0.65}
-        blending={THREE.AdditiveBlending}
-        depthWrite={false}
-      />
-    </points>
-  );
-};
-
-interface Video3DZoneProps {
-  onBackTo3DAlbum: () => void;
-}
-
-export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => {
-  const { currentTrack, queue, nextTrack, prevTrack, isPlaying, togglePlay } = useAudioStore();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  const [isVideoPlaying, setIsVideoPlaying] = useState(true);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [ambilightColor, setAmbilightColor] = useState("rgba(99, 102, 241, 0.45)");
-  const [showControls, setShowControls] = useState(true);
-
-  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Derive video URL
-  const activeVideoUrl = currentTrack?.videoUrl || (currentTrack ? `https://media.postlain.com/videos/01.%20Elegie%20-%20MCK.mkv` : "");
 
   // Real-time Ambilight extraction loop
   useEffect(() => {
@@ -230,12 +251,18 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
         zIndex: 10
       }}
     >
-      {/* Background 3D Particles */}
-      <div style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }}>
-        <Canvas camera={{ position: [0, 0, 15], fov: 60 }}>
-          <VideoBackgroundUniverse />
-        </Canvas>
-      </div>
+      {/* Background Pure Three.js 60fps Particles Canvas */}
+      <canvas
+        ref={particlesCanvasRef}
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          zIndex: 0,
+          pointerEvents: "none"
+        }}
+      />
 
       {/* Hidden Offscreen Canvas for Ambilight Extraction */}
       <canvas ref={canvasRef} width={16} height={9} style={{ display: "none" }} />
