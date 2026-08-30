@@ -11,6 +11,8 @@ import { HeroMusicBanner } from "../components/home/HeroMusicBanner";
 import { ArtistSpotlightCard } from "../components/home/ArtistSpotlightCard";
 import { VideoPremierePlayer } from "../components/home/VideoPremierePlayer";
 import { EditorialPressCard } from "../components/home/EditorialPressCard";
+import { AdminLiveInspectorHUD } from "../components/home/AdminLiveInspectorHUD";
+import { Sliders, Sparkles } from "lucide-react";
 
 const HVL_COVER = "/covers/HVL_Album_Cover.webp";
 
@@ -29,8 +31,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
     topFavoriteTracks,
     vaultSlots,
     sections,
-    queue
+    queue,
+    albums,
+    currentUser
   } = useAudioStore();
+
+  // Live In-Place Admin HUD State
+  const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  const [activeEditingSection, setActiveEditingSection] = useState<DynamicSection | null>(null);
 
   // Active enabled sections from D1 store, fallback to default 3 core sections
   const activeSections: DynamicSection[] = sections && sections.filter((s) => s.is_active).length > 0
@@ -231,6 +239,27 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
     secConfig = {};
   }
 
+  // Resolve custom tracks for Showcase
+  const customTrackIds = [
+    secConfig.slot_track_1,
+    secConfig.slot_track_2,
+    secConfig.slot_track_3,
+    secConfig.slot_track_4,
+    secConfig.slot_track_5
+  ].filter(Boolean);
+
+  let showcaseTracks = displayTracks;
+  if (customTrackIds.length > 0) {
+    const resolved = customTrackIds.map((id: string) => queue.find((t) => t.id === id)).filter(Boolean) as Track[];
+    if (resolved.length > 0) {
+      showcaseTracks = resolved;
+    }
+  }
+
+  const currentAlbumObj = albums.find((a) => a.id === secConfig.album_id) || albums[0];
+  const albumCover = currentAlbumObj?.cover_url || secConfig.cover_url || HVL_COVER;
+  const albumTitle = currentAlbumObj?.title || secConfig.title || "HVL (99%)";
+
   return (
     <main
       style={{
@@ -248,6 +277,14 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
         padding: "0 24px"
       }}
     >
+      {/* ── LIVE ADMIN QUICK INSPECTOR HUD (ONLY VISIBLE TO ADMIN) ── */}
+      <AdminLiveInspectorHUD
+        isEditMode={isEditMode}
+        setIsEditMode={setIsEditMode}
+        activeEditingSection={activeEditingSection}
+        setActiveEditingSection={setActiveEditingSection}
+      />
+
       {/* ─────────────────────────────────────────────────────────────────────
           UNIFIED DYNAMIC STAGE CONTAINER: TỰ CÂN BẰNG ĐỐI XỨNG & ZERO OVERFLOW
       ────────────────────────────────────────────────────────────────────── */}
@@ -259,9 +296,42 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
           height: "380px",
           display: "flex",
           alignItems: "center",
-          justifyContent: "center"
+          justifyContent: "center",
+          border: isEditMode ? "1px dashed rgba(99, 102, 241, 0.4)" : "none",
+          borderRadius: "20px"
         }}
       >
+        {/* Floating In-Place Section Element Edit Trigger */}
+        {isEditMode && (
+          <motion.button
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={() => setActiveEditingSection(currentSection)}
+            style={{
+              position: "absolute",
+              top: "-42px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 50,
+              padding: "6px 16px",
+              borderRadius: "9999px",
+              backgroundColor: "#6366f1",
+              border: "1px solid rgba(255, 255, 255, 0.4)",
+              color: "#ffffff",
+              fontSize: "0.78rem",
+              fontWeight: 800,
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              cursor: "pointer",
+              boxShadow: "0 4px 20px rgba(99, 102, 241, 0.6)"
+            }}
+          >
+            <Sliders size={13} />
+            <span>⚙️ Sửa Element: {currentSection.title}</span>
+          </motion.button>
+        )}
+
         <AnimatePresence mode="wait">
           {/* ── 1. TEMPLATE: ALBUM SHOWCASE ── */}
           {currentSection.template_type === "album_showcase" && (
@@ -290,8 +360,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
                 }}
               >
                 <SquareVinylSleeve
-                  coverUrl={secConfig.cover_url || HVL_COVER}
-                  title={secConfig.title || "HVL (99%)"}
+                  coverUrl={albumCover}
+                  title={albumTitle}
                   size={280}
                   isActive={true}
                 />
@@ -299,7 +369,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
 
               {/* Minimal 5-Track Slide-Out Overlay */}
               <MinimalTracklistOverlay
-                tracks={displayTracks}
+                tracks={showcaseTracks}
                 isVisible={sec1Stage === "revealed"}
                 favoritedTrackIds={favoritedTrackIds}
                 currentTrackId={currentTrack?.id}

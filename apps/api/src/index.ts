@@ -1381,7 +1381,113 @@ app.post("/api/admin/tracks", async (c) => {
     )
     .run();
 
+  // If adding to a single or release with default/empty cover, update parent album's cover
+  try {
+    const parentAlbum: any = await c.env.DB.prepare("SELECT * FROM albums WHERE id = ?").bind(album_id).first();
+    if (parentAlbum && cover_url && (parentAlbum.type === "single" || !parentAlbum.cover_url || parentAlbum.cover_url === HVL_COVER)) {
+      await c.env.DB.prepare("UPDATE albums SET cover_url = ? WHERE id = ?").bind(cover_url, album_id).run();
+    }
+  } catch (err: any) {
+    console.warn("Parent album cover cascade:", err.message);
+  }
+
   return c.json({ success: true, message: `Đã lưu bài hát: ${title}!`, id });
+});
+
+// 1-Click Smart Release & Track Importer from YouTube / SoundCloud / R2 Link
+app.post("/api/admin/import-release", async (c) => {
+  const guard = await requireAdmin(c);
+  if (!guard.ok) return guard.response;
+  if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);
+
+  try {
+    const { url, type = "single", album_id } = await c.req.json();
+    if (!url) return c.json({ success: false, error: "Thiếu đường dẫn link URL" }, 400);
+
+    let videoId = "";
+    if (url.includes("youtu.be/")) videoId = url.split("youtu.be/")[1]?.split("?")[0] || "";
+    else if (url.includes("v=")) videoId = url.split("v=")[1]?.split("&")[0] || "";
+
+    let rawTitle = "Bản Thu Mới";
+    let rawAuthor = "MCK";
+    let coverUrl = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : HVL_COVER;
+
+    try {
+      const noembedRes = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
+      if (noembedRes.ok) {
+        const data: any = await noembedRes.json();
+        if (data.title) rawTitle = data.title;
+        if (data.author_name) rawAuthor = data.author_name;
+        if (data.thumbnail_url) coverUrl = data.thumbnail_url;
+      }
+    } catch (err: any) {
+      console.warn("oEmbed fetch notice:", err.message);
+    }
+
+    const { title, artist } = cleanTrackMetadata(rawTitle, rawAuthor);
+    const syncedLyrics = await fetchSyncedLyrics(artist, title);
+
+    const releaseId = album_id || `rel_${Date.now().toString(36)}`;
+    const trackId = `trk_${Date.now().toString(36)}`;
+
+    // Create or update Release in Cloudflare D1
+    if (!album_id) {
+      await c.env.DB.prepare(`
+        INSERT INTO albums (id, title, artist, cover_url, model_3d_url, palette_colors, release_year, genre, type, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      `).bind(
+        releaseId,
+        title,
+        artist,
+        coverUrl,
+        null,
+        JSON.stringify({ primary: "#6366f1", secondary: "#ec4899", accent: "#8b5cf6", glow: "rgba(99, 102, 241, 0.45)" }),
+        new Date().getFullYear(),
+        "Melodic Rap / R&B",
+        type
+      ).run();
+    } else {
+      await c.env.DB.prepare("UPDATE albums SET cover_url = ? WHERE id = ?").bind(coverUrl, album_id).run();
+    }
+
+    // Insert Track in Cloudflare D1
+    await c.env.DB.prepare(`
+      INSERT INTO tracks (
+        id, album_id, title, artist, duration_sec, audio_url, video_url, cover_url, r2_key,
+        video_type, video_quality, audio_bitrate, lyrics_synced, bpm, mood_tier, palette_json, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    `).bind(
+      trackId,
+      releaseId,
+      title,
+      artist,
+      215,
+      url,
+      url.includes("youtube") ? url : null,
+      coverUrl,
+      null,
+      "r2_master",
+      "4K MASTER",
+      "24-BIT / 96kHz Lossless",
+      syncedLyrics,
+      120,
+      "melodic_ambient",
+      JSON.stringify({ primary: "#6366f1", secondary: "#ec4899", accent: "#8b5cf6", glow: "rgba(99, 102, 241, 0.45)" })
+    ).run();
+
+    return c.json({
+      success: true,
+      message: `⚡ Đã nạp thành công bản phát hành: "${title}" (${artist}) kèm Bìa HD và Lời Synced!`,
+      releaseId,
+      trackId,
+      title,
+      artist,
+      coverUrl,
+      syncedLyrics
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
 });
 
 app.put("/api/admin/tracks/:id", async (c) => {

@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import { useAudioStore, Track, DynamicSection, VaultSlot, SectionTemplateType, Album, ReleaseType, DEFAULT_TRACKS } from "../store/audioStore";
 import { useIsMobile } from "../hooks/useIsMobile";
+import SectionElementEditorModal from "../components/admin/SectionElementEditorModal";
 
 const API_BASE = "https://hidden-music-api.postlain-music.workers.dev";
 const R2_BASE = "https://media.postlain.com";
@@ -577,6 +578,41 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
     }
   };
 
+  // 10. 1-Click Smart Release & Track Importer from YouTube / SoundCloud Link
+  const handle1ClickImportRelease = async () => {
+    if (!externalUrl.trim()) {
+      showToast("Vui lòng nhập đường link bài hát (YouTube / SoundCloud / R2 Stream)");
+      return;
+    }
+
+    setIsExtracting(true);
+    try {
+      showToast("Đang bóc tách metadata, tạo Single với Bìa HD & tải lời Synced...");
+      const res = await fetch(`${API_BASE}/api/admin/import-release`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ url: externalUrl.trim(), type: "single" })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message);
+        setExternalUrl("");
+        setShowLinkIngestionBar(false);
+        await fetchAlbums();
+        setSelectedAlbumId(data.releaseId);
+        await fetchAlbumTracks(data.releaseId);
+        loadAlbums();
+        loadTracks();
+      } else {
+        showToast(data.error || "Lỗi tạo bản phát hành từ link");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Lỗi nạp link");
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
   // Waveform Visualizer Animation Loop
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -810,27 +846,27 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
           </div>
         </div>
 
-        {/* 4 Standard Decks Navigation Pills */}
-        <nav style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+        {/* 2 Focused Studios Navigation Pills */}
+        <nav style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <button
             onClick={() => setActiveDeck("releases")}
             style={{
               display: "flex",
               alignItems: "center",
               gap: "8px",
-              padding: "8px 16px",
+              padding: "8px 18px",
               borderRadius: "12px",
               backgroundColor: activeDeck === "releases" ? "rgba(99, 102, 241, 0.25)" : "transparent",
-              border: activeDeck === "releases" ? "1px solid #6366f1" : "1px solid transparent",
+              border: activeDeck === "releases" ? "1px solid #6366f1" : "1px solid rgba(255, 255, 255, 0.08)",
               color: activeDeck === "releases" ? "#ffffff" : "rgba(255, 255, 255, 0.6)",
               fontSize: "0.86rem",
-              fontWeight: 700,
+              fontWeight: 800,
               cursor: "pointer",
               transition: "all 0.2s"
             }}
           >
             <Disc3 size={16} color={activeDeck === "releases" ? "#a5b4fc" : "currentColor"} />
-            <span>Releases & Tracklists (D1)</span>
+            <span>🎵 Releases & Tracklists Studio</span>
           </button>
 
           <button
@@ -839,61 +875,19 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
               display: "flex",
               alignItems: "center",
               gap: "8px",
-              padding: "8px 16px",
+              padding: "8px 18px",
               borderRadius: "12px",
               backgroundColor: activeDeck === "sections" ? "rgba(99, 102, 241, 0.25)" : "transparent",
-              border: activeDeck === "sections" ? "1px solid #6366f1" : "1px solid transparent",
+              border: activeDeck === "sections" ? "1px solid #6366f1" : "1px solid rgba(255, 255, 255, 0.08)",
               color: activeDeck === "sections" ? "#ffffff" : "rgba(255, 255, 255, 0.6)",
               fontSize: "0.86rem",
-              fontWeight: 700,
+              fontWeight: 800,
               cursor: "pointer",
               transition: "all 0.2s"
             }}
           >
             <Layout size={16} color={activeDeck === "sections" ? "#a5b4fc" : "currentColor"} />
-            <span>Dynamic Sections Studio</span>
-          </button>
-
-          <button
-            onClick={() => setActiveDeck("audience")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "8px 16px",
-              borderRadius: "12px",
-              backgroundColor: activeDeck === "audience" ? "rgba(99, 102, 241, 0.25)" : "transparent",
-              border: activeDeck === "audience" ? "1px solid #6366f1" : "1px solid transparent",
-              color: activeDeck === "audience" ? "#ffffff" : "rgba(255, 255, 255, 0.6)",
-              fontSize: "0.86rem",
-              fontWeight: 700,
-              cursor: "pointer",
-              transition: "all 0.2s"
-            }}
-          >
-            <Users size={16} color={activeDeck === "audience" ? "#a5b4fc" : "currentColor"} />
-            <span>Audience Radar</span>
-          </button>
-
-          <button
-            onClick={() => setActiveDeck("infra")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "8px 16px",
-              borderRadius: "12px",
-              backgroundColor: activeDeck === "infra" ? "rgba(99, 102, 241, 0.25)" : "transparent",
-              border: activeDeck === "infra" ? "1px solid #6366f1" : "1px solid transparent",
-              color: activeDeck === "infra" ? "#ffffff" : "rgba(255, 255, 255, 0.6)",
-              fontSize: "0.86rem",
-              fontWeight: 700,
-              cursor: "pointer",
-              transition: "all 0.2s"
-            }}
-          >
-            <Database size={16} color={activeDeck === "infra" ? "#a5b4fc" : "currentColor"} />
-            <span>Cloud Engine</span>
+            <span>🎨 Dynamic Sections & Elements Studio</span>
           </button>
         </nav>
 
@@ -1206,7 +1200,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
                   >
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#a5b4fc" }}>
-                        ⚡ Dán link YouTube / SoundCloud / R2 Stream để nạp thẳng vào {currentAlbum?.title}:
+                        ⚡ Dán link YouTube / SoundCloud / R2 Stream để nạp tự động (Bóc tách Metadata + Bìa HD + Lời Synced):
                       </span>
                       <button
                         onClick={() => setShowLinkIngestionBar(false)}
@@ -1216,7 +1210,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
                       </button>
                     </div>
 
-                    <div style={{ display: "flex", gap: "10px" }}>
+                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                       <input
                         type="text"
                         placeholder="https://www.youtube.com/watch?v=... hoặc https://media.postlain.com/audio/..."
@@ -1224,6 +1218,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
                         onChange={(e) => setExternalUrl(e.target.value)}
                         style={{
                           flex: 1,
+                          minWidth: "260px",
                           padding: "10px 14px",
                           borderRadius: "10px",
                           backgroundColor: "rgba(0, 0, 0, 0.4)",
@@ -1234,15 +1229,37 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
                         }}
                       />
                       <button
-                        onClick={handleIngestUrlToAlbum}
+                        onClick={handle1ClickImportRelease}
                         disabled={isExtracting}
                         style={{
-                          padding: "10px 20px",
+                          padding: "10px 18px",
                           borderRadius: "10px",
                           background: "#6366f1",
                           color: "#ffffff",
                           border: "none",
-                          fontSize: "0.85rem",
+                          fontSize: "0.82rem",
+                          fontWeight: 800,
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          boxShadow: "0 4px 15px rgba(99, 102, 241, 0.4)"
+                        }}
+                      >
+                        {isExtracting ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                        <span>⚡ 1-Click: Tạo Single Mới (Bìa HD)</span>
+                      </button>
+
+                      <button
+                        onClick={handleIngestUrlToAlbum}
+                        disabled={isExtracting}
+                        style={{
+                          padding: "10px 16px",
+                          borderRadius: "10px",
+                          background: "rgba(255, 255, 255, 0.08)",
+                          color: "#ffffff",
+                          border: "1px solid rgba(255, 255, 255, 0.15)",
+                          fontSize: "0.82rem",
                           fontWeight: 700,
                           cursor: "pointer",
                           display: "flex",
@@ -1251,7 +1268,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
                         }}
                       >
                         {isExtracting ? <RefreshCw size={14} className="animate-spin" /> : <Zap size={14} />}
-                        <span>Bóc Tách & Thêm Vào Album</span>
+                        <span>Thêm Vào {currentAlbum?.title || "Album"}</span>
                       </button>
                     </div>
                   </motion.div>
@@ -1546,7 +1563,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
                     {/* Action Controls */}
                     <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                       <button
-                        onClick={() => openSectionConfigModal(section)}
+                        onClick={() => setEditingSection(section)}
                         style={{
                           padding: "8px 16px",
                           borderRadius: "10px",
@@ -1562,7 +1579,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
                         }}
                       >
                         <Sliders size={14} />
-                        <span>⚙️ Tùy Chỉnh Config</span>
+                        <span>⚙️ Tùy Chỉnh Element</span>
                       </button>
 
                       <button
@@ -1601,327 +1618,37 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
             </div>
           </div>
         )}
-
-        {/* ══════════════════════════════════════════════════════════════════════════
-            DECK 3: AUDIENCE RADAR & ACCESS
-        ══════════════════════════════════════════════════════════════════════════ */}
-        {activeDeck === "audience" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-            <h2 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 900 }}>Audience Radar & Access Control</h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {adminUsers.map((u) => (
-                <div
-                  key={u.id}
-                  style={{
-                    padding: "14px 20px",
-                    borderRadius: "14px",
-                    backgroundColor: "rgba(14, 14, 20, 0.7)",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between"
-                  }}
-                >
-                  <div>
-                    <p style={{ margin: 0, fontSize: "0.92rem", fontWeight: 700 }}>{u.email}</p>
-                    <p style={{ margin: "2px 0 0", fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.45)" }}>
-                      Tham gia: {u.created_at}
-                    </p>
-                  </div>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    {u.is_admin ? (
-                      <span style={{ padding: "4px 8px", borderRadius: "6px", backgroundColor: "rgba(99, 102, 241, 0.2)", color: "#a5b4fc", fontSize: "0.72rem", fontWeight: 800 }}>
-                        ADMIN
-                      </span>
-                    ) : null}
-                    {u.is_vip ? (
-                      <span style={{ padding: "4px 8px", borderRadius: "6px", backgroundColor: "rgba(245, 158, 11, 0.2)", color: "#fbbf24", fontSize: "0.72rem", fontWeight: 800 }}>
-                        VIP LOSSLESS
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════════════════
-            DECK 4: CLOUD ENGINE & DISASTER RECOVERY
-        ══════════════════════════════════════════════════════════════════════════ */}
-        {activeDeck === "infra" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-            <h2 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 900 }}>Cloud Engine & Disaster Recovery</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-              <div style={{ padding: "20px", borderRadius: "16px", backgroundColor: "rgba(14, 14, 20, 0.7)", border: "1px solid rgba(255, 255, 255, 0.08)" }}>
-                <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800 }}>Cloudflare D1 Database</h3>
-                <p style={{ margin: "4px 0 16px", fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.5)" }}>
-                  hidden_music_db • 30 Lossless Tracks • 7 Dynamic Sections
-                </p>
-                <button
-                  onClick={async () => {
-                    const res = await seedHvlToD1();
-                    showToast(res.message);
-                  }}
-                  style={{ padding: "10px 20px", borderRadius: "10px", backgroundColor: "#6366f1", border: "none", color: "#fff", fontWeight: 700, cursor: "pointer" }}
-                >
-                  ⚡ Đồng Bộ Dữ Liệu R2 ⟷ D1
-                </button>
-              </div>
-
-              <div style={{ padding: "20px", borderRadius: "16px", backgroundColor: "rgba(14, 14, 20, 0.7)", border: "1px solid rgba(255, 255, 255, 0.08)" }}>
-                <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800 }}>Cloudflare R2 Asset Vault</h3>
-                <p style={{ margin: "4px 0 16px", fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.5)" }}>
-                  hidden-music-vault • Lossless FLAC & 4K MKV Assets
-                </p>
-                <a
-                  href={`${API_BASE}/api/admin/export`}
-                  download="d1_backup.json"
-                  style={{ padding: "10px 20px", borderRadius: "10px", backgroundColor: "rgba(255, 255, 255, 0.08)", border: "1px solid rgba(255, 255, 255, 0.2)", color: "#fff", textDecoration: "none", fontWeight: 700, display: "inline-block" }}
-                >
-                  Tải Bản Sao Lưu JSON (D1)
-                </a>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════════
-          MODAL: TÙY CHỈNH CONFIG CHO TỪNG TEMPLATE TRANG CHỦ
+          MODAL: TÙY CHỈNH ELEMENT CHUYÊN SÂU THEO TỪNG TEMPLATE (D1 LIVE)
       ══════════════════════════════════════════════════════════════════════════ */}
-      <AnimatePresence>
-        {editingSection && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{
-              position: "fixed",
-              inset: 0,
-              backgroundColor: "rgba(0, 0, 0, 0.8)",
-              backdropFilter: "blur(16px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 10000,
-              padding: "20px"
-            }}
-          >
-            <motion.div
-              initial={{ scale: 0.94, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.94, opacity: 0 }}
-              style={{
-                width: "100%",
-                maxWidth: "640px",
-                maxHeight: "85vh",
-                overflowY: "auto",
-                backgroundColor: "#0d0d14",
-                borderRadius: "24px",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                padding: "28px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "20px"
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 900 }}>
-                    Tùy Chỉnh Config: {editingSection.title}
-                  </h3>
-                  <span style={{ fontSize: "0.75rem", color: "#a5b4fc", fontWeight: 700 }}>
-                    Template: {editingSection.template_type}
-                  </span>
-                </div>
-                <button
-                  onClick={() => setEditingSection(null)}
-                  style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer" }}
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* Dynamic Form Fields Based on Template Type */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                {/* Standard Title & Subtitle */}
-                <div>
-                  <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Tiêu đề Section</label>
-                  <input
-                    type="text"
-                    value={sectionConfigForm.title || ""}
-                    onChange={(e) => setSectionConfigForm({ ...sectionConfigForm, title: e.target.value })}
-                    style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
-                  />
-                </div>
-
-                {/* ── HERO BANNER FIELDS ── */}
-                {editingSection.template_type === "hero_banner" && (
-                  <>
-                    <div>
-                      <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Tiêu đề Banner (Headline)</label>
-                      <input
-                        type="text"
-                        value={sectionConfigForm.headline || ""}
-                        onChange={(e) => setSectionConfigForm({ ...sectionConfigForm, headline: e.target.value })}
-                        style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Mô tả ngắn (Subheadline)</label>
-                      <textarea
-                        rows={2}
-                        value={sectionConfigForm.subheadline || ""}
-                        onChange={(e) => setSectionConfigForm({ ...sectionConfigForm, subheadline: e.target.value })}
-                        style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>URL Ảnh Banner Toàn Cảnh</label>
-                      <input
-                        type="text"
-                        value={sectionConfigForm.banner_url || ""}
-                        onChange={(e) => setSectionConfigForm({ ...sectionConfigForm, banner_url: e.target.value })}
-                        style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
-                      />
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                      <div>
-                        <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Mã Bài Hát Phát Kèm (Track ID)</label>
-                        <input
-                          type="text"
-                          value={sectionConfigForm.track_id || "mck-02"}
-                          onChange={(e) => setSectionConfigForm({ ...sectionConfigForm, track_id: e.target.value })}
-                          style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Chữ Nút CTA</label>
-                        <input
-                          type="text"
-                          value={sectionConfigForm.cta_text || "Nghe Ngay"}
-                          onChange={(e) => setSectionConfigForm({ ...sectionConfigForm, cta_text: e.target.value })}
-                          style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* ── ARTIST SPOTLIGHT FIELDS ── */}
-                {editingSection.template_type === "artist_spotlight" && (
-                  <>
-                    <div>
-                      <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Tên Nghệ Sĩ</label>
-                      <input
-                        type="text"
-                        value={sectionConfigForm.artist_name || ""}
-                        onChange={(e) => setSectionConfigForm({ ...sectionConfigForm, artist_name: e.target.value })}
-                        style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Tiểu sử / Triết lý âm nhạc</label>
-                      <textarea
-                        rows={3}
-                        value={sectionConfigForm.bio || ""}
-                        onChange={(e) => setSectionConfigForm({ ...sectionConfigForm, bio: e.target.value })}
-                        style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>URL Ảnh Chân Dung (Avatar)</label>
-                      <input
-                        type="text"
-                        value={sectionConfigForm.avatar_url || ""}
-                        onChange={(e) => setSectionConfigForm({ ...sectionConfigForm, avatar_url: e.target.value })}
-                        style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
-                      />
-                    </div>
-                  </>
-                )}
-
-                {/* ── VIDEO PREMIERE FIELDS ── */}
-                {editingSection.template_type === "video_premiere" && (
-                  <>
-                    <div>
-                      <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Tên Video / MV</label>
-                      <input
-                        type="text"
-                        value={sectionConfigForm.title || ""}
-                        onChange={(e) => setSectionConfigForm({ ...sectionConfigForm, title: e.target.value })}
-                        style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>URL Video 4K MKV / MP4</label>
-                      <input
-                        type="text"
-                        value={sectionConfigForm.video_url || ""}
-                        onChange={(e) => setSectionConfigForm({ ...sectionConfigForm, video_url: e.target.value })}
-                        style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
-                      />
-                    </div>
-                  </>
-                )}
-
-                {/* ── EDITORIAL PRESS FIELDS ── */}
-                {editingSection.template_type === "editorial_press" && (
-                  <>
-                    <div>
-                      <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Câu Trích Dẫn (Quote)</label>
-                      <textarea
-                        rows={3}
-                        value={sectionConfigForm.quote || ""}
-                        onChange={(e) => setSectionConfigForm({ ...sectionConfigForm, quote: e.target.value })}
-                        style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
-                      />
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                      <div>
-                        <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Nguồn Báo Chí (Source)</label>
-                        <input
-                          type="text"
-                          value={sectionConfigForm.source || ""}
-                          onChange={(e) => setSectionConfigForm({ ...sectionConfigForm, source: e.target.value })}
-                          style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Tác Giả / Người Viết</label>
-                        <input
-                          type="text"
-                          value={sectionConfigForm.author || ""}
-                          onChange={(e) => setSectionConfigForm({ ...sectionConfigForm, author: e.target.value })}
-                          style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Modal Save Button */}
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "8px" }}>
-                <button
-                  onClick={() => setEditingSection(null)}
-                  style={{ padding: "10px 20px", borderRadius: "10px", backgroundColor: "rgba(255, 255, 255, 0.08)", border: "1px solid rgba(255, 255, 255, 0.15)", color: "#fff", fontWeight: 700, cursor: "pointer" }}
-                >
-                  Hủy
-                </button>
-                <button
-                  onClick={handleSaveSectionConfig}
-                  style={{ padding: "10px 24px", borderRadius: "10px", backgroundColor: "#6366f1", border: "none", color: "#fff", fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}
-                >
-                  <Save size={16} />
-                  <span>Lưu Cấu Hình D1</span>
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <SectionElementEditorModal
+        isOpen={!!editingSection}
+        onClose={() => setEditingSection(null)}
+        section={editingSection}
+        albums={adminAlbums}
+        allTracks={queue}
+        onSave={async (newConfig, newTitle) => {
+          if (!editingSection) return;
+          try {
+            const res = await fetch(`${API_BASE}/api/admin/sections/${editingSection.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ title: newTitle, config: newConfig })
+            });
+            const data = await res.json();
+            if (data.success) {
+              showToast(`⚡ Đã lưu cấu hình Element cho "${newTitle}" vào D1!`);
+              loadSections();
+            } else {
+              showToast(data.error || "Lỗi lưu cấu hình");
+            }
+          } catch (e: any) {
+            showToast(e.message || "Lỗi lưu cấu hình");
+          }
+        }}
+      />
 
       {/* ══════════════════════════════════════════════════════════════════════════
           MODAL: THÊM SECTION MỚI (CHỌN TRONG 7 TEMPLATES)
