@@ -6,19 +6,41 @@ import { VaultGate } from "./components/VaultGate";
 import { HomePage } from "./pages/HomePage";
 import { MobileHomePage } from "./pages/MobileHomePage";
 import { Album3DZone } from "./pages/Album3DZone";
+import { Video3DZone } from "./pages/Video3DZone";
+import { AdminPortal } from "./pages/AdminPortal";
 import { FloatingPlayerDock } from "./components/FloatingPlayerDock";
 import { MobilePlayerDock } from "./components/MobilePlayerDock";
 import { useAudioStore } from "./store/audioStore";
 import { useIsMobile } from "./hooks/useIsMobile";
 
+export type MainTabType = "vault" | "explore" | "3d" | "video-3d" | "admin";
+
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"vault" | "explore" | "3d">("vault");
+  const [activeTab, setActiveTab] = useState<MainTabType>(() => {
+    if (typeof window !== "undefined" && window.location.pathname.startsWith("/admin")) {
+      return "admin";
+    }
+    return "vault";
+  });
+
   const { currentUser, initAudioEngine } = useAudioStore();
   const isMobile = useIsMobile();
 
   useEffect(() => {
     initAudioEngine();
   }, [initAudioEngine]);
+
+  // Sync tab with URL without page reload
+  const handleTabChange = (tab: MainTabType) => {
+    setActiveTab(tab);
+    if (typeof window !== "undefined") {
+      if (tab === "admin") {
+        window.history.pushState({}, "", "/admin");
+      } else if (window.location.pathname.startsWith("/admin")) {
+        window.history.pushState({}, "", "/");
+      }
+    }
+  };
 
   return (
     <div style={{ position: "relative", minHeight: "100dvh", width: "100vw", overflowX: "hidden", backgroundColor: "#000000" }}>
@@ -32,9 +54,25 @@ export const App: React.FC = () => {
         <AnimatePresence mode="wait">
           {activeTab === "3d" ? (
             /* 2. Full 3D Immersion Zone (WebGL Universe + Album Cover + 30 Tracks + Playbar) */
-            <Album3DZone key="3d-zone" onBackToVault={() => setActiveTab("vault")} />
+            <Album3DZone
+              key="3d-zone"
+              onBackToVault={() => handleTabChange("vault")}
+              onOpenVideo3D={() => handleTabChange("video-3d")}
+            />
+          ) : activeTab === "video-3d" ? (
+            /* 3. 3D Cinema Space Video Zone with Real-time Ambilight */
+            <Video3DZone
+              key="video-3d-zone"
+              onBackTo3DAlbum={() => handleTabChange("3d")}
+            />
+          ) : activeTab === "admin" ? (
+            /* 4. Vault Monolith Matrix Admin Portal */
+            <AdminPortal
+              key="admin-portal"
+              onBackToVault={() => handleTabChange("vault")}
+            />
           ) : (
-            /* 3. Standard Vault & Explore Browse Experience with Zero-Flash Seamless Transition */
+            /* 5. Standard Vault & Explore Browse Experience with Zero-Flash Seamless Transition */
             <motion.div
               key="vault-browse-view"
               initial={{ opacity: 0 }}
@@ -44,18 +82,21 @@ export const App: React.FC = () => {
               style={{ position: "relative", width: "100%", minHeight: "100dvh" }}
             >
               <MeshGradientBackground />
-              <GlassNavbar activeTab={activeTab === "explore" ? "explore" : "vault"} onTabChange={setActiveTab} />
+              <GlassNavbar
+                activeTab={activeTab === "explore" ? "explore" : activeTab === "admin" ? "admin" : "vault"}
+                onTabChange={(t) => handleTabChange(t as MainTabType)}
+              />
 
               {activeTab === "vault" ? (
                 isMobile ? (
                   <MobileHomePage
-                    onExploreClick={() => setActiveTab("explore")}
-                    onOpen3D={() => setActiveTab("3d")}
+                    onExploreClick={() => handleTabChange("explore")}
+                    onOpen3D={() => handleTabChange("3d")}
                   />
                 ) : (
                   <HomePage
-                    onExploreClick={() => setActiveTab("explore")}
-                    onOpen3D={() => setActiveTab("3d")}
+                    onExploreClick={() => handleTabChange("explore")}
+                    onOpen3D={() => handleTabChange("3d")}
                   />
                 )
               ) : (
@@ -80,7 +121,7 @@ export const App: React.FC = () => {
                   </p>
                   <div style={{ display: "flex", gap: "16px" }}>
                     <button
-                      onClick={() => setActiveTab("3d")}
+                      onClick={() => handleTabChange("3d")}
                       style={{
                         padding: "12px 28px",
                         borderRadius: "999px",
@@ -95,7 +136,7 @@ export const App: React.FC = () => {
                       Vào 3D Album Zone
                     </button>
                     <button
-                      onClick={() => setActiveTab("vault")}
+                      onClick={() => handleTabChange("vault")}
                       style={{
                         padding: "12px 28px",
                         borderRadius: "999px",

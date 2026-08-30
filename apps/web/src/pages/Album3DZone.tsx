@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Play, Pause, Heart, RotateCcw } from "lucide-react";
+import { ArrowLeft, Play, Pause, Heart, RotateCcw, Film } from "lucide-react";
 import { useAudioStore, Track, DEFAULT_TRACKS } from "../store/audioStore";
 import { FloatingPlayerDock } from "../components/FloatingPlayerDock";
 import { MobilePlayerDock } from "../components/MobilePlayerDock";
@@ -9,6 +9,7 @@ import { studioBeatEngine } from "../audio/StudioBeatEngine";
 
 interface Album3DZoneProps {
   onBackToVault: () => void;
+  onOpenVideo3D?: () => void;
 }
 
 const formatDuration = (seconds: number) => {
@@ -17,7 +18,7 @@ const formatDuration = (seconds: number) => {
   return `${m}:${s < 10 ? "0" : ""}${s}`;
 };
 
-export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
+export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault, onOpenVideo3D }) => {
   const {
     currentTrack,
     isPlaying,
@@ -379,6 +380,45 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault }) => {
           <span>Vault</span>
         </button>
       </div>
+
+      {/* ─────────────────────────────────────────────────────────────────────
+          2B. TOP-RIGHT IMMERSIVE BAR (SWITCH TO VIDEO 3D CINEMA ZONE)
+      ────────────────────────────────────────────────────────────────────── */}
+      {onOpenVideo3D && (
+        <div
+          style={{
+            position: "absolute",
+            top: "24px",
+            right: "24px",
+            zIndex: 30,
+            pointerEvents: "auto",
+          }}
+        >
+          <button
+            onClick={onOpenVideo3D}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "8px 18px",
+              borderRadius: "999px",
+              background: "linear-gradient(135deg, rgba(99, 102, 241, 0.35) 0%, rgba(236, 72, 153, 0.35) 100%)",
+              border: "1px solid rgba(255, 255, 255, 0.25)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              color: "#ffffff",
+              fontSize: "0.82rem",
+              fontWeight: 700,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              boxShadow: "0 8px 24px rgba(99, 102, 241, 0.35)",
+            }}
+          >
+            <Film size={15} color="#ec4899" />
+            <span>Video 3D Zone</span>
+          </button>
+        </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────────────────
           3. CENTERPIECE: RAW GOTHIC OBSIDIAN CARD + CRIMSON HALATION BLOOM

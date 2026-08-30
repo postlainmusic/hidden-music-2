@@ -42,7 +42,8 @@ interface HomePageProps {
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) => {
-  const { currentTrack, playTrack, favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
+  const { currentTrack, playTrack, favoritedTrackIds, toggleFavoriteTrack, topFavoriteTracks } = useAudioStore();
+  const displayTracks = topFavoriteTracks && topFavoriteTracks.length > 0 ? topFavoriteTracks : BEST_PLAY_TRACKS;
   
   // Section Navigation: 0 = Section 1 (Tracklist), 1 = Section 2 (Carousel), 2 = Section 3 (Explore)
   const [activeSection, setActiveSection] = useState<number>(0);
@@ -585,7 +586,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
             zIndex: 6
           }}
         >
-          {BEST_PLAY_TRACKS.map((track, idx) => {
+          {displayTracks.map((track, idx) => {
             const isFav = favoritedTrackIds.includes(track.id);
             const isCurrent = currentTrack?.id === track.id;
 

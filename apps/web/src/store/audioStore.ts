@@ -22,9 +22,46 @@ export interface Track {
   coverUrl: string;
   audioUrl: string;
   videoUrl?: string;
+  r2Key?: string;
+  videoType?: string;
+  videoQuality?: string;
+  videoAspectRatio?: string;
+  audioSourceType?: string;
+  audioBitrate?: string;
+  lyricsSynced?: string;
   palette: TrackPalette;
   genre: string;
   bpm?: number;
+}
+
+export type SectionTemplateType =
+  | "album_showcase"
+  | "cover_flow"
+  | "hero_banner"
+  | "artist_spotlight"
+  | "editorial_press"
+  | "video_premiere"
+  | "explore_universe";
+
+export interface HomeSection {
+  id: string;
+  title: string;
+  template_type: SectionTemplateType;
+  order_index: number;
+  is_enabled: number;
+  config: Record<string, any>;
+}
+
+export interface VaultSlot {
+  id: string;
+  slot_number: number;
+  album_id?: string | null;
+  title: string;
+  artist: string;
+  cover_url: string;
+  badge?: string;
+  status: "live" | "coming_soon" | "locked";
+  release_date?: string;
 }
 
 const R2_BASE = "https://media.postlain.com";
@@ -454,12 +491,14 @@ export const DEFAULT_TRACKS: Track[] = [
   }
 ];
 
-interface UserSession {
+export interface UserSession {
   id: string;
   name: string;
   email: string;
   avatarUrl: string;
   membershipTier: string;
+  role?: "admin" | "vip" | "free";
+  status?: "active" | "banned";
 }
 
 interface AudioState {
@@ -475,6 +514,9 @@ interface AudioState {
   isLoginModalOpen: boolean;
   currentUser: UserSession | null;
   favoritedTrackIds: string[];
+  sections: HomeSection[];
+  topFavoriteTracks: Track[];
+  vaultSlots: VaultSlot[];
 
   // Actions
   playTrack: (track: Track, options?: { crossfade?: boolean }) => void;
@@ -495,6 +537,9 @@ interface AudioState {
   getFrequencyData: () => Uint8Array;
   loadFavorites: () => Promise<void>;
   toggleFavoriteTrack: (trackId: string) => Promise<void>;
+  loadSections: () => Promise<void>;
+  loadTopFavorites: () => Promise<void>;
+  loadVaultSlots: () => Promise<void>;
 }
 
 // Apply dynamic theme color variables on root DOM
@@ -540,10 +585,24 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   isLoginModalOpen: false,
   currentUser: getInitialUser(),
   favoritedTrackIds: getInitialFavorites(),
+  sections: [],
+  topFavoriteTracks: [
+    DEFAULT_TRACKS[0],
+    DEFAULT_TRACKS[1],
+    DEFAULT_TRACKS[4],
+    DEFAULT_TRACKS[6],
+    DEFAULT_TRACKS[19]
+  ],
+  vaultSlots: [],
 
   initAudioEngine: () => {
     updateCssTheme(DEFAULT_TRACKS[0].palette);
     studioBeatEngine.setTrack(DEFAULT_TRACKS[0].title, DEFAULT_TRACKS[0].bpm);
+
+    // Initial fetch of sections, top favorites & vault slots
+    get().loadSections();
+    get().loadTopFavorites();
+    get().loadVaultSlots();
 
     // Setup auto-next on track completion
     dualDeckAudioEngine.onTrackEnd(() => {
@@ -740,6 +799,64 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       } catch (err) {
         console.warn("Toggle favorite sync notice:", err);
       }
+    }
+  },
+
+  loadSections: async () => {
+    try {
+      const res = await fetch("https://hidden-music-api.postlain-music.workers.dev/api/sections");
+      const data = await res.json();
+      if (data.success && Array.isArray(data.sections) && data.sections.length > 0) {
+        set({ sections: data.sections });
+      }
+    } catch (err) {
+      console.warn("Load sections fallback:", err);
+    }
+  },
+
+  loadTopFavorites: async () => {
+    try {
+      const res = await fetch("https://hidden-music-api.postlain-music.workers.dev/api/tracks/top-favorites");
+      const data = await res.json();
+      if (data.success && Array.isArray(data.tracks) && data.tracks.length > 0) {
+        // Map D1 track fields to store Track interface
+        const mapped = data.tracks.map((t: any) => {
+          let pal = { primary: "#6366f1", secondary: "#ec4899", accent: "#8b5cf6", glow: "rgba(99, 102, 241, 0.45)" };
+          if (t.palette_json) {
+            try { pal = JSON.parse(t.palette_json); } catch {}
+          } else if (t.palette) {
+            pal = t.palette;
+          }
+          return {
+            id: t.id,
+            title: t.title,
+            artist: t.artist || "MCK",
+            album: t.album || "HVL",
+            duration: t.duration_sec || t.duration || 200,
+            coverUrl: t.cover_url || t.coverUrl || HVL_COVER,
+            audioUrl: t.audio_url || t.audioUrl,
+            videoUrl: t.video_url || t.videoUrl,
+            palette: pal,
+            genre: t.genre || t.mood_tier || "Melodic Rap",
+            bpm: t.bpm || 120
+          };
+        });
+        set({ topFavoriteTracks: mapped });
+      }
+    } catch (err) {
+      console.warn("Load top favorites fallback:", err);
+    }
+  },
+
+  loadVaultSlots: async () => {
+    try {
+      const res = await fetch("https://hidden-music-api.postlain-music.workers.dev/api/vault-slots");
+      const data = await res.json();
+      if (data.success && Array.isArray(data.slots) && data.slots.length > 0) {
+        set({ vaultSlots: data.slots });
+      }
+    } catch (err) {
+      console.warn("Load vault slots fallback:", err);
     }
   }
 }));

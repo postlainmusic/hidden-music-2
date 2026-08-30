@@ -1,12 +1,12 @@
 import React from "react";
 import { useAudioStore } from "../store/audioStore";
-import { Disc3, LogOut, Compass, Database } from "lucide-react";
+import { Disc3, LogOut, Compass, Database, Shield } from "lucide-react";
 import { motion } from "framer-motion";
 import { useIsMobile } from "../hooks/useIsMobile";
 
 interface GlassNavbarProps {
-  activeTab?: "vault" | "explore";
-  onTabChange?: (tab: "vault" | "explore") => void;
+  activeTab?: "vault" | "explore" | "admin";
+  onTabChange?: (tab: "vault" | "explore" | "admin") => void;
 }
 
 export const GlassNavbar: React.FC<GlassNavbarProps> = ({
@@ -15,6 +15,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
 }) => {
   const { currentUser, logoutUser } = useAudioStore();
   const isMobile = useIsMobile();
+  const isAdmin = currentUser?.email === "postlainmusic@gmail.com" || currentUser?.role === "admin";
 
   return (
     <header
@@ -138,6 +139,33 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
             <Compass size={isMobile ? 12 : 14} />
             <span>Khám phá</span>
           </button>
+
+          {isAdmin && (
+            <button
+              onClick={() => onTabChange?.("admin")}
+              title="Vault Monolith Matrix"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: isMobile ? "4px" : "6px",
+                padding: isMobile ? "5px 12px" : "6px 16px",
+                borderRadius: "999px",
+                fontSize: isMobile ? "0.78rem" : "0.86rem",
+                fontWeight: 700,
+                border: "none",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                background: activeTab === "admin"
+                  ? "linear-gradient(135deg, #6366f1 0%, #ec4899 100%)"
+                  : "rgba(99, 102, 241, 0.15)",
+                color: "#ffffff",
+                boxShadow: activeTab === "admin" ? "0 0 15px rgba(99, 102, 241, 0.5)" : "none"
+              }}
+            >
+              <Shield size={isMobile ? 12 : 14} color={activeTab === "admin" ? "#ffffff" : "#a5b4fc"} />
+              <span>Admin</span>
+            </button>
+          )}
         </div>
 
         {/* ── GÓC PHẢI: AVATAR PROFILE + LOGOUT ───────────────────────────── */}

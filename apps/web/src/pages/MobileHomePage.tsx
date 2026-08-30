@@ -41,7 +41,8 @@ interface MobileHomePageProps {
 }
 
 export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, onOpen3D }) => {
-  const { currentTrack, playTrack, favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
+  const { currentTrack, playTrack, favoritedTrackIds, toggleFavoriteTrack, topFavoriteTracks } = useAudioStore();
+  const displayTracks = topFavoriteTracks && topFavoriteTracks.length > 0 ? topFavoriteTracks : BEST_PLAY_TRACKS;
   
   // Active Section: 0 = Section 1, 1 = Section 2, 2 = Section 3
   const [activeSection, setActiveSection] = useState<number>(0);
@@ -365,7 +366,7 @@ export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, 
             zIndex: 6
           }}
         >
-          {BEST_PLAY_TRACKS.map((track, idx) => {
+          {displayTracks.map((track, idx) => {
             const isFav = favoritedTrackIds.includes(track.id);
             const isCurrent = currentTrack?.id === track.id;
 
