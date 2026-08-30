@@ -366,8 +366,8 @@ export class DualDeckAudioEngine {
         outgoingGain.gain.linearRampToValueAtTime(0, now + dur);
       }
 
-      try {
-        await incomingAudio.play();
+      const playSuccess = await this.safePlay(incomingAudio);
+      if (playSuccess) {
         this.activeDeckId = nextDeckId;
         this.isPlaying = true;
         this.startProgressLoop();
@@ -375,31 +375,22 @@ export class DualDeckAudioEngine {
 
         setTimeout(() => {
           if (this.activeDeckId === nextDeckId) {
-            outgoingAudio.pause();
-            outgoingAudio.currentTime = 0;
+            try {
+              outgoingAudio.pause();
+              outgoingAudio.currentTime = 0;
+            } catch {}
           }
         }, this.crossfadeDuration * 1000 + 100);
-      } catch (err) {
-        console.warn("[DualDeck] Crossfade playback error, applying instant direct playback fallback:", err);
-        try {
-          incomingAudio.load();
-          incomingAudio.currentTime = options.startTime || 0;
-          await incomingAudio.play();
-          this.activeDeckId = nextDeckId;
-          this.isPlaying = true;
-          this.startProgressLoop();
-          this.playbackStateSubscribers.forEach((cb) => cb(true));
-        } catch (err2) {
-          console.error("[DualDeck] Critical play recovery failed:", err2);
-        }
       }
     } else {
       // Instant Random Jump (<30ms)
       const currentAudio = this.getActiveAudio();
       const idleAudio = this.getIdleAudio();
 
-      idleAudio.pause();
-      idleAudio.currentTime = 0;
+      try {
+        idleAudio.pause();
+        idleAudio.currentTime = 0;
+      } catch {}
 
       if (this.audioCtx && this.gainA && this.gainB) {
         const now = this.audioCtx.currentTime;
@@ -420,37 +411,44 @@ export class DualDeckAudioEngine {
       currentAudio.volume = this.isMuted ? 0 : this.masterVolume;
       currentAudio.muted = this.isMuted;
 
-      try {
-        await currentAudio.play();
+      const playSuccess = await this.safePlay(currentAudio);
+      if (playSuccess) {
         this.isPlaying = true;
         this.startProgressLoop();
         this.playbackStateSubscribers.forEach((cb) => cb(true));
-      } catch (err) {
-        console.warn("[DualDeck] Instant play error, retrying with reload:", err);
-        try {
-          currentAudio.load();
-          currentAudio.currentTime = options.startTime || 0;
-          await currentAudio.play();
-          this.isPlaying = true;
-          this.startProgressLoop();
-          this.playbackStateSubscribers.forEach((cb) => cb(true));
-        } catch (err2) {
-          console.error("[DualDeck] Instant play fallback failed:", err2);
-        }
       }
     }
 
     this.updateMediaSession(track);
   }
 
+  private async safePlay(audio: HTMLAudioElement): Promise<boolean> {
+    try {
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        await playPromise;
+      }
+      return true;
+    } catch (err: any) {
+      if (err.name === "AbortError" || err.message?.includes("interrupted") || err.message?.includes("pause")) {
+        // Gracefully ignore normal browser interruptions when switching tracks rapidly
+        return false;
+      }
+      console.warn("[DualDeck] Audio playback notice:", err.message);
+      return false;
+    }
+  }
+
   public pause(): void {
-    this.deckA.pause();
-    this.deckB.pause();
+    try { this.deckA.pause(); } catch {}
+    try { this.deckB.pause(); } catch {}
     this.isPlaying = false;
     this.stopProgressLoop();
 
-    if ("mediaSession" in navigator) {
-      navigator.mediaSession.playbackState = "paused";
+    if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.playbackState = "paused";
+      } catch {}
     }
   }
 
@@ -460,15 +458,13 @@ export class DualDeckAudioEngine {
     if (currentAudio.src) {
       currentAudio.volume = this.isMuted ? 0 : this.masterVolume;
       currentAudio.muted = this.isMuted;
-      try {
-        await currentAudio.play();
+      const ok = await this.safePlay(currentAudio);
+      if (ok) {
         this.isPlaying = true;
         this.startProgressLoop();
-        if ("mediaSession" in navigator) {
-          navigator.mediaSession.playbackState = "playing";
+        if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
+          try { navigator.mediaSession.playbackState = "playing"; } catch {}
         }
-      } catch (err) {
-        console.warn("[DualDeck] Resume playback error:", err);
       }
     }
   }

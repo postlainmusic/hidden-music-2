@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAudioStore } from "../store/audioStore";
+import { useAudioStore, Track } from "../store/audioStore";
+import { dualDeckAudioEngine } from "../audio/DualDeckAudioEngine";
+import { useIsMobile } from "../hooks/useIsMobile";
 import * as THREE from "three";
 import {
   Play,
@@ -12,8 +14,11 @@ import {
   Maximize2,
   Minimize2,
   ArrowLeft,
+  ListMusic,
+  X,
   Sparkles,
-  Film
+  Film,
+  CheckCircle2
 } from "lucide-react";
 
 interface Video3DZoneProps {
@@ -21,7 +26,9 @@ interface Video3DZoneProps {
 }
 
 export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => {
-  const { currentTrack, queue, nextTrack, prevTrack } = useAudioStore();
+  const { currentTrack, queue, playTrack, nextTrack, prevTrack } = useAudioStore();
+  const isMobile = useIsMobile();
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -34,14 +41,36 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [ambilightColor, setAmbilightColor] = useState("rgba(99, 102, 241, 0.45)");
   const [showControls, setShowControls] = useState(true);
+  const [isQueueOpen, setIsQueueOpen] = useState(false);
 
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const dataArrayRef = useRef<Uint8Array | null>(null);
 
-  // Derive video URL
-  const activeVideoUrl = currentTrack?.videoUrl || (currentTrack ? `https://media.postlain.com/videos/01.%20Elegie%20-%20MCK.mkv` : "");
+  // 1. STRICT ZONE ISOLATION: Silence Background Audio Engine completely on Mount
+  useEffect(() => {
+    dualDeckAudioEngine.pause();
 
-  // Native Pure Three.js 60fps Ambient Particles System (Zero Bundle Overhead)
+    return () => {
+      // Clean pause on unmount
+      if (videoRef.current) {
+        try {
+          videoRef.current.pause();
+        } catch {}
+      }
+    };
+  }, []);
+
+  // Derive video URL with robust fallback
+  const activeVideoUrl =
+    currentTrack?.videoUrl ||
+    (currentTrack
+      ? `https://media.postlain.com/videos/01.%20Elegie%20-%20MCK.mkv`
+      : "");
+
+  // 2. Audio-Reactive Three.js 60fps Ambient Particles System
   useEffect(() => {
     const canvas = particlesCanvasRef.current;
     if (!canvas) return;
@@ -59,26 +88,30 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.z = 15;
 
-    const count = 3000;
+    const count = 2500;
     const pos = new Float32Array(count * 3);
     const col = new Float32Array(count * 3);
+    const baseScales = new Float32Array(count);
+
     const colorA = new THREE.Color("#6366f1");
     const colorB = new THREE.Color("#ec4899");
+    const colorC = new THREE.Color("#06b6d4");
 
     for (let i = 0; i < count; i++) {
       const i3 = i * 3;
-      const radius = 10 + Math.random() * 35;
+      const radius = 8 + Math.random() * 32;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(Math.random() * 2 - 1);
 
       pos[i3] = radius * Math.sin(phi) * Math.cos(theta);
       pos[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-      pos[i3 + 2] = radius * Math.cos(phi) - 10;
+      pos[i3 + 2] = radius * Math.cos(phi) - 8;
 
-      const mixed = colorA.clone().lerp(colorB, Math.random());
+      const mixed = colorA.clone().lerp(Math.random() > 0.5 ? colorB : colorC, Math.random());
       col[i3] = mixed.r;
       col[i3 + 1] = mixed.g;
       col[i3 + 2] = mixed.b;
+      baseScales[i] = 0.08 + Math.random() * 0.14;
     }
 
     const geometry = new THREE.BufferGeometry();
@@ -86,10 +119,10 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     geometry.setAttribute("color", new THREE.BufferAttribute(col, 3));
 
     const material = new THREE.PointsMaterial({
-      size: 0.12,
+      size: 0.14,
       vertexColors: true,
       transparent: true,
-      opacity: 0.65,
+      opacity: 0.7,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
@@ -98,9 +131,23 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     scene.add(points);
 
     let animId: number;
+    let clock = new THREE.Clock();
+
     const animate = () => {
-      points.rotation.y += 0.001;
-      points.rotation.x += 0.0005;
+      const elapsedTime = clock.getElapsedTime();
+
+      // Audio-reactive pulse modulation
+      let bassIntensity = 1.0;
+      if (analyserRef.current && dataArrayRef.current) {
+        analyserRef.current.getByteFrequencyData(dataArrayRef.current as any);
+        const subBass = (dataArrayRef.current[1] + dataArrayRef.current[2] + dataArrayRef.current[3]) / (3 * 255);
+        bassIntensity = 1.0 + subBass * 0.8;
+      }
+
+      points.rotation.y = elapsedTime * 0.04;
+      points.rotation.x = Math.sin(elapsedTime * 0.02) * 0.05;
+      material.size = 0.13 * bassIntensity;
+
       renderer.render(scene, camera);
       animId = requestAnimationFrame(animate);
     };
@@ -122,7 +169,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     };
   }, []);
 
-  // Real-time Ambilight extraction loop
+  // 3. Real-time Ambilight extraction loop with low-frequency polling
   useEffect(() => {
     let animId: number;
     const extractAmbilight = () => {
@@ -144,7 +191,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
             r = Math.round(r / count);
             g = Math.round(g / count);
             b = Math.round(b / count);
-            setAmbilightColor(`rgba(${r}, ${g}, ${b}, 0.55)`);
+            setAmbilightColor(`rgba(${r}, ${g}, ${b}, 0.6)`);
           } catch {
             // fallback
           }
@@ -162,7 +209,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     const video = videoRef.current;
     if (!video) return;
     if (video.paused) {
-      video.play();
+      video.play().catch(() => {});
       setIsVideoPlaying(true);
     } else {
       video.pause();
@@ -230,7 +277,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     controlsTimeoutRef.current = setTimeout(() => {
-      if (isVideoPlaying) setShowControls(false);
+      if (isVideoPlaying && !isQueueOpen) setShowControls(false);
     }, 3500);
   };
 
@@ -238,6 +285,9 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     <div
       ref={containerRef}
       onMouseMove={handleMouseMove}
+      onClick={() => {
+        if (!showControls) setShowControls(true);
+      }}
       style={{
         position: "relative",
         width: "100vw",
@@ -268,22 +318,26 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
       <canvas ref={canvasRef} width={16} height={9} style={{ display: "none" }} />
 
       {/* Dynamic Ambilight Backlight Halo */}
-      <div
+      <motion.div
+        animate={{
+          x: isQueueOpen && !isMobile ? 160 : 0,
+          scale: isQueueOpen ? (isMobile ? 0.92 : 0.82) : 1
+        }}
+        transition={{ type: "spring", damping: 26, stiffness: 220 }}
         style={{
           position: "absolute",
-          width: "min(88vw, 1100px)",
-          height: "min(55vw, 620px)",
+          width: isMobile ? "94vw" : "min(86vw, 1080px)",
+          aspectRatio: "16 / 9",
           borderRadius: "32px",
           background: ambilightColor,
-          filter: "blur(75px)",
+          filter: isMobile ? "blur(40px)" : "blur(80px)",
           opacity: 0.85,
           zIndex: 1,
-          transition: "background 0.35s ease-out",
           pointerEvents: "none"
         }}
       />
 
-      {/* Top Header Bar */}
+      {/* ── TOP HEADER BAR (MINIMALIST APPLE LIQUID GLASS) ── */}
       <AnimatePresence>
         {showControls && (
           <motion.div
@@ -295,90 +349,188 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
               top: 0,
               left: 0,
               right: 0,
-              padding: "24px 32px",
+              padding: isMobile ? "16px 20px" : "24px 36px",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              zIndex: 30,
+              zIndex: 50,
               background: "linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, transparent 100%)"
             }}
           >
-            {/* Back Button */}
+            {/* Back to 3D Album */}
             <button
               onClick={onBackTo3DAlbum}
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "10px",
-                padding: "10px 20px",
+                gap: "8px",
+                padding: isMobile ? "8px 14px" : "10px 18px",
                 borderRadius: "999px",
                 backgroundColor: "rgba(255, 255, 255, 0.08)",
                 backdropFilter: "blur(20px)",
                 border: "1px solid rgba(255, 255, 255, 0.15)",
                 color: "#ffffff",
-                fontSize: "0.88rem",
-                fontWeight: 600,
+                fontSize: isMobile ? "0.78rem" : "0.85rem",
+                fontWeight: 700,
                 cursor: "pointer",
                 transition: "all 0.2s ease"
               }}
             >
-              <ArrowLeft size={16} />
-              Quay lại 3D Album
+              <ArrowLeft size={15} />
+              <span>Quay lại 3D Album</span>
             </button>
 
-            {/* Video Badges */}
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div
+            {/* Video Queue Toggle Button */}
+            <button
+              onClick={() => setIsQueueOpen(!isQueueOpen)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: isMobile ? "8px 14px" : "10px 18px",
+                borderRadius: "999px",
+                backgroundColor: isQueueOpen ? "rgba(99, 102, 241, 0.35)" : "rgba(255, 255, 255, 0.08)",
+                backdropFilter: "blur(20px)",
+                border: isQueueOpen ? "1px solid #6366f1" : "1px solid rgba(255, 255, 255, 0.15)",
+                color: isQueueOpen ? "#a5b4fc" : "#ffffff",
+                fontSize: isMobile ? "0.78rem" : "0.85rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: "all 0.2s ease"
+              }}
+            >
+              <ListMusic size={15} />
+              <span>{isQueueOpen ? "Đóng Hàng Đợi" : `Hàng Đợi Video (${queue.length})`}</span>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── LEFT SLIDE-OUT VIDEO QUEUE DRAWER ── */}
+      <AnimatePresence>
+        {isQueueOpen && (
+          <motion.div
+            initial={{ x: "-100%", opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: "-100%", opacity: 0 }}
+            transition={{ type: "spring", damping: 28, stiffness: 260 }}
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: isMobile ? "85vw" : "360px",
+              backgroundColor: "rgba(10, 10, 16, 0.88)",
+              backdropFilter: "blur(30px)",
+              borderRight: "1px solid rgba(255, 255, 255, 0.12)",
+              boxShadow: "20px 0 50px rgba(0, 0, 0, 0.8)",
+              zIndex: 60,
+              display: "flex",
+              flexDirection: "column",
+              padding: "24px 20px"
+            }}
+          >
+            {/* Drawer Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: "16px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "#ffffff" }}>
+                  Hàng Đợi Video
+                </h3>
+                <p style={{ margin: "2px 0 0", fontSize: "0.74rem", color: "rgba(255, 255, 255, 0.5)" }}>
+                  {queue.length} Video phòng thu độc quyền
+                </p>
+              </div>
+              <button
+                onClick={() => setIsQueueOpen(false)}
                 style={{
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "50%",
+                  backgroundColor: "rgba(255, 255, 255, 0.08)",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  color: "rgba(255, 255, 255, 0.6)",
                   display: "flex",
                   alignItems: "center",
-                  gap: "6px",
-                  padding: "6px 14px",
-                  borderRadius: "999px",
-                  backgroundColor: "rgba(99, 102, 241, 0.2)",
-                  border: "1px solid rgba(99, 102, 241, 0.4)",
-                  color: "#a5b4fc",
-                  fontSize: "0.75rem",
-                  fontWeight: 700,
-                  letterSpacing: "0.08em"
+                  justifyContent: "center",
+                  cursor: "pointer"
                 }}
               >
-                <Film size={13} />
-                4K MASTER MKV
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "6px 14px",
-                  borderRadius: "999px",
-                  backgroundColor: "rgba(236, 72, 153, 0.2)",
-                  border: "1px solid rgba(236, 72, 153, 0.4)",
-                  color: "#f472b6",
-                  fontSize: "0.75rem",
-                  fontWeight: 700,
-                  letterSpacing: "0.08em"
-                }}
-              >
-                <Sparkles size={13} />
-                AMBILIGHT 60FPS
-              </div>
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Video List Items */}
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px", marginTop: "16px" }}>
+              {queue.map((track, idx) => {
+                const isCurrent = track.id === currentTrack?.id;
+                return (
+                  <div
+                    key={track.id}
+                    onClick={() => {
+                      playTrack(track);
+                      if (videoRef.current) {
+                        videoRef.current.load();
+                        videoRef.current.play().catch(() => {});
+                      }
+                      if (isMobile) setIsQueueOpen(false);
+                    }}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: "12px",
+                      backgroundColor: isCurrent ? "rgba(99, 102, 241, 0.22)" : "rgba(255, 255, 255, 0.03)",
+                      border: isCurrent ? "1px solid #6366f1" : "1px solid rgba(255, 255, 255, 0.06)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      cursor: "pointer",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    <span style={{ fontSize: "0.75rem", fontWeight: 800, color: isCurrent ? "#a5b4fc" : "rgba(255,255,255,0.4)", width: "20px" }}>
+                      {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
+                    </span>
+
+                    <img
+                      src={track.coverUrl}
+                      alt={track.title}
+                      style={{ width: "38px", height: "38px", borderRadius: "8px", objectFit: "cover" }}
+                    />
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ fontSize: "0.84rem", fontWeight: 700, color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.8)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {track.title}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.45)" }}>
+                        {track.artist}
+                      </span>
+                    </div>
+
+                    {isCurrent && (
+                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#34d399", boxShadow: "0 0 8px #34d399" }} />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Main 3D Cinema Video Screen Container */}
+      {/* ── MAIN 3D CINEMA VIDEO SCREEN CONTAINER (WITH AESTHETIC LAYOUT SHIFT) ── */}
       <motion.div
-        initial={{ scale: 0.94, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        animate={{
+          x: isQueueOpen && !isMobile ? 160 : 0,
+          y: isQueueOpen && isMobile ? -60 : 0,
+          scale: isQueueOpen ? (isMobile ? 0.92 : 0.82) : 1
+        }}
+        transition={{ type: "spring", damping: 26, stiffness: 220 }}
         style={{
           position: "relative",
-          width: "min(88vw, 1100px)",
+          width: isMobile ? "94vw" : "min(86vw, 1080px)",
           aspectRatio: "16 / 9",
-          borderRadius: "24px",
+          borderRadius: isMobile ? "18px" : "24px",
           overflow: "hidden",
           backgroundColor: "#050505",
           boxShadow: `0 0 60px ${ambilightColor}, 0 24px 60px rgba(0,0,0,0.9)`,
@@ -386,12 +538,13 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
           zIndex: 20
         }}
       >
-        {/* Custom Clean HTML5 Video Element (100% Zero YouTube Branding) */}
+        {/* Custom Clean HTML5 Video Element */}
         <video
           ref={videoRef}
           src={activeVideoUrl}
           playsInline
           autoPlay
+          preload="auto"
           onTimeUpdate={handleTimeUpdate}
           onEnded={nextTrack}
           onClick={handleTogglePlay}
@@ -403,7 +556,44 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
           }}
         />
 
-        {/* Center Big Play/Pause Splash Icon on Click */}
+        {/* ── TOP-LEFT VIDEO TITLE OVERLAY (AVOID BOTTOM PLAYBAR COLLISION) ── */}
+        <AnimatePresence>
+          {showControls && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              onClick={() => setIsQueueOpen(!isQueueOpen)}
+              style={{
+                position: "absolute",
+                top: isMobile ? "12px" : "18px",
+                left: isMobile ? "12px" : "18px",
+                zIndex: 35,
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                padding: "8px 14px",
+                borderRadius: "12px",
+                backgroundColor: "rgba(10, 10, 16, 0.7)",
+                backdropFilter: "blur(16px)",
+                border: "1px solid rgba(255, 255, 255, 0.15)",
+                cursor: "pointer"
+              }}
+            >
+              <div style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: isVideoPlaying ? "#34d399" : "#f59e0b" }} />
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ color: "#ffffff", fontWeight: 800, fontSize: isMobile ? "0.78rem" : "0.88rem", letterSpacing: "0.02em" }}>
+                  {currentTrack?.title || "MCK Music Video"}
+                </span>
+                <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: "0.7rem" }}>
+                  {currentTrack?.artist || "MCK"} • {currentTrack?.album || "HVL"}
+                </span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Center Big Play/Pause Splash Icon on Pause */}
         {!isVideoPlaying && (
           <div
             onClick={handleTogglePlay}
@@ -415,13 +605,14 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
               justifyContent: "center",
               backgroundColor: "rgba(0,0,0,0.45)",
               backdropFilter: "blur(8px)",
-              cursor: "pointer"
+              cursor: "pointer",
+              zIndex: 30
             }}
           >
             <div
               style={{
-                width: "80px",
-                height: "80px",
+                width: isMobile ? "64px" : "80px",
+                height: isMobile ? "64px" : "80px",
                 borderRadius: "50%",
                 backgroundColor: "rgba(255, 255, 255, 0.18)",
                 backdropFilter: "blur(24px)",
@@ -432,12 +623,12 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                 color: "#ffffff"
               }}
             >
-              <Play size={36} style={{ marginLeft: "4px" }} />
+              <Play size={isMobile ? 28 : 36} style={{ marginLeft: "4px" }} />
             </div>
           </div>
         )}
 
-        {/* Bespoke Liquid Frosted Glass Video Controls Dock */}
+        {/* ── BESPOKE PERFECTLY CENTERED BOTTOM CONTROL DOCK ── */}
         <AnimatePresence>
           {showControls && (
             <motion.div
@@ -449,17 +640,17 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                 bottom: 0,
                 left: 0,
                 right: 0,
-                padding: "24px 28px 20px",
-                background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 60%, transparent 100%)",
+                padding: isMobile ? "14px 16px 12px" : "20px 28px 18px",
+                background: "linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.6) 60%, transparent 100%)",
                 display: "flex",
                 flexDirection: "column",
-                gap: "14px",
+                gap: "12px",
                 zIndex: 40
               }}
             >
               {/* Timeline Scrubber */}
-              <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.8rem", fontFamily: "monospace", minWidth: "40px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.78rem", fontFamily: "monospace", minWidth: "36px" }}>
                   {formatTime(currentTime)}
                 </span>
                 <input
@@ -476,41 +667,56 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                     cursor: "pointer"
                   }}
                 />
-                <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.8rem", fontFamily: "monospace", minWidth: "40px" }}>
+                <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.78rem", fontFamily: "monospace", minWidth: "36px" }}>
                   {formatTime(duration)}
                 </span>
               </div>
 
-              {/* Bottom Row Controls */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                {/* Track Info */}
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  <span style={{ color: "#ffffff", fontWeight: 700, fontSize: "1.05rem" }}>
-                    {currentTrack?.title || "MCK Music Video"}
-                  </span>
-                  <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: "0.82rem" }}>
-                    {currentTrack?.artist || "MCK"} • {currentTrack?.album || "HVL"}
-                  </span>
+              {/* Bottom Row: Left Time / Center Controls / Right Actions */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center" }}>
+                {/* Left: Queue Quick Button */}
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <button
+                    onClick={() => setIsQueueOpen(!isQueueOpen)}
+                    style={{
+                      background: "rgba(255, 255, 255, 0.08)",
+                      border: "1px solid rgba(255, 255, 255, 0.12)",
+                      borderRadius: "8px",
+                      padding: "5px 10px",
+                      color: "#ffffff",
+                      fontSize: "0.74rem",
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      cursor: "pointer"
+                    }}
+                  >
+                    <ListMusic size={13} />
+                    <span>30 Videos</span>
+                  </button>
                 </div>
 
-                {/* Media Playback Buttons */}
-                <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                {/* Center Media Playback Controls (100% Balanced & Symmetrical) */}
+                <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "12px" : "18px" }}>
                   <button
                     onClick={prevTrack}
                     style={{
                       background: "none",
                       border: "none",
-                      color: "rgba(255,255,255,0.8)",
-                      cursor: "pointer"
+                      color: "rgba(255,255,255,0.85)",
+                      cursor: "pointer",
+                      padding: "4px"
                     }}
                   >
-                    <SkipBack size={20} />
+                    <SkipBack size={isMobile ? 18 : 22} />
                   </button>
+
                   <button
                     onClick={handleTogglePlay}
                     style={{
-                      width: "44px",
-                      height: "44px",
+                      width: isMobile ? "38px" : "46px",
+                      height: isMobile ? "38px" : "46px",
                       borderRadius: "50%",
                       backgroundColor: "#ffffff",
                       color: "#000000",
@@ -518,56 +724,60 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      cursor: "pointer"
+                      cursor: "pointer",
+                      boxShadow: "0 4px 20px rgba(255, 255, 255, 0.35)"
                     }}
                   >
-                    {isVideoPlaying ? <Pause size={20} /> : <Play size={20} style={{ marginLeft: "2px" }} />}
+                    {isVideoPlaying ? <Pause size={isMobile ? 18 : 22} /> : <Play size={isMobile ? 18 : 22} style={{ marginLeft: "2px" }} />}
                   </button>
+
                   <button
                     onClick={nextTrack}
                     style={{
                       background: "none",
                       border: "none",
-                      color: "rgba(255,255,255,0.8)",
-                      cursor: "pointer"
+                      color: "rgba(255,255,255,0.85)",
+                      cursor: "pointer",
+                      padding: "4px"
                     }}
                   >
-                    <SkipForward size={20} />
+                    <SkipForward size={isMobile ? 18 : 22} />
                   </button>
                 </div>
 
-                {/* Volume & Fullscreen Actions */}
-                <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
-                  {/* Volume Slider */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <button
-                      onClick={handleToggleMute}
-                      style={{ background: "none", border: "none", color: "#ffffff", cursor: "pointer" }}
-                    >
-                      {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                    </button>
-                    <input
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.05}
-                      value={isMuted ? 0 : volume}
-                      onChange={handleVolumeChange}
-                      style={{ width: "70px", height: "3px", accentColor: "#ffffff", cursor: "pointer" }}
-                    />
-                  </div>
+                {/* Right: Volume & Fullscreen Actions */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: isMobile ? "10px" : "16px" }}>
+                  {!isMobile && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <button
+                        onClick={handleToggleMute}
+                        style={{ background: "none", border: "none", color: "#ffffff", cursor: "pointer", padding: "4px" }}
+                      >
+                        {isMuted || volume === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}
+                      </button>
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        value={isMuted ? 0 : volume}
+                        onChange={handleVolumeChange}
+                        style={{ width: "65px", height: "3px", accentColor: "#ffffff", cursor: "pointer" }}
+                      />
+                    </div>
+                  )}
 
-                  {/* Fullscreen Button */}
                   <button
                     onClick={handleToggleFullscreen}
                     style={{
                       background: "none",
                       border: "none",
                       color: "#ffffff",
-                      cursor: "pointer"
+                      cursor: "pointer",
+                      padding: "4px"
                     }}
                   >
-                    {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+                    {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                   </button>
                 </div>
               </div>
