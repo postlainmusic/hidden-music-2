@@ -35,7 +35,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   const particlesCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
-  const [isVideoBuffering, setIsVideoBuffering] = useState(true);
+  const [isVideoBuffering, setIsVideoBuffering] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
@@ -74,10 +74,10 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   const handleSelectVideo = (track: Track) => {
     setSelectedVideoTrack(track);
     useAudioStore.setState({ currentTrack: track });
-    dualDeckAudioEngine.pause(); // Guarantee Audio is paused and not downloading FLAC
-    setIsVideoBuffering(true);
+    dualDeckAudioEngine.pause();
+    setIsVideoBuffering(false);
     if (videoRef.current) {
-      videoRef.current.load();
+      videoRef.current.src = track.videoUrl || `https://media.postlain.com/videos/${encodeURIComponent(track.title)}%20-%20MCK.mkv`;
       videoRef.current.play().catch(() => {});
     }
     if (isMobile) setIsQueueOpen(false);
@@ -113,7 +113,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.z = 15;
 
-    const count = 1200;
+    const count = 1000;
     const pos = new Float32Array(count * 3);
     const col = new Float32Array(count * 3);
 
@@ -184,7 +184,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     };
   }, []);
 
-  // 3. Throttled Ambilight extraction loop (Runs every 350ms to save CPU)
+  // 3. Throttled Ambilight extraction loop (Runs every 400ms to save CPU)
   useEffect(() => {
     const interval = setInterval(() => {
       const video = videoRef.current;
@@ -209,7 +209,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
           } catch {}
         }
       }
-    }, 350);
+    }, 400);
 
     return () => clearInterval(interval);
   }, []);
@@ -232,7 +232,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     if (video) {
       setCurrentTime(video.currentTime);
       setDuration(video.duration || 0);
-      if (video.readyState >= 3 && isVideoBuffering) {
+      if (video.readyState >= 2 && isVideoBuffering) {
         setIsVideoBuffering(false);
       }
     }
@@ -543,13 +543,12 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
           zIndex: 20
         }}
       >
-        {/* Custom Clean Progressive HTML5 Video Element */}
+        {/* Custom Clean HTML5 Video Element */}
         <video
           ref={videoRef}
           src={activeVideoUrl}
           playsInline
           autoPlay
-          preload="metadata"
           onWaiting={() => setIsVideoBuffering(true)}
           onPlaying={() => setIsVideoBuffering(false)}
           onCanPlay={() => setIsVideoBuffering(false)}
@@ -565,30 +564,32 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
           }}
         />
 
-        {/* ── FAST BUFFERING SPINNER OVERLAY ── */}
+        {/* ── SUBTLE CORNER BUFFERING INDICATOR (NON-BLOCKING) ── */}
         <AnimatePresence>
           {isVideoBuffering && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
               style={{
                 position: "absolute",
-                inset: 0,
+                top: "18px",
+                right: "18px",
                 display: "flex",
-                flexDirection: "column",
                 alignItems: "center",
-                justifyContent: "center",
-                gap: "12px",
-                backgroundColor: "rgba(0, 0, 0, 0.4)",
-                backdropFilter: "blur(6px)",
-                zIndex: 32,
+                gap: "8px",
+                padding: "6px 12px",
+                borderRadius: "20px",
+                backgroundColor: "rgba(10, 10, 16, 0.8)",
+                backdropFilter: "blur(12px)",
+                border: "1px solid rgba(255, 255, 255, 0.15)",
+                zIndex: 35,
                 pointerEvents: "none"
               }}
             >
-              <Loader2 size={36} color="#a5b4fc" className="animate-spin" />
-              <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.8)", letterSpacing: "0.04em" }}>
-                Đang nạp luồng video...
+              <Loader2 size={14} color="#a5b4fc" className="animate-spin" />
+              <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.75)" }}>
+                Đang nạp buffer...
               </span>
             </motion.div>
           )}
