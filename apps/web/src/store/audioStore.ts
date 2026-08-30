@@ -705,8 +705,19 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       set({ isPlaying: false });
     } else {
       const activeAudio = dualDeckAudioEngine.getActiveAudio();
-      // Only re-initiate playTrack if no audio source has ever been loaded
-      if (!activeAudio.src || activeAudio.src === "") {
+      // Detect torn-down audio: after Video3DZone tears down via removeAttribute('src'),
+      // the browser resets .src to the page's base URL (not ""). We must check if the
+      // src is actually a valid audio stream URL before calling resume().
+      const isValidAudioSrc = (() => {
+        try {
+          const u = new URL(activeAudio.src);
+          // Valid only if pointing to a known audio CDN (not the page itself)
+          return u.hostname !== window.location.hostname && activeAudio.src !== "";
+        } catch {
+          return false;
+        }
+      })();
+      if (!isValidAudioSrc) {
         playTrack(currentTrack, { crossfade: false });
       } else {
         dualDeckAudioEngine.resume();

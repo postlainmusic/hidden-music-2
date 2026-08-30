@@ -160,11 +160,11 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     setShowSpeedMenu(false);
   };
 
-  // Track switching
+  // Track switching — purely local, does NOT touch the global audioStore
   const handleSelectTrack = (track: Track) => {
     setSelectedTrack(track);
-    useAudioStore.setState({ currentTrack: track });
     setIsBuffering(false);
+    setIsPlaying(false);
     if (isMobile) setIsQueueOpen(false);
   };
 
@@ -620,7 +620,6 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
           key={videoStreamUrl}
           src={videoStreamUrl}
           preload="auto"
-          autoPlay={true}
           playsInline={true}
           controls={false}
           onPlay={() => setIsPlaying(true)}
@@ -638,6 +637,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
               setDuration(videoRef.current.duration);
               videoRef.current.volume = volume;
               videoRef.current.muted = isMuted;
+              // Single authoritative play call after metadata — autoPlay removed to prevent race
               videoRef.current.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
             }
           }}
