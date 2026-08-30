@@ -649,17 +649,88 @@ app.get("/api/health", (c) => {
   });
 });
 
-// List Albums from D1
+// List all Albums / Singles / EPs with track count
 app.get("/api/albums", async (c) => {
   if (c.env.DB) {
     try {
-      const { results } = await c.env.DB.prepare("SELECT * FROM albums ORDER BY created_at DESC").all();
-      return c.json({ success: true, albums: results || [] });
+      const { results } = await c.env.DB.prepare(`
+        SELECT a.*, COUNT(t.id) as track_count
+        FROM albums a
+        LEFT JOIN tracks t ON t.album_id = a.id
+        GROUP BY a.id
+        ORDER BY a.created_at DESC
+      `).all();
+      if (results && results.length > 0) {
+        return c.json({ success: true, albums: results });
+      }
+    } catch (e: any) {
+      console.warn("D1 albums query notice:", e.message);
+    }
+  }
+  // Default HVL Album fallback
+  const defaultAlbums = [
+    {
+      id: "hvl-99",
+      title: "HVL (99%)",
+      artist: "MCK",
+      cover_url: HVL_COVER,
+      model_3d_url: `${R2_BASE}/models/hvl_vinyl_case.glb`,
+      palette_colors: JSON.stringify({ primary: "#6366f1", secondary: "#ec4899", accent: "#8b5cf6", glow: "rgba(99, 102, 241, 0.45)" }),
+      release_year: 2024,
+      genre: "Hip-Hop / R&B / Melodic Rap",
+      type: "album",
+      track_count: 30,
+      created_at: new Date().toISOString()
+    }
+  ];
+  return c.json({ success: true, albums: defaultAlbums });
+});
+
+// Get single Album with tracks
+app.get("/api/albums/:id", async (c) => {
+  const id = c.req.param("id");
+  if (c.env.DB) {
+    try {
+      const album = await c.env.DB.prepare("SELECT * FROM albums WHERE id = ?").bind(id).first();
+      if (album) {
+        const { results: tracks } = await c.env.DB.prepare("SELECT * FROM tracks WHERE album_id = ? ORDER BY id ASC").bind(id).all();
+        return c.json({ success: true, album: { ...album, tracks: tracks || [] } });
+      }
     } catch (e: any) {
       return c.json({ success: false, error: e.message }, 500);
     }
   }
-  return c.json({ success: true, albums: [] });
+  if (id === "hvl-99" || id === "hvl") {
+    return c.json({
+      success: true,
+      album: {
+        id: "hvl-99",
+        title: "HVL (99%)",
+        artist: "MCK",
+        cover_url: HVL_COVER,
+        type: "album",
+        track_count: 30,
+        tracks: MCK_TRACKS
+      }
+    });
+  }
+  return c.json({ success: false, error: "Không tìm thấy album" }, 404);
+});
+
+// Get tracks for a specific album
+app.get("/api/albums/:id/tracks", async (c) => {
+  const id = c.req.param("id");
+  if (c.env.DB) {
+    try {
+      const { results } = await c.env.DB.prepare("SELECT * FROM tracks WHERE album_id = ? ORDER BY id ASC").bind(id).all();
+      if (results && results.length > 0) {
+        return c.json({ success: true, tracks: results });
+      }
+    } catch (e: any) {
+      return c.json({ success: false, error: e.message }, 500);
+    }
+  }
+  return c.json({ success: true, tracks: id === "hvl-99" || id === "hvl" ? MCK_TRACKS : [] });
 });
 
 // List tracks (querying D1 if available, otherwise fallback)
@@ -928,6 +999,219 @@ app.post("/api/admin/sections/reorder", async (c) => {
   }
 
   return c.json({ success: true, message: "Đã sắp xếp lại thứ tự các Section!" });
+});
+
+// --- ADMIN ALBUMS & RELEASES MANAGEMENT ---
+
+app.post("/api/admin/albums", async (c) => {
+  const guard = await requireAdmin(c);
+  if (!guard.ok) return guard.response;
+  if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);
+
+  const body = await c.req.json();
+  const {
+    id = `alb_${Date.now()}`,
+    title,
+    artist = "MCK",
+    cover_url = HVL_COVER,
+    model_3d_url = null,
+    palette_colors = JSON.stringify({ primary: "#6366f1", secondary: "#ec4899", accent: "#8b5cf6", glow: "rgba(99, 102, 241, 0.45)" }),
+    release_year = new Date().getFullYear(),
+    genre = "Hip-Hop / Rap",
+    type = "album" // 'album' | 'single' | 'ep'
+  } = body;
+
+  if (!title) {
+    return c.json({ success: false, error: "Tiêu đề bản phát hành (Album/Single/EP) là bắt buộc" }, 400);
+  }
+
+  await c.env.DB.prepare(`
+    INSERT INTO albums (id, title, artist, cover_url, model_3d_url, palette_colors, release_year, genre, type, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+  `)
+    .bind(
+      id,
+      title,
+      artist,
+      cover_url,
+      model_3d_url,
+      typeof palette_colors === "string" ? palette_colors : JSON.stringify(palette_colors),
+      release_year,
+      genre,
+      type
+    )
+    .run();
+
+  return c.json({ success: true, message: `Đã tạo ${type.toUpperCase()} thành công: ${title}!`, id });
+});
+
+app.put("/api/admin/albums/:id", async (c) => {
+  const guard = await requireAdmin(c);
+  if (!guard.ok) return guard.response;
+  if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);
+
+  const id = c.req.param("id");
+  const body = await c.req.json();
+
+  const updates: string[] = [];
+  const values: any[] = [];
+
+  const allowed = ["title", "artist", "cover_url", "model_3d_url", "release_year", "genre", "type"];
+  for (const field of allowed) {
+    if (body[field] !== undefined) {
+      updates.push(`${field} = ?`);
+      values.push(body[field]);
+    }
+  }
+  if (body.palette_colors !== undefined) {
+    updates.push("palette_colors = ?");
+    values.push(typeof body.palette_colors === "string" ? body.palette_colors : JSON.stringify(body.palette_colors));
+  }
+
+  if (updates.length === 0) return c.json({ success: true, message: "Không có thay đổi" });
+
+  values.push(id);
+  await c.env.DB.prepare(`UPDATE albums SET ${updates.join(", ")} WHERE id = ?`).bind(...values).run();
+  return c.json({ success: true, message: "Đã cập nhật Album thành công!" });
+});
+
+app.delete("/api/admin/albums/:id", async (c) => {
+  const guard = await requireAdmin(c);
+  if (!guard.ok) return guard.response;
+  if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);
+
+  const id = c.req.param("id");
+  // Cascade delete child tracks
+  await c.env.DB.prepare("DELETE FROM tracks WHERE album_id = ?").bind(id).run();
+  await c.env.DB.prepare("DELETE FROM albums WHERE id = ?").bind(id).run();
+
+  return c.json({ success: true, message: "Đã xóa Album và toàn bộ tracks liên kết thành công!" });
+});
+
+// Seed 30 HVL tracks and Album into Cloudflare D1
+app.post("/api/admin/seed-hvl", async (c) => {
+  const guard = await requireAdmin(c);
+  if (!guard.ok) return guard.response;
+  if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);
+
+  try {
+    // 1. Seed HVL Album
+    await c.env.DB.prepare(`
+      INSERT OR REPLACE INTO albums (id, title, artist, cover_url, model_3d_url, palette_colors, release_year, genre, type, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    `)
+      .bind(
+        "hvl-99",
+        "HVL (99%)",
+        "MCK",
+        HVL_COVER,
+        `${R2_BASE}/models/hvl_vinyl_case.glb`,
+        JSON.stringify({ primary: "#6366f1", secondary: "#ec4899", accent: "#8b5cf6", glow: "rgba(99, 102, 241, 0.45)" }),
+        2024,
+        "Hip-Hop / R&B / Melodic Rap",
+        "album"
+      )
+      .run();
+
+    // 2. Seed all 30 MCK tracks
+    for (const track of MCK_TRACKS) {
+      await c.env.DB.prepare(`
+        INSERT OR REPLACE INTO tracks (
+          id, album_id, title, artist, duration_sec, audio_url, video_url, cover_url, r2_key,
+          video_type, video_quality, audio_bitrate, lyrics_synced, bpm, mood_tier, palette_json, play_count, release_status, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      `)
+        .bind(
+          track.id,
+          "hvl-99",
+          track.title,
+          track.artist,
+          track.duration,
+          track.audioUrl,
+          track.videoUrl || null,
+          track.coverUrl,
+          track.r2Key || null,
+          "r2_master",
+          "4K MASTER",
+          "24-BIT / 96kHz Lossless FLAC",
+          "",
+          120,
+          "melodic_ambient",
+          JSON.stringify(track.palette),
+          Math.floor(Math.random() * 500) + 100,
+          "live"
+        )
+        .run();
+    }
+
+    // 3. Seed Vault Slots if empty
+    const slotCount: any = await c.env.DB.prepare("SELECT COUNT(*) as cnt FROM vault_slots").first();
+    if (!slotCount || slotCount.cnt === 0) {
+      const defaultSlots = [
+        { id: "slot-1", slot_number: 1, album_id: "hvl-99", title: "HVL (99%)", artist: "MCK", cover_url: HVL_COVER, badge: "Master Lossless", status: "live" },
+        { id: "slot-2", slot_number: 2, album_id: null, title: "VAULT SLOT 02", artist: "Lossless Ready", cover_url: "", badge: "Lossless Ready", status: "coming_soon" },
+        { id: "slot-3", slot_number: 3, album_id: null, title: "VAULT SLOT 03", artist: "Lossless Ready", cover_url: "", badge: "Locked", status: "locked" },
+        { id: "slot-4", slot_number: 4, album_id: null, title: "VAULT SLOT 04", artist: "Lossless Ready", cover_url: "", badge: "Locked", status: "locked" },
+        { id: "slot-5", slot_number: 5, album_id: null, title: "VAULT SLOT 05", artist: "Lossless Ready", cover_url: "", badge: "Locked", status: "locked" }
+      ];
+      for (const s of defaultSlots) {
+        await c.env.DB.prepare(`
+          INSERT OR REPLACE INTO vault_slots (id, slot_number, album_id, title, artist, cover_url, badge, status, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `).bind(s.id, s.slot_number, s.album_id, s.title, s.artist, s.cover_url, s.badge, s.status).run();
+      }
+    }
+
+    // 4. Seed default sections if empty
+    const secCount: any = await c.env.DB.prepare("SELECT COUNT(*) as cnt FROM home_sections").first();
+    if (!secCount || secCount.cnt === 0) {
+      const defaultSections = [
+        {
+          id: "sec-album-showcase",
+          title: "HVL (99%) Showcase",
+          template_type: "album_showcase",
+          order_index: 1,
+          is_enabled: 1,
+          config: {
+            album_id: "hvl-99",
+            title: "HVL (99%)",
+            artist: "MCK",
+            cover_url: HVL_COVER,
+            description: "Album phòng thu đầu tay gồm 30 bài hát Lossless FLAC độc quyền."
+          }
+        },
+        {
+          id: "sec-cover-flow",
+          title: "Vault Slots 3D Cover Flow",
+          template_type: "cover_flow",
+          order_index: 2,
+          is_enabled: 1,
+          config: { slots_count: 5 }
+        },
+        {
+          id: "sec-explore-universe",
+          title: "Explore Universe Portal",
+          template_type: "explore_universe",
+          order_index: 3,
+          is_enabled: 1,
+          config: {
+            headline: "EXPLORE UNIVERSE",
+            subtext: "Không gian âm nhạc mở rộng đang được kết nối với hệ sinh thái streaming độc quyền."
+          }
+        }
+      ];
+      for (const sec of defaultSections) {
+        await c.env.DB.prepare(`
+          INSERT INTO home_sections (id, title, template_type, order_index, is_enabled, config_json, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        `).bind(sec.id, sec.title, sec.template_type, sec.order_index, sec.is_enabled, JSON.stringify(sec.config)).run();
+      }
+    }
+
+    return c.json({ success: true, message: "🎉 Đã đồng bộ thành công Album HVL (99%) và 30 Lossless Tracks vào Cloudflare D1!" });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
 });
 
 // --- ADMIN TRACKS & MEDIA MANAGEMENT ---

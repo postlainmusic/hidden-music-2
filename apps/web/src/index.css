@@ -41,14 +41,43 @@ html, body, #root {
   overflow: hidden;
 }
 
-/* Hide scrollbars everywhere */
+/* Default scrollbar reset */
 ::-webkit-scrollbar {
-  display: none;
+  width: 6px;
+  height: 6px;
 }
 
-* {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+/* Custom Scrollable Viewport for Admin Portal & Content Pages */
+.admin-scroll-viewport {
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  width: 100vw !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  position: relative;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(99, 102, 241, 0.4) rgba(5, 5, 8, 0.8) !important;
+}
+
+.admin-scroll-viewport::-webkit-scrollbar {
+  display: block !important;
+  width: 8px !important;
+}
+
+.admin-scroll-viewport::-webkit-scrollbar-track {
+  background: rgba(5, 5, 8, 0.8);
+}
+
+.admin-scroll-viewport::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.45);
+  border-radius: 999px;
+  border: 2px solid rgba(5, 5, 8, 0.8);
+}
+
+.admin-scroll-viewport::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 85, 247, 0.7);
 }
 
 body {

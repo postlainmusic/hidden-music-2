@@ -12,8 +12,24 @@ export interface TrackPalette {
 
 export type ReleaseType = "album" | "ep" | "single";
 
+export interface Album {
+  id: string;
+  title: string;
+  artist: string;
+  cover_url: string;
+  type: ReleaseType;
+  release_year?: number;
+  genre?: string;
+  model_3d_url?: string;
+  palette_colors?: string;
+  track_count?: number;
+  created_at?: string;
+  tracks?: Track[];
+}
+
 export interface Track {
   id: string;
+  album_id?: string;
   title: string;
   artist: string;
   album: string;
@@ -517,6 +533,8 @@ interface AudioState {
   sections: HomeSection[];
   topFavoriteTracks: Track[];
   vaultSlots: VaultSlot[];
+  albums: Album[];
+  selectedAlbum: Album | null;
 
   // Actions
   playTrack: (track: Track, options?: { crossfade?: boolean }) => void;
@@ -540,6 +558,10 @@ interface AudioState {
   loadSections: () => Promise<void>;
   loadTopFavorites: () => Promise<void>;
   loadVaultSlots: () => Promise<void>;
+  loadAlbums: () => Promise<void>;
+  loadTracks: (albumId?: string) => Promise<void>;
+  selectAlbum: (album: Album | null) => void;
+  seedHvlToD1: () => Promise<{ success: boolean; message: string }>;
 }
 
 // Apply dynamic theme color variables on root DOM
@@ -594,12 +616,16 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     DEFAULT_TRACKS[19]
   ],
   vaultSlots: [],
+  albums: [],
+  selectedAlbum: null,
 
   initAudioEngine: () => {
     updateCssTheme(DEFAULT_TRACKS[0].palette);
     studioBeatEngine.setTrack(DEFAULT_TRACKS[0].title, DEFAULT_TRACKS[0].bpm);
 
-    // Initial fetch of sections, top favorites & vault slots
+    // Initial fetch of albums, tracks, sections, top favorites & vault slots
+    get().loadAlbums();
+    get().loadTracks();
     get().loadSections();
     get().loadTopFavorites();
     get().loadVaultSlots();
@@ -857,6 +883,84 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       }
     } catch (err) {
       console.warn("Load vault slots fallback:", err);
+    }
+  },
+
+  loadAlbums: async () => {
+    try {
+      const res = await fetch("https://hidden-music-api.postlain-music.workers.dev/api/albums");
+      const data = await res.json();
+      if (data.success && Array.isArray(data.albums) && data.albums.length > 0) {
+        set({ albums: data.albums });
+      }
+    } catch (err) {
+      console.warn("Load albums notice:", err);
+    }
+  },
+
+  loadTracks: async (albumId?: string) => {
+    try {
+      const url = albumId
+        ? `https://hidden-music-api.postlain-music.workers.dev/api/albums/${albumId}/tracks`
+        : "https://hidden-music-api.postlain-music.workers.dev/api/tracks";
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.tracks) && data.tracks.length > 0) {
+        const mapped = data.tracks.map((t: any) => {
+          let pal = { primary: "#6366f1", secondary: "#ec4899", accent: "#8b5cf6", glow: "rgba(99, 102, 241, 0.45)" };
+          if (t.palette_json) {
+            try { pal = JSON.parse(t.palette_json); } catch {}
+          } else if (t.palette) {
+            pal = t.palette;
+          }
+          return {
+            id: t.id,
+            album_id: t.album_id || "hvl-99",
+            title: t.title,
+            artist: t.artist || "MCK",
+            album: t.album || "HVL",
+            duration: t.duration_sec || t.duration || 200,
+            coverUrl: t.cover_url || t.coverUrl || HVL_COVER,
+            audioUrl: t.audio_url || t.audioUrl,
+            videoUrl: t.video_url || t.videoUrl,
+            r2Key: t.r2_key || t.r2Key,
+            palette: pal,
+            genre: t.genre || t.mood_tier || "Melodic Rap",
+            bpm: t.bpm || 120
+          };
+        });
+        set({ queue: mapped });
+        if (!get().currentTrack && mapped.length > 0) {
+          set({ currentTrack: mapped[0], duration: mapped[0].duration });
+        }
+      }
+    } catch (err) {
+      console.warn("Load tracks notice:", err);
+    }
+  },
+
+  selectAlbum: (album: Album | null) => {
+    set({ selectedAlbum: album });
+  },
+
+  seedHvlToD1: async () => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("vault_token") : null;
+    try {
+      const res = await fetch("https://hidden-music-api.postlain-music.workers.dev/api/admin/seed-hvl", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        await Promise.all([get().loadAlbums(), get().loadTracks(), get().loadSections(), get().loadVaultSlots()]);
+        return { success: true, message: data.message || "Đồng bộ thành công!" };
+      }
+      return { success: false, message: data.error || "Lỗi đồng bộ D1" };
+    } catch (err: any) {
+      return { success: false, message: err.message || "Không thể kết nối đến Cloudflare D1" };
     }
   }
 }));
