@@ -345,7 +345,178 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
     }
   }, [selectedAlbumId]);
 
-  // Integrated URL Ingestion Handler
+  // 4. Save Track (Create or Update)
+  const handleSaveTrack = async () => {
+    if (!trackForm.title.trim() || !trackForm.audio_url.trim()) {
+      showToast("Vui lòng nhập đầy đủ Tên bài hát và Đường dẫn âm thanh (audio_url)");
+      return;
+    }
+
+    try {
+      const isEdit = !!editingTrack;
+      const trackId = isEdit ? editingTrack.id : (trackForm.id.trim() || `track-${Date.now().toString(36)}`);
+      const url = isEdit ? `${API_BASE}/api/admin/tracks/${editingTrack.id}` : `${API_BASE}/api/admin/tracks`;
+      const method = isEdit ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          id: trackId,
+          album_id: selectedAlbumId,
+          title: trackForm.title.trim(),
+          artist: trackForm.artist.trim() || "MCK",
+          duration_sec: Number(trackForm.duration_sec) || 200,
+          audio_url: trackForm.audio_url.trim(),
+          video_url: trackForm.video_url?.trim() || null,
+          cover_url: currentAlbum?.cover_url || HVL_COVER,
+          bpm: Number(trackForm.bpm) || 120,
+          genre: trackForm.genre?.trim() || "Melodic Rap",
+          lyrics_synced: trackForm.lyrics_synced || ""
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showToast(isEdit ? `Đã cập nhật bài hát "${trackForm.title}"!` : `Đã thêm bài hát "${trackForm.title}" vào Album!`);
+        setIsNewTrackModalOpen(false);
+        setEditingTrack(null);
+        setTrackForm({
+          id: "",
+          title: "",
+          artist: "MCK",
+          duration_sec: 200,
+          audio_url: "",
+          video_url: "",
+          bpm: 120,
+          genre: "Melodic Rap",
+          lyrics_synced: ""
+        });
+        await fetchAlbumTracks(selectedAlbumId);
+        loadTracks();
+      } else {
+        showToast(data.error || "Lỗi lưu bài hát vào D1");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Lỗi kết nối");
+    }
+  };
+
+  // 5. Delete Track
+  const handleDeleteTrack = async (trackId: string, title: string) => {
+    if (!window.confirm(`Xóa bài hát "${title}" khỏi bản phát hành?`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/tracks/${trackId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Đã xóa bài hát "${title}"!`);
+        await fetchAlbumTracks(selectedAlbumId);
+        loadTracks();
+      } else {
+        showToast(data.error || "Lỗi xóa bài hát");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Lỗi xóa bài hát");
+    }
+  };
+
+  // 6. Inline Save Track Title
+  const handleSaveInlineTrack = async (track: Track) => {
+    if (!inlineTrackTitle.trim()) {
+      setInlineEditingTrackId(null);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/tracks/${track.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ title: inlineTrackTitle.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Đã lưu tên bài: ${inlineTrackTitle}`);
+        setInlineEditingTrackId(null);
+        await fetchAlbumTracks(selectedAlbumId);
+        loadTracks();
+      }
+    } catch (err: any) {
+      showToast(err.message || "Lỗi lưu bài hát");
+    }
+  };
+
+  // 7. Save New Album / Release
+  const handleSaveAlbum = async () => {
+    if (!albumForm.title.trim()) {
+      showToast("Vui lòng nhập tên Bản phát hành / Album");
+      return;
+    }
+
+    try {
+      const albumId = albumForm.id.trim() || `alb-${Date.now().toString(36)}`;
+      const res = await fetch(`${API_BASE}/api/admin/albums`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          id: albumId,
+          title: albumForm.title.trim(),
+          artist: albumForm.artist.trim() || "MCK",
+          cover_url: albumForm.cover_url.trim() || HVL_COVER,
+          type: albumForm.type || "album",
+          release_year: Number(albumForm.release_year) || new Date().getFullYear(),
+          genre: albumForm.genre.trim() || "Melodic Rap / R&B"
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Đã tạo bản phát hành "${albumForm.title}" thành công!`);
+        setIsNewAlbumModalOpen(false);
+        setAlbumForm({
+          id: "",
+          title: "",
+          artist: "MCK",
+          cover_url: HVL_COVER,
+          type: "album",
+          release_year: new Date().getFullYear(),
+          genre: "Melodic Rap / R&B"
+        });
+        await fetchAlbums();
+        setSelectedAlbumId(albumId);
+        loadAlbums();
+      } else {
+        showToast(data.error || "Lỗi tạo Album");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Lỗi kết nối");
+    }
+  };
+
+  // 8. Auto-Fetch Synced Lyrics From LRCLIB into Form
+  const handleFetchLyricsForForm = async () => {
+    if (!trackForm.title.trim()) {
+      showToast("Vui lòng nhập Tên bài hát trước khi tìm lời");
+      return;
+    }
+
+    try {
+      showToast(`Đang tìm kiếm lời bài hát synced cho "${trackForm.title}"...`);
+      const res = await fetch(`${API_BASE}/api/admin/lyrics/fetch?artist=${encodeURIComponent(trackForm.artist || "MCK")}&title=${encodeURIComponent(trackForm.title)}`);
+      const data = await res.json();
+      if (data.success && data.syncedLyrics) {
+        setTrackForm({ ...trackForm, lyrics_synced: data.syncedLyrics });
+        showToast(`⚡ Đã tự động nạp lời bài hát Synced từ LRCLIB!`);
+      } else {
+        showToast("Không tìm thấy lời bài hát khớp trên LRCLIB");
+      }
+    } catch (e: any) {
+      showToast("Lỗi tìm kiếm lời bài hát");
+    }
+  };
+
+  // 9. Real URL Ingestion Handler (YouTube / SoundCloud / R2 / Direct Stream)
   const handleIngestUrlToAlbum = async () => {
     if (!externalUrl.trim()) {
       showToast("Vui lòng nhập đường link bài hát (YouTube / SoundCloud / R2 Stream)");
@@ -354,20 +525,21 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
 
     setIsExtracting(true);
     try {
-      let title = "Bản Thu Mới";
-      let duration = 210;
-      let audioUrl = externalUrl;
+      showToast("Đang bóc tách metadata từ URL & tìm kiếm lời bài hát Synced...");
+      const metaRes = await fetch(`${API_BASE}/api/admin/extract-metadata`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ url: externalUrl.trim() })
+      });
+      const meta = await metaRes.json();
 
-      // Smart YouTube / URL parser
-      if (externalUrl.includes("youtube.com") || externalUrl.includes("youtu.be")) {
-        title = "Track " + (selectedAlbumTracks.length + 1) + " (YouTube Import)";
-        audioUrl = externalUrl;
-      } else if (externalUrl.includes("soundcloud.com")) {
-        title = "Track " + (selectedAlbumTracks.length + 1) + " (SoundCloud Import)";
-      } else {
-        const parts = externalUrl.split("/").pop() || "Audio Track";
-        title = decodeURIComponent(parts.replace(/\.[^/.]+$/, ""));
-      }
+      let title = meta.title || "Bản Thu Mới";
+      let artist = meta.artist || currentAlbum?.artist || "MCK";
+      let coverUrl = meta.coverUrl || currentAlbum?.cover_url || HVL_COVER;
+      let audioUrl = meta.audioUrl || externalUrl.trim();
+      let videoUrl = meta.videoUrl || (externalUrl.includes("youtube") ? externalUrl.trim() : null);
+      let duration = Number(meta.duration) || 215;
+      let lyricsSynced = meta.lyricsSynced || "";
 
       const newTrackId = `track-${Date.now().toString(36)}`;
       const res = await fetch(`${API_BASE}/api/admin/tracks`, {
@@ -376,11 +548,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
         body: JSON.stringify({
           id: newTrackId,
           album_id: selectedAlbumId,
-          title: title,
-          artist: "MCK",
+          title,
+          artist,
           duration_sec: duration,
           audio_url: audioUrl,
-          cover_url: HVL_COVER,
+          video_url: videoUrl,
+          cover_url: coverUrl,
+          lyrics_synced: lyricsSynced,
           bpm: 120,
           genre: "Melodic Rap"
         })
@@ -388,7 +562,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
 
       const data = await res.json();
       if (data.success) {
-        showToast(`Đã bóc tách & nạp bài hát "${title}" vào Album thành công!`);
+        showToast(`⚡ Đã bóc tách & nạp thành công: "${title}" (${artist}) ${lyricsSynced ? "kèm Lời Synced!" : ""}`);
         setExternalUrl("");
         setShowLinkIngestionBar(false);
         await fetchAlbumTracks(selectedAlbumId);
@@ -1856,8 +2030,308 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
           </motion.div>
         )}
       </AnimatePresence>
+      {/* ══════════════════════════════════════════════════════════════════════════
+          MODAL: THÊM / CHỈNH SỬA BÀI HÁT & LỜI SYNCED (LRC EDITOR)
+      ══════════════════════════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {isNewTrackModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.8)",
+              backdropFilter: "blur(16px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 10000,
+              padding: "20px"
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.94, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.94, opacity: 0 }}
+              style={{
+                width: "100%",
+                maxWidth: "680px",
+                maxHeight: "88vh",
+                overflowY: "auto",
+                backgroundColor: "#0d0d14",
+                borderRadius: "24px",
+                border: "1px solid rgba(255, 255, 255, 0.15)",
+                padding: "28px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "18px"
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 900 }}>
+                    {editingTrack ? `Chỉnh Sửa Bài Hát: ${editingTrack.title}` : `Thêm Bài Hát Mới vào ${currentAlbum?.title}`}
+                  </h3>
+                  <span style={{ fontSize: "0.75rem", color: "#a5b4fc", fontWeight: 700 }}>
+                    Album: {currentAlbum?.title} ({currentAlbum?.artist})
+                  </span>
+                </div>
+                <button
+                  onClick={() => setIsNewTrackModalOpen(false)}
+                  style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer" }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Track Form Inputs */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <div>
+                    <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Tên Bài Hát *</label>
+                    <input
+                      type="text"
+                      placeholder="VD: 02. IDK"
+                      value={trackForm.title}
+                      onChange={(e) => setTrackForm({ ...trackForm, title: e.target.value })}
+                      style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Nghệ Sĩ Trình Bày</label>
+                    <input
+                      type="text"
+                      placeholder="VD: MCK"
+                      value={trackForm.artist}
+                      onChange={(e) => setTrackForm({ ...trackForm, artist: e.target.value })}
+                      style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Đường dẫn Âm thanh (Audio Stream URL / R2) *</label>
+                  <input
+                    type="text"
+                    placeholder="https://media.postlain.com/audio/02.%20IDK.flac hoặc YouTube / SoundCloud"
+                    value={trackForm.audio_url}
+                    onChange={(e) => setTrackForm({ ...trackForm, audio_url: e.target.value })}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
+                  />
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <div>
+                    <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>URL Video MV 4K (Tùy chọn)</label>
+                    <input
+                      type="text"
+                      placeholder="https://media.postlain.com/videos/...mkv"
+                      value={trackForm.video_url || ""}
+                      onChange={(e) => setTrackForm({ ...trackForm, video_url: e.target.value })}
+                      style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Thời Lượng (Giây)</label>
+                    <input
+                      type="number"
+                      placeholder="215"
+                      value={trackForm.duration_sec}
+                      onChange={(e) => setTrackForm({ ...trackForm, duration_sec: Number(e.target.value) || 200 })}
+                      style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
+                    />
+                  </div>
+                </div>
+
+                {/* ── REAL-TIME SYNCHRONIZED LYRICS (LRC) SECTION ── */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>
+                      Lời Bài Hát Đồng Bộ (Synchronized LRC Lyrics)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleFetchLyricsForForm}
+                      style={{
+                        padding: "4px 10px",
+                        borderRadius: "8px",
+                        backgroundColor: "rgba(99, 102, 241, 0.2)",
+                        border: "1px solid rgba(99, 102, 241, 0.4)",
+                        color: "#a5b4fc",
+                        fontSize: "0.72rem",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px"
+                      }}
+                    >
+                      <Sparkles size={12} />
+                      <span>⚡ Tìm Lời Synced Tự Động</span>
+                    </button>
+                  </div>
+
+                  <textarea
+                    rows={6}
+                    placeholder="[00:12.34] Lời bài hát theo timestamp...\n[00:16.80] Dòng tiếp theo..."
+                    value={trackForm.lyrics_synced || ""}
+                    onChange={(e) => setTrackForm({ ...trackForm, lyrics_synced: e.target.value })}
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      borderRadius: "10px",
+                      backgroundColor: "rgba(0, 0, 0, 0.5)",
+                      border: "1px solid rgba(255, 255, 255, 0.12)",
+                      color: "#34d399",
+                      fontFamily: "monospace",
+                      fontSize: "0.8rem",
+                      lineHeight: 1.5
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Track Save Action */}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "8px" }}>
+                <button
+                  onClick={() => setIsNewTrackModalOpen(false)}
+                  style={{ padding: "10px 20px", borderRadius: "10px", backgroundColor: "rgba(255, 255, 255, 0.08)", border: "1px solid rgba(255, 255, 255, 0.15)", color: "#fff", fontWeight: 700, cursor: "pointer" }}
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleSaveTrack}
+                  style={{ padding: "10px 24px", borderRadius: "10px", backgroundColor: "#6366f1", border: "none", color: "#fff", fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  <Save size={16} />
+                  <span>{editingTrack ? "Lưu Cập Nhật" : "Thêm Bài Hát Vào D1"}</span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ══════════════════════════════════════════════════════════════════════════
+          MODAL: TẠO BẢN PHÁT HÀNH MỚI (ALBUM / SINGLE / EP)
+      ══════════════════════════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {isNewAlbumModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.8)",
+              backdropFilter: "blur(16px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 10000,
+              padding: "20px"
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.94, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.94, opacity: 0 }}
+              style={{
+                width: "100%",
+                maxWidth: "560px",
+                backgroundColor: "#0d0d14",
+                borderRadius: "24px",
+                border: "1px solid rgba(255, 255, 255, 0.15)",
+                padding: "28px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "18px"
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 900 }}>Tạo Bản Phát Hành Mới (D1)</h3>
+                <button
+                  onClick={() => setIsNewAlbumModalOpen(false)}
+                  style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer" }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <div>
+                  <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Tên Bản Phát Hành (Album / Single / EP) *</label>
+                  <input
+                    type="text"
+                    placeholder="VD: HVL (99%) hoặc Chuyến Bay Không Gian"
+                    value={albumForm.title}
+                    onChange={(e) => setAlbumForm({ ...albumForm, title: e.target.value })}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
+                  />
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <div>
+                    <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Nghệ Sĩ</label>
+                    <input
+                      type="text"
+                      placeholder="MCK"
+                      value={albumForm.artist}
+                      onChange={(e) => setAlbumForm({ ...albumForm, artist: e.target.value })}
+                      style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>Loại Phát Hành</label>
+                    <select
+                      value={albumForm.type}
+                      onChange={(e) => setAlbumForm({ ...albumForm, type: e.target.value as ReleaseType })}
+                      style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "#1e1e2d", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
+                    >
+                      <option value="album">Album</option>
+                      <option value="single">Single (Đĩa Đơn)</option>
+                      <option value="ep">EP (Đĩa Mở Rộng)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>URL Ảnh Bìa Cover</label>
+                  <input
+                    type="text"
+                    placeholder="https://media.postlain.com/covers/..."
+                    value={albumForm.cover_url}
+                    onChange={(e) => setAlbumForm({ ...albumForm, cover_url: e.target.value })}
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#fff", marginTop: "4px" }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "8px" }}>
+                <button
+                  onClick={() => setIsNewAlbumModalOpen(false)}
+                  style={{ padding: "10px 20px", borderRadius: "10px", backgroundColor: "rgba(255, 255, 255, 0.08)", border: "1px solid rgba(255, 255, 255, 0.15)", color: "#fff", fontWeight: 700, cursor: "pointer" }}
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleSaveAlbum}
+                  style={{ padding: "10px 24px", borderRadius: "10px", backgroundColor: "#6366f1", border: "none", color: "#fff", fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  <FolderPlus size={16} />
+                  <span>Tạo Bản Phát Hành</span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
 
 export default AdminPortal;
+
