@@ -51,8 +51,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
 
   const [activeSectionIndex, setActiveSectionIndex] = useState<number>(0);
 
-  // Section 1 State: "center" (Bìa nằm giữa) | "revealed" (Bìa trượt sang trái + 5 bài hát bên phải)
-  const [sec1Stage, setSec1Stage] = useState<"center" | "revealed">("center");
+  // Section 1 State: "revealed" (Bìa trượt sang trái + 5 bài hát bên phải) - Automatically Revealed & Fully Fluid!
+  const [sec1Stage, setSec1Stage] = useState<"center" | "revealed">("revealed");
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
   const [isCenteringForVault, setIsCenteringForVault] = useState<boolean>(false);
 
@@ -91,22 +91,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
   const handleAlbumClick = (slot?: VaultSlot) => {
     if (isTransitioning || isCenteringForVault) return;
     if (hasTouchMovedRef.current) return;
-
     if (slot && slot.status !== "live") return;
-
-    if (currentSection.template_type === "album_showcase" && sec1Stage === "revealed") {
-      setIsCenteringForVault(true);
-      setSec1Stage("center");
-
-      setTimeout(() => {
-        if (onOpen3D) onOpen3D();
-        setIsCenteringForVault(false);
-      }, 700);
-    } else if (currentSection.template_type === "album_showcase" && sec1Stage === "center") {
-      setSec1Stage("revealed");
-    } else {
-      if (onOpen3D) onOpen3D();
-    }
+    if (onOpen3D) onOpen3D();
   };
 
   const handleTrackSelect = (track: Track) => {
@@ -118,18 +104,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
   const handleScrollDown = () => {
     if (isTransitioning || isCenteringForVault) return;
 
-    if (currentSection.template_type === "album_showcase" && sec1Stage === "center") {
-      setIsTransitioning(true);
-      setSec1Stage("revealed");
-      setTimeout(() => setIsTransitioning(false), 550);
-      return;
-    }
-
     if (activeSectionIndex < activeSections.length - 1) {
       setIsTransitioning(true);
-      setSec1Stage("center");
       setActiveSectionIndex((prev) => prev + 1);
-      setTimeout(() => setIsTransitioning(false), 600);
+      setTimeout(() => setIsTransitioning(false), 500);
     }
   };
 
@@ -138,21 +116,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
 
     if (activeSectionIndex > 0) {
       setIsTransitioning(true);
-      const prevIdx = activeSectionIndex - 1;
-      setActiveSectionIndex(prevIdx);
-      if (activeSections[prevIdx]?.template_type === "album_showcase") {
-        setSec1Stage("revealed");
-      } else {
-        setSec1Stage("center");
-      }
-      setTimeout(() => setIsTransitioning(false), 600);
-      return;
-    }
-
-    if (currentSection.template_type === "album_showcase" && sec1Stage === "revealed") {
-      setIsTransitioning(true);
-      setSec1Stage("center");
-      setTimeout(() => setIsTransitioning(false), 550);
+      setActiveSectionIndex((prev) => prev - 1);
+      setTimeout(() => setIsTransitioning(false), 500);
     }
   };
 

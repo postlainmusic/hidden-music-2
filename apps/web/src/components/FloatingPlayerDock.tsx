@@ -132,33 +132,33 @@ export const FloatingPlayerDock: React.FC = () => {
     const loop = () => {
       const beatState = studioBeatEngine.getBeatState();
 
-      // 1. Full Monolith Dock Audio-Reactive Chớp Nảy & Hào Quang
+      // 1. Full Monolith Dock Audio-Reactive Chớp Nảy & Hào Quang (Velvety Red & Indigo, ZERO White Blast)
       if (mainDockBarRef.current) {
         if (beatState.isSnareHit || beatState.snareStrobe > 0.35) {
-          // Snare Hit: Blinding Silver-White Diamond Flash + Micro Bounce
-          mainDockBarRef.current.style.borderColor = "rgba(255, 255, 255, 1.0)";
+          // Snare: Sleek Indigo Velvet Accent
+          mainDockBarRef.current.style.borderColor = "rgba(129, 140, 248, 0.85)";
           mainDockBarRef.current.style.boxShadow =
-            "0 30px 90px rgba(0, 0, 0, 0.98), 0 0 50px rgba(255, 255, 255, 0.85), inset 0 0 25px rgba(255, 255, 255, 0.40)";
-          mainDockBarRef.current.style.transform = "scale(1.012)";
-          if (topSpecularRef.current) topSpecularRef.current.style.opacity = "1.0";
+            "0 30px 90px rgba(0, 0, 0, 0.98), 0 0 35px rgba(99, 102, 241, 0.60), inset 0 0 15px rgba(99, 102, 241, 0.25)";
+          mainDockBarRef.current.style.transform = "scale(1.008)";
+          if (topSpecularRef.current) topSpecularRef.current.style.opacity = "0.75";
         } else if (beatState.isKickHit || beatState.isKickRoll || beatState.kickImpact > 0.35) {
           // Kick / 808 Hit: Blazing Crimson Red Flash + Micro Bounce
-          mainDockBarRef.current.style.borderColor = "rgba(239, 68, 68, 1.0)";
+          mainDockBarRef.current.style.borderColor = "rgba(239, 68, 68, 0.90)";
           mainDockBarRef.current.style.boxShadow =
-            "0 30px 90px rgba(0, 0, 0, 0.98), 0 0 55px rgba(239, 68, 68, 0.90), inset 0 0 25px rgba(239, 68, 68, 0.35)";
-          mainDockBarRef.current.style.transform = "scale(1.015)";
-          if (topSpecularRef.current) topSpecularRef.current.style.opacity = "0.85";
+            "0 30px 90px rgba(0, 0, 0, 0.98), 0 0 40px rgba(239, 68, 68, 0.70), inset 0 0 18px rgba(239, 68, 68, 0.25)";
+          mainDockBarRef.current.style.transform = "scale(1.012)";
+          if (topSpecularRef.current) topSpecularRef.current.style.opacity = "0.80";
         } else if (beatState.subImpact > 0.25) {
           // Sub-Bass Breathing Glow
-          mainDockBarRef.current.style.borderColor = "rgba(220, 38, 38, 0.75)";
+          mainDockBarRef.current.style.borderColor = "rgba(220, 38, 38, 0.70)";
           mainDockBarRef.current.style.boxShadow =
-            "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 35px rgba(220, 38, 38, 0.65)";
-          mainDockBarRef.current.style.transform = "scale(1.005)";
-          if (topSpecularRef.current) topSpecularRef.current.style.opacity = "0.5";
+            "0 30px 80px rgba(0, 0, 0, 0.95), 0 0 28px rgba(220, 38, 38, 0.50)";
+          mainDockBarRef.current.style.transform = "scale(1.004)";
+          if (topSpecularRef.current) topSpecularRef.current.style.opacity = "0.45";
         } else {
           mainDockBarRef.current.style.borderColor = isPlaying ? "rgba(239, 68, 68, 0.40)" : "rgba(255, 255, 255, 0.16)";
           mainDockBarRef.current.style.boxShadow =
-            "0 25px 60px rgba(0, 0, 0, 0.95), 0 0 25px rgba(239, 68, 68, 0.20)";
+            "0 25px 60px rgba(0, 0, 0, 0.95), 0 0 20px rgba(239, 68, 68, 0.18)";
           mainDockBarRef.current.style.transform = "scale(1.0)";
           if (topSpecularRef.current) topSpecularRef.current.style.opacity = "0.35";
         }

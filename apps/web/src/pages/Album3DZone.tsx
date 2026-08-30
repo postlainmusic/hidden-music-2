@@ -152,20 +152,20 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault, onOpenV
       const effectiveKick = Math.max(kickImpact, kickRollIntensity);
       const snarePower = beatState.snareImpact || beatState.snareStrobe;
 
-      // 2A. Snare Hit: Blinding Silver-White / Diamond Anamorphic Lens Flare
+      // 2A. Snare Hit: Subtle High-Frequency Indigo Sheen (Soft & Non-Jarring)
       if (snarePower > 0.15 && isPlaying) {
-        const snareWidth = Math.min(width, height) * (1.1 + snarePower * 0.45);
+        const snareWidth = Math.min(width, height) * (0.85 + snarePower * 0.3);
         const snareGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, snareWidth * 0.5);
-        const snareAlpha = Math.min(0.92, 0.45 + snarePower * 0.50);
+        const snareAlpha = Math.min(0.35, 0.1 + snarePower * 0.25);
 
-        snareGrad.addColorStop(0, `rgba(255, 255, 255, ${snareAlpha.toFixed(3)})`);
-        snareGrad.addColorStop(0.30, `rgba(224, 231, 255, ${(snareAlpha * 0.7).toFixed(3)})`);
-        snareGrad.addColorStop(0.65, `rgba(165, 180, 252, ${(snareAlpha * 0.25).toFixed(3)})`);
+        snareGrad.addColorStop(0, `rgba(99, 102, 241, ${snareAlpha.toFixed(3)})`);
+        snareGrad.addColorStop(0.40, `rgba(129, 140, 248, ${(snareAlpha * 0.5).toFixed(3)})`);
+        snareGrad.addColorStop(0.80, `rgba(67, 56, 202, ${(snareAlpha * 0.1).toFixed(3)})`);
         snareGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
 
         ctx.save();
         ctx.translate(centerX, centerY);
-        ctx.scale(1.8, 0.45); // Sharp widescreen anamorphic streak
+        ctx.scale(1.4, 0.45);
         ctx.fillStyle = snareGrad;
         ctx.beginPath();
         ctx.arc(0, 0, snareWidth * 0.5, 0, Math.PI * 2);
@@ -177,7 +177,7 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault, onOpenV
       if (effectiveKick > 0.04 && isPlaying) {
         const streakWidth = Math.min(width, height) * (0.85 + effectiveKick * 0.40);
         const halationGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, streakWidth * 0.5);
-        const halationAlpha = Math.min(0.85, 0.35 + effectiveKick * 0.50);
+        const halationAlpha = Math.min(0.65, 0.25 + effectiveKick * 0.40);
 
         halationGrad.addColorStop(0, `rgba(239, 68, 68, ${halationAlpha.toFixed(3)})`);
         halationGrad.addColorStop(0.35, `rgba(220, 38, 38, ${(halationAlpha * 0.6).toFixed(3)})`);
@@ -216,37 +216,37 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault, onOpenV
 
       // Dark Crimson Halation Backlight
       if (halationBacklightRef.current) {
-        const halationPower = Math.min(1.0, subImpact * 0.6 + effectiveKick * 0.85 + snarePower * 0.5);
+        const halationPower = Math.min(0.85, subImpact * 0.5 + effectiveKick * 0.75 + snarePower * 0.35);
         halationBacklightRef.current.style.opacity = `${isPlaying ? halationPower.toFixed(2) : "0.15"}`;
-        halationBacklightRef.current.style.transform = `scale(${1.0 + effectiveKick * 0.15 + snarePower * 0.10})`;
+        halationBacklightRef.current.style.transform = `scale(${1.0 + effectiveKick * 0.12 + snarePower * 0.08})`;
       }
 
       // Cold Gothic Metallic Specular Sweep
       if (gothicSheenRef.current) {
         const sheenX = (Math.sin(t * 1.8) * 60 + 50).toFixed(1);
-        const sheenOpacity = Math.min(1.0, (beatState.vocalPresence * 0.70) + (snarePower * 0.95));
+        const sheenOpacity = Math.min(0.6, (beatState.vocalPresence * 0.40) + (snarePower * 0.5));
         gothicSheenRef.current.style.opacity = `${isPlaying ? sheenOpacity.toFixed(2) : "0"}`;
         gothicSheenRef.current.style.transform = `translateX(${sheenX}%) skewX(-25deg)`;
       }
 
-      // Front Card Gothic Obsidian Border & Snare / Kick Strobe Shadow
+      // Front Card Gothic Obsidian Border & Snare / Kick Strobe Shadow (Velvety Red & Indigo, ZERO White Blast)
       if (frontCardRef.current) {
         if (beatState.isSnareHit || snarePower > 0.4) {
-          // Snare Strobe: Crisp Diamond Silver-White
-          frontCardRef.current.style.borderColor = "rgba(255, 255, 255, 0.98)";
+          // Snare: Sleek Indigo Velvet Accent
+          frontCardRef.current.style.borderColor = "rgba(129, 140, 248, 0.85)";
           frontCardRef.current.style.boxShadow =
-            "0 35px 90px rgba(0, 0, 0, 0.98), 0 0 50px rgba(255, 255, 255, 0.85), inset 0 0 25px rgba(255, 255, 255, 0.4)";
+            "0 35px 90px rgba(0, 0, 0, 0.98), 0 0 35px rgba(99, 102, 241, 0.55), inset 0 0 15px rgba(99, 102, 241, 0.25)";
         } else if (beatState.isKickRoll || effectiveKick > 0.4) {
-          frontCardRef.current.style.borderColor = "rgba(239, 68, 68, 0.95)";
+          frontCardRef.current.style.borderColor = "rgba(239, 68, 68, 0.90)";
           frontCardRef.current.style.boxShadow =
-            "0 35px 90px rgba(0, 0, 0, 0.98), 0 0 45px rgba(239, 68, 68, 0.85), inset 0 0 20px rgba(239, 68, 68, 0.35)";
+            "0 35px 90px rgba(0, 0, 0, 0.98), 0 0 40px rgba(239, 68, 68, 0.70), inset 0 0 18px rgba(239, 68, 68, 0.25)";
         } else if (subImpact > 0.3) {
-          frontCardRef.current.style.borderColor = "rgba(185, 28, 28, 0.80)";
+          frontCardRef.current.style.borderColor = "rgba(185, 28, 28, 0.75)";
           frontCardRef.current.style.boxShadow =
-            "0 35px 90px rgba(0, 0, 0, 0.98), 0 0 35px rgba(185, 28, 28, 0.65)";
+            "0 35px 90px rgba(0, 0, 0, 0.98), 0 0 30px rgba(185, 28, 28, 0.55)";
         } else {
           frontCardRef.current.style.borderColor = isPlaying ? "rgba(220, 38, 38, 0.45)" : "rgba(255, 255, 255, 0.18)";
-          frontCardRef.current.style.boxShadow = "0 35px 90px rgba(0, 0, 0, 0.98), 0 0 25px rgba(153, 27, 27, 0.40)";
+          frontCardRef.current.style.boxShadow = "0 35px 90px rgba(0, 0, 0, 0.98), 0 0 25px rgba(153, 27, 27, 0.35)";
         }
       }
 
