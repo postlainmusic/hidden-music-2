@@ -946,17 +946,26 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   seedHvlToD1: async () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("vault_token") : null;
     try {
-      const res = await fetch("https://hidden-music-api.postlain-music.workers.dev/api/admin/seed-hvl", {
+      let res = await fetch("https://hidden-music-api.postlain-music.workers.dev/api/admin/sync-r2-to-d1", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {})
         }
       });
+      if (!res.ok) {
+        res = await fetch("https://hidden-music-api.postlain-music.workers.dev/api/admin/seed-hvl", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          }
+        });
+      }
       const data = await res.json();
       if (data.success) {
         await Promise.all([get().loadAlbums(), get().loadTracks(), get().loadSections(), get().loadVaultSlots()]);
-        return { success: true, message: data.message || "Đồng bộ thành công!" };
+        return { success: true, message: data.message || "Đồng bộ R2 với D1 thành công!" };
       }
       return { success: false, message: data.error || "Lỗi đồng bộ D1" };
     } catch (err: any) {

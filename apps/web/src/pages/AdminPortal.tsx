@@ -268,8 +268,48 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
     try {
       const res = await fetch(`${API_BASE}/api/albums/${albumId}/tracks`);
       const data = await res.json();
-      if (data.success && Array.isArray(data.tracks)) {
-        setSelectedAlbumTracks(data.tracks);
+      if (data.success && Array.isArray(data.tracks) && data.tracks.length > 0) {
+        const mapped: Track[] = data.tracks.map((t: any) => ({
+          id: t.id,
+          album_id: t.album_id || albumId,
+          title: t.title,
+          artist: t.artist || "MCK",
+          album: t.album || "HVL",
+          duration: t.duration_sec || t.duration || 200,
+          coverUrl: t.cover_url || t.coverUrl || HVL_COVER,
+          audioUrl: t.audio_url || t.audioUrl,
+          videoUrl: t.video_url || t.videoUrl,
+          r2Key: t.r2_key || t.r2Key,
+          bpm: t.bpm || 120,
+          genre: t.genre || t.mood_tier || "Melodic Rap",
+          lyricsSynced: t.lyrics_synced || t.lyricsSynced || "",
+          palette: typeof t.palette_json === "string" ? JSON.parse(t.palette_json) : t.palette || { primary: "#6366f1", secondary: "#ec4899", accent: "#8b5cf6", glow: "rgba(99, 102, 241, 0.45)" }
+        }));
+        setSelectedAlbumTracks(mapped);
+      } else {
+        // Fallback to /api/tracks if album_id tracks is empty
+        const allRes = await fetch(`${API_BASE}/api/tracks`);
+        const allData = await allRes.json();
+        if (allData.success && Array.isArray(allData.tracks)) {
+          const filtered = allData.tracks.filter((t: any) => !t.album_id || t.album_id === albumId || albumId === "hvl-99");
+          const mapped: Track[] = filtered.map((t: any) => ({
+            id: t.id,
+            album_id: t.album_id || albumId,
+            title: t.title,
+            artist: t.artist || "MCK",
+            album: t.album || "HVL",
+            duration: t.duration_sec || t.duration || 200,
+            coverUrl: t.cover_url || t.coverUrl || HVL_COVER,
+            audioUrl: t.audio_url || t.audioUrl,
+            videoUrl: t.video_url || t.videoUrl,
+            r2Key: t.r2_key || t.r2Key,
+            bpm: t.bpm || 120,
+            genre: t.genre || t.mood_tier || "Melodic Rap",
+            lyricsSynced: t.lyrics_synced || t.lyricsSynced || "",
+            palette: typeof t.palette_json === "string" ? JSON.parse(t.palette_json) : t.palette || { primary: "#6366f1", secondary: "#ec4899", accent: "#8b5cf6", glow: "rgba(99, 102, 241, 0.45)" }
+          }));
+          setSelectedAlbumTracks(mapped);
+        }
       }
     } catch (err) {
       console.warn("Fetch album tracks notice:", err);
