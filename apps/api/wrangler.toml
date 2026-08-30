@@ -18,3 +18,14 @@ database_id = "bc9d31f0-e706-4f6c-924d-4b6243d9e6c4"
 [[r2_buckets]]
 binding = "MUSIC_ASSETS"
 bucket_name = "hidden-music-vault"
+
+# Workers Observability & Real-time Logs
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
