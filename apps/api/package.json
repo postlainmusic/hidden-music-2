@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev src/index.ts",
+    "build": "tsc --noEmit",
     "deploy": "wrangler deploy src/index.ts",
     "db:init": "wrangler d1 execute hidden_music_db --file=./src/schema.sql"
   },
