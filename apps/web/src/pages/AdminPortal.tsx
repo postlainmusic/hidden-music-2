@@ -194,9 +194,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
   };
 
   useEffect(() => {
-    fetchAdminData();
+    if (token && (currentUser?.role === "admin" || currentUser?.email === "postlainmusic@gmail.com")) {
+      fetchAdminData();
+    }
     loadSections();
-  }, []);
+  }, [token, currentUser]);
 
   // Draw 2048-slice Audio Waveform Canvas in Ingestion Bay
   useEffect(() => {
@@ -429,6 +431,114 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
       showToast("Lỗi lưu bài hát");
     }
   };
+
+  const isAdmin = currentUser?.email === "postlainmusic@gmail.com" || currentUser?.role === "admin";
+
+  if (!currentUser || !isAdmin) {
+    return (
+      <div
+        style={{
+          position: "relative",
+          minHeight: "100dvh",
+          width: "100vw",
+          backgroundColor: "#030305",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "24px",
+          textAlign: "center"
+        }}
+      >
+        <div
+          style={{
+            width: "min(92vw, 460px)",
+            padding: "36px 28px",
+            borderRadius: "28px",
+            backgroundColor: "rgba(10, 11, 16, 0.85)",
+            backdropFilter: "blur(24px)",
+            border: "1px solid rgba(99, 102, 241, 0.35)",
+            boxShadow: "0 24px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(99, 102, 241, 0.2)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "18px"
+          }}
+        >
+          <div
+            style={{
+              width: "60px",
+              height: "60px",
+              borderRadius: "50%",
+              backgroundColor: "rgba(99, 102, 241, 0.15)",
+              border: "1px solid rgba(99, 102, 241, 0.4)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#a5b4fc"
+            }}
+          >
+            <Shield size={28} />
+          </div>
+
+          <div>
+            <h2 style={{ fontSize: "1.3rem", fontWeight: 800, margin: "0 0 6px", color: "#ffffff" }}>
+              VAULT MONOLITH MATRIX
+            </h2>
+            <p style={{ fontSize: "0.84rem", color: "rgba(255, 255, 255, 0.55)", margin: 0, lineHeight: 1.5 }}>
+              Khu vực quản trị chỉ dành cho tài khoản Admin đã được phân quyền (<code style={{ color: "#a5b4fc" }}>postlainmusic@gmail.com</code>).
+            </p>
+          </div>
+
+          {!currentUser ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%", marginTop: "8px" }}>
+              <p style={{ fontSize: "0.8rem", color: "#a5b4fc", margin: 0 }}>
+                Vui lòng đăng nhập tài khoản Google của bạn tại trang chủ để mở khóa quyền Quản trị.
+              </p>
+              <button
+                onClick={onBackToVault}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  borderRadius: "999px",
+                  background: "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)",
+                  border: "none",
+                  color: "#ffffff",
+                  fontWeight: 700,
+                  fontSize: "0.88rem",
+                  cursor: "pointer"
+                }}
+              >
+                Về Trang Chủ Đăng Nhập
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%", marginTop: "8px" }}>
+              <div style={{ padding: "10px", borderRadius: "12px", backgroundColor: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.3)", color: "#fca5a5", fontSize: "0.78rem" }}>
+                Tài khoản hiện tại (<strong>{currentUser.email}</strong>) chưa được cấp quyền Quản trị viên.
+              </div>
+              <button
+                onClick={onBackToVault}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  borderRadius: "999px",
+                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                  border: "1px solid rgba(255, 255, 255, 0.2)",
+                  color: "#ffffff",
+                  fontWeight: 700,
+                  fontSize: "0.88rem",
+                  cursor: "pointer"
+                }}
+              >
+                Quay lại Vault
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -905,7 +1015,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
                     Kéo thả file Lossless FLAC / MKV vào đây
                   </h4>
                   <p style={{ margin: 0, fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.45)" }}>
-                    Hỗ trợ file FLAC 24-bit 90MB, Video MKV 500MB (Stream upload $0\text{ms}$)
+                    Hỗ trợ file FLAC 24-bit 90MB, Video MKV 500MB (Stream upload 0ms)
                   </p>
                 </div>
               </div>
@@ -1219,7 +1329,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
                   <h4 style={{ margin: 0, fontSize: "1rem" }}>Cloudflare Edge Cache</h4>
                 </div>
                 <p style={{ fontSize: "0.8rem", color: "rgba(255, 255, 255, 0.45)", margin: 0 }}>
-                  Xóa sạch cache CDN toàn cầu khi đổi file âm thanh/bìa trên R2 để người nghe nhận file mới $0\text{ms}$.
+                  Xóa sạch cache CDN toàn cầu khi đổi file âm thanh/bìa trên R2 để người nghe nhận file mới 0ms.
                 </p>
                 <button
                   onClick={handlePurgeCache}
