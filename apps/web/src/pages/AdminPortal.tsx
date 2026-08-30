@@ -432,7 +432,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
     }
   };
 
-  const isAdmin = currentUser?.email === "postlainmusic@gmail.com" || currentUser?.role === "admin";
+  const isAdmin =
+    currentUser?.role === "admin" ||
+    ["postlainmusic@gmail.com", "postlain.music@gmail.com", "studionopu@gmail.com"].includes(
+      currentUser?.email || ""
+    );
 
   if (!currentUser || !isAdmin) {
     return (

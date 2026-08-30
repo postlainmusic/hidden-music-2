@@ -26,7 +26,12 @@ app.use(
 );
 
 // Whitelisted Admin Emails for instant RBAC
-const DEFAULT_ADMIN_EMAILS = ["postlainmusic@gmail.com", "admin@postlain.com"];
+const DEFAULT_ADMIN_EMAILS = [
+  "postlainmusic@gmail.com",
+  "postlain.music@gmail.com",
+  "studionopu@gmail.com",
+  "admin@postlain.com"
+];
 
 function isAdminEmail(email: string, envAdminEmails?: string): boolean {
   if (!email) return false;
