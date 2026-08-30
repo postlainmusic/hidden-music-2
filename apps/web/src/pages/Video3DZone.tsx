@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAudioStore, Track } from "../store/audioStore";
 import { dualDeckAudioEngine } from "../audio/DualDeckAudioEngine";
@@ -15,87 +15,237 @@ import {
   Minimize2,
   ArrowLeft,
   ListMusic,
-  Loader2,
-  X
+  Disc3,
+  X,
+  Sparkles,
+  ShieldCheck,
+  Check
 } from "lucide-react";
 
 interface Video3DZoneProps {
   onBackTo3DAlbum: () => void;
 }
 
+const SPEED_OPTIONS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
 export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => {
   const { currentTrack, queue } = useAudioStore();
   const isMobile = useIsMobile();
 
-  // Local Video Track State (Completely decoupled from Audio FLAC streaming)
-  const [selectedVideoTrack, setSelectedVideoTrack] = useState<Track>(() => currentTrack || queue[0]);
+  // Local Video Track State
+  const [selectedTrack, setSelectedTrack] = useState<Track>(() => currentTrack || queue[0]);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const particlesCanvasRef = useRef<HTMLCanvasElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const particlesCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const [isVideoPlaying, setIsVideoPlaying] = useState(true);
-  const [isVideoBuffering, setIsVideoBuffering] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [ambilightColor, setAmbilightColor] = useState("rgba(99, 102, 241, 0.45)");
-  const [showControls, setShowControls] = useState(true);
-  const [isQueueOpen, setIsQueueOpen] = useState(false);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [isBuffering, setIsBuffering] = useState<boolean>(false);
+  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [duration, setDuration] = useState<number>(0);
+  const [volume, setVolume] = useState<number>(0.9);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [playbackRate, setPlaybackRate] = useState<number>(1.0);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [showControls, setShowControls] = useState<boolean>(true);
+  const [showSpeedMenu, setShowSpeedMenu] = useState<boolean>(false);
+  const [isQueueOpen, setIsQueueOpen] = useState<boolean>(false);
+  const [hoverTime, setHoverTime] = useState<number | null>(null);
+  const [hoverPosition, setHoverPosition] = useState<number>(0);
+  const [ambilightColor, setAmbilightColor] = useState<string>("rgba(99, 102, 241, 0.45)");
 
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const isDraggingSeekerRef = useRef<boolean>(false);
 
-  // 1. STRICT ISOLATION: Silence Background Audio Engine completely on Mount
+  // 1. ABSOLUTE AUDIO SOCKET TEARDOWN (Releases 100% Network Bandwidth from R2)
   useEffect(() => {
     dualDeckAudioEngine.pause();
+    try {
+      const activeAudio = dualDeckAudioEngine.getActiveAudio();
+      const idleAudio = dualDeckAudioEngine.getIdleAudio();
+      if (activeAudio) {
+        activeAudio.pause();
+        activeAudio.removeAttribute("src");
+        activeAudio.load();
+      }
+      if (idleAudio) {
+        idleAudio.pause();
+        idleAudio.removeAttribute("src");
+        idleAudio.load();
+      }
+    } catch {}
 
     return () => {
       if (videoRef.current) {
         try {
           videoRef.current.pause();
+          videoRef.current.removeAttribute("src");
+          videoRef.current.load();
         } catch {}
       }
     };
   }, []);
 
-  // Derive Video URL with safe URL encoding
-  const activeVideoUrl = useMemo(() => {
-    if (selectedVideoTrack?.videoUrl) return selectedVideoTrack.videoUrl;
-    if (selectedVideoTrack?.title) {
-      return `https://media.postlain.com/videos/${encodeURIComponent(selectedVideoTrack.title)}%20-%20MCK.mkv`;
+  // Format canonical video stream URL
+  const videoStreamUrl = useMemo(() => {
+    if (selectedTrack?.videoUrl) return selectedTrack.videoUrl;
+    if (selectedTrack?.title) {
+      return `https://media.postlain.com/videos/${encodeURIComponent(selectedTrack.title)}%20-%20MCK.mkv`;
     }
     return `https://media.postlain.com/videos/01.%20Elegie%20-%20MCK.mkv`;
-  }, [selectedVideoTrack]);
+  }, [selectedTrack]);
 
-  // Handle Video Selection from Queue (ZERO FLAC DOWNLOAD)
-  const handleSelectVideo = (track: Track) => {
-    setSelectedVideoTrack(track);
-    useAudioStore.setState({ currentTrack: track });
-    dualDeckAudioEngine.pause();
-    setIsVideoBuffering(false);
-    if (videoRef.current) {
-      videoRef.current.src = track.videoUrl || `https://media.postlain.com/videos/${encodeURIComponent(track.title)}%20-%20MCK.mkv`;
-      videoRef.current.play().catch(() => {});
+  // Format MM:SS
+  const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds) || seconds < 0) return "00:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins < 10 ? "0" : ""}${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
+
+  // Play / Pause toggle
+  const togglePlay = useCallback(() => {
+    if (!videoRef.current) return;
+    if (videoRef.current.paused) {
+      videoRef.current.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+    } else {
+      videoRef.current.pause();
+      setIsPlaying(false);
     }
+  }, []);
+
+  // Fullscreen toggle
+  const toggleFullscreen = useCallback(async () => {
+    if (!containerRef.current) return;
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef.current.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch (err) {}
+  }, []);
+
+  // Volume & Mute
+  const handleVolumeChange = (newVol: number) => {
+    setVolume(newVol);
+    setIsMuted(newVol === 0);
+    if (videoRef.current) {
+      videoRef.current.volume = newVol;
+      videoRef.current.muted = newVol === 0;
+    }
+  };
+
+  const toggleMute = () => {
+    if (!videoRef.current) return;
+    if (isMuted) {
+      videoRef.current.muted = false;
+      videoRef.current.volume = volume || 0.8;
+      setIsMuted(false);
+    } else {
+      videoRef.current.muted = true;
+      setIsMuted(true);
+    }
+  };
+
+  // Speed
+  const handleSpeedSelect = (rate: number) => {
+    setPlaybackRate(rate);
+    if (videoRef.current) {
+      videoRef.current.playbackRate = rate;
+    }
+    setShowSpeedMenu(false);
+  };
+
+  // Track switching
+  const handleSelectTrack = (track: Track) => {
+    setSelectedTrack(track);
+    useAudioStore.setState({ currentTrack: track });
+    setIsBuffering(false);
     if (isMobile) setIsQueueOpen(false);
   };
 
-  const handleNextVideo = () => {
-    const currentIndex = queue.findIndex((t) => t.id === selectedVideoTrack.id);
+  const handleNextTrack = () => {
+    const currentIndex = queue.findIndex((t) => t.id === selectedTrack.id);
     const nextIndex = (currentIndex + 1) % queue.length;
-    handleSelectVideo(queue[nextIndex]);
+    handleSelectTrack(queue[nextIndex]);
   };
 
-  const handlePrevVideo = () => {
-    const currentIndex = queue.findIndex((t) => t.id === selectedVideoTrack.id);
+  const handlePrevTrack = () => {
+    const currentIndex = queue.findIndex((t) => t.id === selectedTrack.id);
     const prevIndex = (currentIndex - 1 + queue.length) % queue.length;
-    handleSelectVideo(queue[prevIndex]);
+    handleSelectTrack(queue[prevIndex]);
   };
 
-  // 2. High-Performance Lightweight Three.js Ambient Particles (Zero Lag)
+  // Timeline Seeker
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = parseFloat(e.target.value);
+    setCurrentTime(newTime);
+    if (videoRef.current) {
+      videoRef.current.currentTime = newTime;
+    }
+  };
+
+  const handleTimelineMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos = (e.clientX - rect.left) / rect.width;
+    const clampedPos = Math.max(0, Math.min(1, pos));
+    setHoverPosition(clampedPos * 100);
+    setHoverTime(clampedPos * duration);
+  };
+
+  const handleTimelineMouseLeave = () => {
+    setHoverTime(null);
+  };
+
+  // Auto-hide controls
+  const handleUserActivity = useCallback(() => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    if (isPlaying) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        if (!showSpeedMenu && !isDraggingSeekerRef.current && !isQueueOpen) {
+          setShowControls(false);
+        }
+      }, 3500);
+    }
+  }, [isPlaying, showSpeedMenu, isQueueOpen]);
+
+  // Keyboard controls
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) return;
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.key === "f" || e.key === "F") {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if (e.key === "m" || e.key === "M") {
+        e.preventDefault();
+        toggleMute();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        if (videoRef.current) {
+          videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5);
+        }
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        if (videoRef.current) {
+          videoRef.current.currentTime = Math.min(duration, videoRef.current.currentTime + 5);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [togglePlay, toggleFullscreen, toggleMute, duration]);
+
+  // 2. High-Performance Three.js Ambient Particles (Zero Lag)
   useEffect(() => {
     const canvas = particlesCanvasRef.current;
     if (!canvas) return;
@@ -184,7 +334,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     };
   }, []);
 
-  // 3. Throttled Ambilight extraction loop (Runs every 400ms to save CPU)
+  // 3. Throttled Ambilight extraction loop
   useEffect(() => {
     const interval = setInterval(() => {
       const video = videoRef.current;
@@ -214,92 +364,13 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     return () => clearInterval(interval);
   }, []);
 
-  // Video Controls
-  const handleTogglePlay = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    if (video.paused) {
-      video.play().catch(() => {});
-      setIsVideoPlaying(true);
-    } else {
-      video.pause();
-      setIsVideoPlaying(false);
-    }
-  };
-
-  const handleTimeUpdate = () => {
-    const video = videoRef.current;
-    if (video) {
-      setCurrentTime(video.currentTime);
-      setDuration(video.duration || 0);
-      if (video.readyState >= 2 && isVideoBuffering) {
-        setIsVideoBuffering(false);
-      }
-    }
-  };
-
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const target = parseFloat(e.target.value);
-    const video = videoRef.current;
-    if (video) {
-      video.currentTime = target;
-      setCurrentTime(target);
-    }
-  };
-
-  const handleToggleMute = () => {
-    const video = videoRef.current;
-    if (video) {
-      video.muted = !isMuted;
-      setIsMuted(!isMuted);
-    }
-  };
-
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    setVolume(val);
-    if (videoRef.current) {
-      videoRef.current.volume = val;
-      if (val === 0) {
-        setIsMuted(true);
-      } else if (isMuted) {
-        setIsMuted(false);
-      }
-    }
-  };
-
-  const handleToggleFullscreen = () => {
-    if (!containerRef.current) return;
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().catch(() => {});
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen().catch(() => {});
-      setIsFullscreen(false);
-    }
-  };
-
-  const formatTime = (secs: number) => {
-    const mins = Math.floor(secs / 60);
-    const remainder = Math.floor(secs % 60);
-    return `${mins}:${remainder < 10 ? "0" : ""}${remainder}`;
-  };
-
-  const handleMouseMove = () => {
-    setShowControls(true);
-    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-    controlsTimeoutRef.current = setTimeout(() => {
-      if (isVideoPlaying && !isQueueOpen) setShowControls(false);
-    }, 3500);
-  };
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
     <div
       ref={containerRef}
-      onMouseMove={handleMouseMove}
-      onClick={() => {
-        if (!showControls) setShowControls(true);
-      }}
+      onMouseMove={handleUserActivity}
+      onClick={handleUserActivity}
       style={{
         position: "relative",
         width: "100vw",
@@ -313,7 +384,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
         zIndex: 10
       }}
     >
-      {/* Background Pure Three.js Ambient Particles Canvas */}
+      {/* Background Pure Three.js Ambient Particles */}
       <canvas
         ref={particlesCanvasRef}
         style={{
@@ -326,7 +397,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
         }}
       />
 
-      {/* Hidden Offscreen Canvas for Ambilight Extraction */}
+      {/* Hidden Offscreen Canvas for Ambilight */}
       <canvas ref={canvasRef} width={16} height={9} style={{ display: "none" }} />
 
       {/* Dynamic Ambilight Backlight Halo */}
@@ -474,11 +545,11 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
             {/* Video List Items */}
             <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px", marginTop: "16px" }}>
               {queue.map((track, idx) => {
-                const isCurrent = track.id === selectedVideoTrack?.id;
+                const isCurrent = track.id === selectedTrack?.id;
                 return (
                   <div
                     key={track.id}
-                    onClick={() => handleSelectVideo(track)}
+                    onClick={() => handleSelectTrack(track)}
                     style={{
                       padding: "10px 12px",
                       borderRadius: "12px",
@@ -543,19 +614,39 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
           zIndex: 20
         }}
       >
-        {/* Custom Clean HTML5 Video Element */}
+        {/* Native HTML5 Video Element with autoPlay & onLoadedMetadata */}
         <video
           ref={videoRef}
-          src={activeVideoUrl}
-          playsInline
-          autoPlay
-          onWaiting={() => setIsVideoBuffering(true)}
-          onPlaying={() => setIsVideoBuffering(false)}
-          onCanPlay={() => setIsVideoBuffering(false)}
-          onLoadedData={() => setIsVideoBuffering(false)}
-          onTimeUpdate={handleTimeUpdate}
-          onEnded={handleNextVideo}
-          onClick={handleTogglePlay}
+          key={videoStreamUrl}
+          src={videoStreamUrl}
+          preload="auto"
+          autoPlay={true}
+          playsInline={true}
+          controls={false}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          onWaiting={() => setIsBuffering(true)}
+          onPlaying={() => setIsBuffering(false)}
+          onCanPlay={() => setIsBuffering(false)}
+          onTimeUpdate={() => {
+            if (videoRef.current && !isDraggingSeekerRef.current) {
+              setCurrentTime(videoRef.current.currentTime);
+            }
+          }}
+          onLoadedMetadata={() => {
+            if (videoRef.current) {
+              setDuration(videoRef.current.duration);
+              videoRef.current.volume = volume;
+              videoRef.current.muted = isMuted;
+              videoRef.current.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+            }
+          }}
+          onEnded={() => {
+            setIsPlaying(false);
+            handleNextTrack();
+          }}
+          onClick={togglePlay}
+          onDoubleClick={toggleFullscreen}
           style={{
             width: "100%",
             height: "100%",
@@ -564,36 +655,58 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
           }}
         />
 
-        {/* ── SUBTLE CORNER BUFFERING INDICATOR (NON-BLOCKING) ── */}
-        <AnimatePresence>
-          {isVideoBuffering && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
+        {/* Buffering Spinner */}
+        {isBuffering && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(0, 0, 0, 0.4)",
+              pointerEvents: "none",
+              zIndex: 32
+            }}
+          >
+            <Disc3 size={48} color="#ffffff" className="animate-spin text-opacity-80" />
+          </div>
+        )}
+
+        {/* Center Play/Pause Splash */}
+        {!isPlaying && !isBuffering && (
+          <div
+            onClick={togglePlay}
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(0, 0, 0, 0.45)",
+              backdropFilter: "blur(6px)",
+              cursor: "pointer",
+              zIndex: 30
+            }}
+          >
+            <div
               style={{
-                position: "absolute",
-                top: "18px",
-                right: "18px",
+                width: isMobile ? "64px" : "80px",
+                height: isMobile ? "64px" : "80px",
+                borderRadius: "50%",
+                backgroundColor: "rgba(255, 255, 255, 0.18)",
+                backdropFilter: "blur(24px)",
+                border: "1px solid rgba(255, 255, 255, 0.3)",
                 display: "flex",
                 alignItems: "center",
-                gap: "8px",
-                padding: "6px 12px",
-                borderRadius: "20px",
-                backgroundColor: "rgba(10, 10, 16, 0.8)",
-                backdropFilter: "blur(12px)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                zIndex: 35,
-                pointerEvents: "none"
+                justifyContent: "center",
+                color: "#ffffff"
               }}
             >
-              <Loader2 size={14} color="#a5b4fc" className="animate-spin" />
-              <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "rgba(255, 255, 255, 0.75)" }}>
-                Đang nạp buffer...
-              </span>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <Play size={isMobile ? 28 : 36} style={{ marginLeft: "4px" }} />
+            </div>
+          </div>
+        )}
 
         {/* ── TOP-LEFT VIDEO TITLE OVERLAY ── */}
         <AnimatePresence>
@@ -619,55 +732,20 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                 cursor: "pointer"
               }}
             >
-              <div style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: isVideoPlaying && !isVideoBuffering ? "#34d399" : "#f59e0b" }} />
+              <div style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: isPlaying ? "#34d399" : "#f59e0b" }} />
               <div style={{ display: "flex", flexDirection: "column" }}>
                 <span style={{ color: "#ffffff", fontWeight: 800, fontSize: isMobile ? "0.78rem" : "0.88rem", letterSpacing: "0.02em" }}>
-                  {selectedVideoTrack?.title || "MCK Music Video"}
+                  {selectedTrack?.title || "MCK Music Video"}
                 </span>
                 <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: "0.7rem" }}>
-                  {selectedVideoTrack?.artist || "MCK"} • {selectedVideoTrack?.album || "HVL"}
+                  {selectedTrack?.artist || "MCK"} • {selectedTrack?.album || "HVL"}
                 </span>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Center Big Play/Pause Splash Icon on Pause */}
-        {!isVideoPlaying && !isVideoBuffering && (
-          <div
-            onClick={handleTogglePlay}
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "rgba(0,0,0,0.45)",
-              backdropFilter: "blur(8px)",
-              cursor: "pointer",
-              zIndex: 30
-            }}
-          >
-            <div
-              style={{
-                width: isMobile ? "64px" : "80px",
-                height: isMobile ? "64px" : "80px",
-                borderRadius: "50%",
-                backgroundColor: "rgba(255, 255, 255, 0.18)",
-                backdropFilter: "blur(24px)",
-                border: "1px solid rgba(255, 255, 255, 0.3)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#ffffff"
-              }}
-            >
-              <Play size={isMobile ? 28 : 36} style={{ marginLeft: "4px" }} />
-            </div>
-          </div>
-        )}
-
-        {/* ── BESPOKE BOTTOM CONTROL DOCK ── */}
+        {/* ── BOTTOM GLASS CONTROL BAR ── */}
         <AnimatePresence>
           {showControls && (
             <motion.div
@@ -680,41 +758,62 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                 left: 0,
                 right: 0,
                 padding: isMobile ? "14px 16px 12px" : "20px 28px 18px",
-                background: "linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.6) 60%, transparent 100%)",
+                background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 60%, transparent 100%)",
                 display: "flex",
                 flexDirection: "column",
-                gap: "12px",
+                gap: "10px",
                 zIndex: 40
               }}
             >
-              {/* Timeline Scrubber */}
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.78rem", fontFamily: "monospace", minWidth: "36px" }}>
-                  {formatTime(currentTime)}
-                </span>
+              {/* Timeline Scrubber Bar with Hover Tooltip */}
+              <div
+                onMouseMove={handleTimelineMouseMove}
+                onMouseLeave={handleTimelineMouseLeave}
+                style={{ position: "relative", width: "100%", height: "16px", display: "flex", alignItems: "center", cursor: "pointer" }}
+              >
+                {hoverTime !== null && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: `${hoverPosition}%`,
+                      top: "-28px",
+                      transform: "translateX(-50%)",
+                      padding: "2px 6px",
+                      borderRadius: "4px",
+                      backgroundColor: "rgba(0,0,0,0.9)",
+                      border: "1px solid rgba(255,255,255,0.2)",
+                      fontSize: "10px",
+                      fontFamily: "monospace",
+                      color: "#ffffff",
+                      pointerEvents: "none"
+                    }}
+                  >
+                    {formatTime(hoverTime)}
+                  </div>
+                )}
+
+                {/* Progress Fill */}
+                <div style={{ width: "100%", height: "6px", backgroundColor: "rgba(255, 255, 255, 0.2)", borderRadius: "999px", overflow: "hidden", position: "relative" }}>
+                  <div style={{ width: `${progressPercent}%`, height: "100%", backgroundColor: "#ffffff" }} />
+                </div>
+
                 <input
                   type="range"
                   min={0}
                   max={duration || 100}
+                  step={0.1}
                   value={currentTime}
                   onChange={handleSeek}
-                  style={{
-                    flex: 1,
-                    height: "4px",
-                    borderRadius: "999px",
-                    accentColor: "#6366f1",
-                    cursor: "pointer"
-                  }}
+                  onMouseDown={() => { isDraggingSeekerRef.current = true; }}
+                  onMouseUp={() => { isDraggingSeekerRef.current = false; }}
+                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer" }}
                 />
-                <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.78rem", fontFamily: "monospace", minWidth: "36px" }}>
-                  {formatTime(duration)}
-                </span>
               </div>
 
-              {/* Bottom Row Controls */}
+              {/* Controls Row */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center" }}>
-                {/* Left: Queue Quick Button */}
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                {/* Left: Queue Quick Button & Timecode */}
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                   <button
                     onClick={() => setIsQueueOpen(!isQueueOpen)}
                     style={{
@@ -734,25 +833,25 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                     <ListMusic size={13} />
                     <span>30 Videos</span>
                   </button>
+
+                  <div style={{ fontSize: isMobile ? "0.72rem" : "0.8rem", fontFamily: "monospace", color: "rgba(255, 255, 255, 0.7)" }}>
+                    <span style={{ color: "#ffffff", fontWeight: 700 }}>{formatTime(currentTime)}</span>
+                    <span style={{ margin: "0 4px", opacity: 0.5 }}>/</span>
+                    <span>{formatTime(duration)}</span>
+                  </div>
                 </div>
 
-                {/* Center Media Playback Controls */}
+                {/* Center: Playback Controls */}
                 <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "12px" : "18px" }}>
                   <button
-                    onClick={handlePrevVideo}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "rgba(255,255,255,0.85)",
-                      cursor: "pointer",
-                      padding: "4px"
-                    }}
+                    onClick={handlePrevTrack}
+                    style={{ background: "none", border: "none", color: "rgba(255,255,255,0.85)", cursor: "pointer", padding: "4px" }}
                   >
                     <SkipBack size={isMobile ? 18 : 22} />
                   </button>
 
                   <button
-                    onClick={handleTogglePlay}
+                    onClick={togglePlay}
                     style={{
                       width: isMobile ? "38px" : "46px",
                       height: isMobile ? "38px" : "46px",
@@ -767,29 +866,23 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                       boxShadow: "0 4px 20px rgba(255, 255, 255, 0.35)"
                     }}
                   >
-                    {isVideoPlaying ? <Pause size={isMobile ? 18 : 22} /> : <Play size={isMobile ? 18 : 22} style={{ marginLeft: "2px" }} />}
+                    {isPlaying ? <Pause size={isMobile ? 18 : 22} /> : <Play size={isMobile ? 18 : 22} style={{ marginLeft: "2px" }} />}
                   </button>
 
                   <button
-                    onClick={handleNextVideo}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "rgba(255,255,255,0.85)",
-                      cursor: "pointer",
-                      padding: "4px"
-                    }}
+                    onClick={handleNextTrack}
+                    style={{ background: "none", border: "none", color: "rgba(255,255,255,0.85)", cursor: "pointer", padding: "4px" }}
                   >
                     <SkipForward size={isMobile ? 18 : 22} />
                   </button>
                 </div>
 
-                {/* Right: Volume & Fullscreen Actions */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: isMobile ? "10px" : "16px" }}>
+                {/* Right: Volume, Speed & Fullscreen */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: isMobile ? "10px" : "14px" }}>
                   {!isMobile && (
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       <button
-                        onClick={handleToggleMute}
+                        onClick={toggleMute}
                         style={{ background: "none", border: "none", color: "#ffffff", cursor: "pointer", padding: "4px" }}
                       >
                         {isMuted || volume === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}
@@ -800,21 +893,78 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                         max={1}
                         step={0.05}
                         value={isMuted ? 0 : volume}
-                        onChange={handleVolumeChange}
+                        onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
                         style={{ width: "65px", height: "3px", accentColor: "#ffffff", cursor: "pointer" }}
                       />
                     </div>
                   )}
 
+                  {/* Speed Menu */}
+                  <div style={{ position: "relative" }}>
+                    <button
+                      onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+                      style={{
+                        background: "rgba(255, 255, 255, 0.08)",
+                        border: "1px solid rgba(255, 255, 255, 0.12)",
+                        borderRadius: "8px",
+                        padding: "4px 8px",
+                        color: "#ffffff",
+                        fontSize: "0.72rem",
+                        fontFamily: "monospace",
+                        cursor: "pointer"
+                      }}
+                    >
+                      {playbackRate}x
+                    </button>
+
+                    {showSpeedMenu && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "100%",
+                          right: 0,
+                          marginBottom: "8px",
+                          padding: "4px",
+                          borderRadius: "12px",
+                          backgroundColor: "rgba(10, 10, 16, 0.95)",
+                          border: "1px solid rgba(255, 255, 255, 0.15)",
+                          backdropFilter: "blur(20px)",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "2px",
+                          zIndex: 60,
+                          minWidth: "90px"
+                        }}
+                      >
+                        {SPEED_OPTIONS.map((rate) => (
+                          <button
+                            key={rate}
+                            onClick={() => handleSpeedSelect(rate)}
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: "8px",
+                              backgroundColor: playbackRate === rate ? "#ffffff" : "transparent",
+                              color: playbackRate === rate ? "#000000" : "#ffffff",
+                              border: "none",
+                              fontSize: "0.72rem",
+                              fontFamily: "monospace",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              cursor: "pointer"
+                            }}
+                          >
+                            <span>{rate}x</span>
+                            {playbackRate === rate && <Check size={12} />}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <button
-                    onClick={handleToggleFullscreen}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#ffffff",
-                      cursor: "pointer",
-                      padding: "4px"
-                    }}
+                    onClick={toggleFullscreen}
+                    style={{ background: "none", border: "none", color: "#ffffff", cursor: "pointer", padding: "4px" }}
                   >
                     {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                   </button>
