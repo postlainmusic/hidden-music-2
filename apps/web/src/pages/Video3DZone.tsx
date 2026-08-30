@@ -58,30 +58,22 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isDraggingSeekerRef = useRef<boolean>(false);
 
-  // 1. ABSOLUTE AUDIO SOCKET TEARDOWN (Releases 100% Network Bandwidth from R2)
+  // 1. AUDIO PAUSE-ONLY on Video Zone mount
+  // CRITICAL: Do NOT call removeAttribute('src') or .load() on audio elements.
+  // Those operations fire an 'error' event which triggers handleNetworkError() inside
+  // DualDeckAudioEngine, causing exponential-backoff retries that re-download FLAC files.
+  // Simply pausing the engine is sufficient — bandwidth is freed when audio stops buffering.
   useEffect(() => {
     dualDeckAudioEngine.pause();
-    try {
-      const activeAudio = dualDeckAudioEngine.getActiveAudio();
-      const idleAudio = dualDeckAudioEngine.getIdleAudio();
-      if (activeAudio) {
-        activeAudio.pause();
-        activeAudio.removeAttribute("src");
-        activeAudio.load();
-      }
-      if (idleAudio) {
-        idleAudio.pause();
-        idleAudio.removeAttribute("src");
-        idleAudio.load();
-      }
-    } catch {}
+    // Also mark the store as not-playing so the 3s preload timer in playTrack() skips.
+    useAudioStore.setState({ isPlaying: false });
 
     return () => {
+      // Cleanly stop video on unmount
       if (videoRef.current) {
         try {
           videoRef.current.pause();
-          videoRef.current.removeAttribute("src");
-          videoRef.current.load();
+          videoRef.current.src = "";
         } catch {}
       }
     };
@@ -619,7 +611,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
           ref={videoRef}
           key={videoStreamUrl}
           src={videoStreamUrl}
-          preload="auto"
+          preload="metadata"
           playsInline={true}
           controls={false}
           onPlay={() => setIsPlaying(true)}
