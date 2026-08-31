@@ -190,14 +190,14 @@ export const DEFAULT_TRACKS: Track[] = [
   },
   {
     id: "mck-08",
-    title: "08. Đạo Của Anh Vừa",
+    title: "08. Đao Của Anh Vừa",
     artist: "MCK",
     album: "HVL",
     releaseType: "album",
     duration: 195,
     coverUrl: HVL_COVER,
     audioUrl: `${STREAM_BASE}/audio/08.%20%C4%90ao%20C%E1%BB%A7a%20Anh%20V%E1%BB%ABa.m4a`,
-    videoUrl: `${R2_BASE}/videos/08.%20%C4%90%E1%BA%A1o%20C%E1%BB%A7a%20Anh%20V%E1%BB%ABa%20-%20MCK.mkv`,
+    videoUrl: `${R2_BASE}/videos/08.%20%C4%90ao%20C%E1%BB%A7a%20Anh%20V%E1%BB%ABa%20-%20MCK.mkv`,
     palette: { primary: "#f59e0b", secondary: "#10b981", accent: "#ef4444", glow: "rgba(245, 158, 11, 0.45)" },
     genre: "Trap",
     bpm: 142

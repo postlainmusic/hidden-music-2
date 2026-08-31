@@ -155,7 +155,7 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault, onOpenV
 
   const handleTrackClick = (e: React.MouseEvent, track: Track) => {
     e.stopPropagation();
-    playTrack(track, { crossfade: true });
+    playTrack(track, { crossfade: false });
   };
 
   const toggleFavorite = (e: React.MouseEvent, trackId: string) => {

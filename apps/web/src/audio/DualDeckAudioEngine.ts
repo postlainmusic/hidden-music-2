@@ -343,46 +343,50 @@ export class DualDeckAudioEngine {
 
     const useCrossfade = (options.crossfade ?? true) && this.isPlaying && (this.currentTrack?.id !== track.id);
 
-    if (useCrossfade) {
-      // 0ms Smooth Crossfade to the alternate deck
-      const nextDeckId: DeckId = this.activeDeckId === "A" ? "B" : "A";
-      const incomingAudio = nextDeckId === "A" ? this.deckA : this.deckB;
-      const outgoingAudio = this.activeDeckId === "A" ? this.deckA : this.deckB;
-      const incomingGain = nextDeckId === "A" ? this.gainA : this.gainB;
-      const outgoingGain = this.activeDeckId === "A" ? this.gainA : this.gainB;
+    // Determine target deck
+    const nextDeckId: DeckId = useCrossfade ? (this.activeDeckId === "A" ? "B" : "A") : this.activeDeckId;
+    const incomingAudio = nextDeckId === "A" ? this.deckA : this.deckB;
+    const outgoingAudio = nextDeckId === "A" ? this.deckB : this.deckA;
+    const incomingGain = nextDeckId === "A" ? this.gainA : this.gainB;
+    const outgoingGain = nextDeckId === "A" ? this.gainB : this.gainA;
 
-      // Always load new source if different
-      if (incomingAudio.src !== track.audioUrl) {
-        incomingAudio.src = track.audioUrl;
-      }
-      if (options.startTime && options.startTime > 0) {
-        incomingAudio.currentTime = options.startTime;
-      }
-      incomingAudio.volume = this.isMuted ? 0 : this.masterVolume;
-      incomingAudio.muted = this.isMuted;
+    // CRUCIAL: Set activeDeckId and isPlaying immediately so all incoming events route to this deck
+    this.activeDeckId = nextDeckId;
+    this.isPlaying = true;
 
-      if (this.audioCtx && incomingGain && outgoingGain) {
-        const now = this.audioCtx.currentTime;
+    // Always load new source if different
+    if (incomingAudio.src !== track.audioUrl) {
+      incomingAudio.src = track.audioUrl;
+    }
+    if (options.startTime && options.startTime > 0) {
+      incomingAudio.currentTime = options.startTime;
+    }
+    incomingAudio.volume = 1.0;
+    incomingAudio.muted = false;
+
+    if (this.audioCtx && incomingGain && outgoingGain) {
+      const now = this.audioCtx.currentTime;
+      incomingGain.gain.cancelScheduledValues(now);
+      outgoingGain.gain.cancelScheduledValues(now);
+
+      if (useCrossfade) {
         const dur = Math.max(0.3, this.crossfadeDuration);
-
-        // Cancel previous automation curves before applying new ramps
-        incomingGain.gain.cancelScheduledValues(now);
-        outgoingGain.gain.cancelScheduledValues(now);
-
-        incomingGain.gain.setValueAtTime(incomingGain.gain.value, now);
+        incomingGain.gain.setValueAtTime(0.001, now);
         incomingGain.gain.linearRampToValueAtTime(1.0, now + dur);
-
-        outgoingGain.gain.setValueAtTime(outgoingGain.gain.value, now);
-        outgoingGain.gain.linearRampToValueAtTime(0.0, now + dur);
+        outgoingGain.gain.setValueAtTime(1.0, now);
+        outgoingGain.gain.linearRampToValueAtTime(0.001, now + dur);
+      } else {
+        incomingGain.gain.setValueAtTime(1.0, now);
+        outgoingGain.gain.setValueAtTime(0.0, now);
       }
+    }
 
-      try {
-        await incomingAudio.play();
-        this.activeDeckId = nextDeckId;
-        this.isPlaying = true;
-        this.startProgressLoop();
-        this.playbackStateSubscribers.forEach((cb) => cb(true));
+    try {
+      await incomingAudio.play();
+      this.startProgressLoop();
+      this.playbackStateSubscribers.forEach((cb) => cb(true));
 
+      if (useCrossfade) {
         this.crossfadeTimer = setTimeout(() => {
           if (this.activeDeckId === nextDeckId) {
             try {
@@ -390,71 +394,22 @@ export class DualDeckAudioEngine {
             } catch {}
           }
         }, Math.max(300, this.crossfadeDuration * 1000) + 100);
-      } catch (err: any) {
-        if (err.name !== "AbortError") {
-          try {
-            incomingAudio.load();
-            if (options.startTime && options.startTime > 0) {
-              incomingAudio.currentTime = options.startTime;
-            }
-            await incomingAudio.play();
-            this.activeDeckId = nextDeckId;
-            this.isPlaying = true;
-            this.startProgressLoop();
-            this.playbackStateSubscribers.forEach((cb) => cb(true));
-          } catch {}
-        }
+      } else {
+        try {
+          outgoingAudio.pause();
+        } catch {}
       }
-    } else {
-      // Instant Play on Active Deck
-      const currentAudio = this.getActiveAudio();
-      const idleAudio = this.getIdleAudio();
-
-      try {
-        idleAudio.pause();
-      } catch {}
-
-      if (this.audioCtx && this.gainA && this.gainB) {
-        const now = this.audioCtx.currentTime;
-        this.gainA.gain.cancelScheduledValues(now);
-        this.gainB.gain.cancelScheduledValues(now);
-
-        if (this.activeDeckId === "A") {
-          this.gainA.gain.setValueAtTime(1.0, now);
-          this.gainB.gain.setValueAtTime(0.0, now);
-        } else {
-          this.gainA.gain.setValueAtTime(0.0, now);
-          this.gainB.gain.setValueAtTime(1.0, now);
-        }
-      }
-
-      if (currentAudio.src !== track.audioUrl) {
-        currentAudio.src = track.audioUrl;
-      }
-      if (options.startTime && options.startTime > 0) {
-        currentAudio.currentTime = options.startTime;
-      }
-      currentAudio.volume = this.isMuted ? 0 : this.masterVolume;
-      currentAudio.muted = this.isMuted;
-
-      try {
-        await currentAudio.play();
-        this.isPlaying = true;
-        this.startProgressLoop();
-        this.playbackStateSubscribers.forEach((cb) => cb(true));
-      } catch (err: any) {
-        if (err.name !== "AbortError") {
-          try {
-            currentAudio.load();
-            if (options.startTime && options.startTime > 0) {
-              currentAudio.currentTime = options.startTime;
-            }
-            await currentAudio.play();
-            this.isPlaying = true;
-            this.startProgressLoop();
-            this.playbackStateSubscribers.forEach((cb) => cb(true));
-          } catch {}
-        }
+    } catch (err: any) {
+      if (err.name !== "AbortError") {
+        try {
+          incomingAudio.load();
+          if (options.startTime && options.startTime > 0) {
+            incomingAudio.currentTime = options.startTime;
+          }
+          await incomingAudio.play();
+          this.startProgressLoop();
+          this.playbackStateSubscribers.forEach((cb) => cb(true));
+        } catch {}
       }
     }
 

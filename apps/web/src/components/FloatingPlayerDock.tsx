@@ -361,7 +361,7 @@ export const FloatingPlayerDock: React.FC = () => {
                       return (
                         <div
                           key={track.id}
-                          onClick={() => playTrack(track, { crossfade: true })}
+                          onClick={() => playTrack(track, { crossfade: false })}
                           style={{
                             display: "flex",
                             alignItems: "center",
