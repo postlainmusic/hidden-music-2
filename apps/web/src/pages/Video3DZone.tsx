@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion";
 import { useAudioStore, Track } from "../store/audioStore";
 import { dualDeckAudioEngine } from "../audio/DualDeckAudioEngine";
+import { extractYouTubeId, loadYouTubeApi, isYouTubeSource } from "../audio/YouTubeBridge";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { MeshGradientBackground, RGBColor } from "../components/MeshGradientBackground";
 import { sendTelemetryLog } from "../utils/telemetry";
@@ -35,20 +36,25 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   const [filterMode, setFilterMode] = useState<"release" | "all">("release");
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const ytPlayerRef = useRef<any>(null);
+  const cinemaStageRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const isYouTube = Boolean(extractYouTubeId(selectedTrack?.videoUrl || selectedTrack?.audioUrl));
+  const youtubeId = extractYouTubeId(selectedTrack?.videoUrl || selectedTrack?.audioUrl);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isBuffering, setIsBuffering] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
-  const [volume] = useState<number>(0.9);
+  const [volume, setVolume] = useState<number>(0.9);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [playbackRate, setPlaybackRate] = useState<number>(1.0);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showControls, setShowControls] = useState<boolean>(true);
 
-  // Dynamic 4-Point Ambilight Palette extracted from Video Frames
+  // Dynamic 4-Point Ambilight Palette extracted from Video Frames / Track Palette
   const [ambilightColors, setAmbilightColors] = useState<RGBColor[]>([
     { r: 99, g: 102, b: 241 },   // Indigo
     { r: 236, g: 72, b: 153 },   // Pink
@@ -90,17 +96,126 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
           videoRef.current.src = "";
         } catch {}
       }
+      if (ytPlayerRef.current && typeof ytPlayerRef.current.pauseVideo === "function") {
+        try { ytPlayerRef.current.pauseVideo(); } catch {}
+      }
     };
   }, []);
 
-  // Format canonical video stream URL
+  // Initialize and sync Headless YouTube Video Player API
+  useEffect(() => {
+    let pollTimer: any = null;
+    if (isYouTube && youtubeId) {
+      let isMounted = true;
+      loadYouTubeApi().then(() => {
+        if (!isMounted) return;
+        const YT = (window as any).YT;
+        if (!YT || !YT.Player) return;
+
+        if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
+          try {
+            ytPlayerRef.current.loadVideoById({ videoId: youtubeId });
+            ytPlayerRef.current.playVideo();
+          } catch {}
+        } else {
+          try {
+            ytPlayerRef.current = new YT.Player("yt-cinema-video-target", {
+              width: "100%",
+              height: "100%",
+              videoId: youtubeId,
+              playerVars: {
+                autoplay: 1,
+                controls: 0,
+                disablekb: 1,
+                fs: 0,
+                modestbranding: 1,
+                rel: 0,
+                iv_load_policy: 3,
+                playsinline: 1,
+                origin: window.location.origin
+              },
+              events: {
+                onReady: (e: any) => {
+                  try {
+                    e.target.setVolume(Math.round(volume * 100));
+                    e.target.playVideo();
+                  } catch {}
+                },
+                onStateChange: (e: any) => {
+                  const st = e.data;
+                  if (st === 1) { // playing
+                    setIsPlaying(true);
+                    setIsBuffering(false);
+                  } else if (st === 2) { // paused
+                    setIsPlaying(false);
+                  } else if (st === 3) { // buffering
+                    setIsBuffering(true);
+                  } else if (st === 0) { // ended
+                    setIsPlaying(false);
+                    handleNextTrack();
+                  }
+                },
+                onError: () => {
+                  setIsBuffering(false);
+                }
+              }
+            });
+          } catch {}
+        }
+
+        pollTimer = setInterval(() => {
+          if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === "function") {
+            try {
+              const cur = ytPlayerRef.current.getCurrentTime() || 0;
+              const dur = ytPlayerRef.current.getDuration() || 0;
+              if (!isDraggingSeekerRef.current) {
+                setCurrentTime(cur);
+              }
+              if (dur > 0) {
+                setDuration(dur);
+              }
+            } catch {}
+          }
+        }, 250);
+      });
+
+      return () => {
+        isMounted = false;
+        if (pollTimer) clearInterval(pollTimer);
+      };
+    } else {
+      if (ytPlayerRef.current && typeof ytPlayerRef.current.pauseVideo === "function") {
+        try { ytPlayerRef.current.pauseVideo(); } catch {}
+      }
+    }
+  }, [isYouTube, youtubeId]);
+
+  // Ambilight sync for YouTube video sources (from track palette)
+  useEffect(() => {
+    if (isYouTube && selectedTrack?.palette) {
+      const p = selectedTrack.palette;
+      const hexToRgb = (hex: string) => {
+        const res = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return res ? { r: parseInt(res[1], 16), g: parseInt(res[2], 16), b: parseInt(res[3], 16) } : { r: 99, g: 102, b: 241 };
+      };
+      const c1 = hexToRgb(p.primary || "#6366f1");
+      const c2 = hexToRgb(p.secondary || "#ec4899");
+      const c3 = hexToRgb(p.accent || "#8b5cf6");
+      const c4 = { r: 20, g: 24, b: 35 };
+      setAmbilightColors([c1, c2, c3, c4]);
+      setDominantAmbilightHex(p.glow || `rgba(${c1.r}, ${c1.g}, ${c1.b}, 0.55)`);
+    }
+  }, [isYouTube, selectedTrack]);
+
+  // Format canonical direct video stream URL
   const videoStreamUrl = useMemo(() => {
-    if (selectedTrack?.videoUrl) return selectedTrack.videoUrl;
-    if (selectedTrack?.title) {
+    if (isYouTube) return "";
+    if (selectedTrack?.videoUrl && !isYouTubeSource(selectedTrack.videoUrl)) return selectedTrack.videoUrl;
+    if (selectedTrack?.album_id === "hvl-99" || selectedTrack?.album === "HVL") {
       return `https://media.postlain.com/videos/${encodeURIComponent(selectedTrack.title)}%20-%20MCK.mkv`;
     }
-    return `https://media.postlain.com/videos/01.%20Elegie%20-%20MCK.mkv`;
-  }, [selectedTrack]);
+    return "";
+  }, [selectedTrack, isYouTube]);
 
   // Format MM:SS
   const formatTime = (seconds: number) => {
@@ -112,6 +227,16 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
 
   // Play / Pause toggle
   const togglePlay = useCallback(() => {
+    if (isYouTube) {
+      if (isPlaying) {
+        ytPlayerRef.current?.pauseVideo?.();
+        setIsPlaying(false);
+      } else {
+        ytPlayerRef.current?.playVideo?.();
+        setIsPlaying(true);
+      }
+      return;
+    }
     if (!videoRef.current) return;
     if (videoRef.current.paused) {
       videoRef.current.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
@@ -119,13 +244,13 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
       videoRef.current.pause();
       setIsPlaying(false);
     }
-  }, []);
+  }, [isYouTube, isPlaying]);
 
-  // Cross-Platform & iOS Safari Fullscreen toggle
+  // Cross-Platform & 16:9 Cinema Frame Fullscreen toggle
   const toggleFullscreen = useCallback(async () => {
     try {
       const doc = document as any;
-      const elem = containerRef.current as any;
+      const elem = cinemaStageRef.current as any;
       const videoElem = videoRef.current as any;
 
       if (!doc.fullscreenElement && !doc.webkitFullscreenElement && !doc.mozFullScreenElement && !doc.msFullscreenElement) {
@@ -179,6 +304,17 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   }, []);
 
   const toggleMute = () => {
+    if (isYouTube) {
+      if (isMuted) {
+        ytPlayerRef.current?.unMute?.();
+        ytPlayerRef.current?.setVolume?.(Math.round(volume * 100));
+        setIsMuted(false);
+      } else {
+        ytPlayerRef.current?.mute?.();
+        setIsMuted(true);
+      }
+      return;
+    }
     if (!videoRef.current) return;
     if (isMuted) {
       videoRef.current.muted = false;
@@ -195,7 +331,9 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     const currIdx = SPEED_OPTIONS.indexOf(playbackRate);
     const nextRate = SPEED_OPTIONS[(currIdx + 1) % SPEED_OPTIONS.length] || 1.0;
     setPlaybackRate(nextRate);
-    if (videoRef.current) {
+    if (isYouTube) {
+      ytPlayerRef.current?.setPlaybackRate?.(nextRate);
+    } else if (videoRef.current) {
       videoRef.current.playbackRate = nextRate;
     }
   };
@@ -227,7 +365,9 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTime = parseFloat(e.target.value);
     setCurrentTime(newTime);
-    if (videoRef.current) {
+    if (isYouTube) {
+      ytPlayerRef.current?.seekTo?.(newTime, true);
+    } else if (videoRef.current) {
       videoRef.current.currentTime = newTime;
     }
   };
@@ -257,16 +397,26 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
       const clientX = "touches" in e ? (e as any).changedTouches?.[0]?.clientX || 0 : (e as any).clientX;
       const xRatio = (clientX - rect.left) / rect.width;
 
-      if (videoRef.current) {
-        if (xRatio < 0.45) {
-          videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 10);
-          setSeekFeedback("backward");
-          setTimeout(() => setSeekFeedback(null), 700);
-        } else if (xRatio > 0.55) {
-          videoRef.current.currentTime = Math.min(duration, videoRef.current.currentTime + 10);
-          setSeekFeedback("forward");
-          setTimeout(() => setSeekFeedback(null), 700);
+      if (xRatio < 0.45) {
+        const targetTime = Math.max(0, currentTime - 10);
+        if (isYouTube) {
+          ytPlayerRef.current?.seekTo?.(targetTime, true);
+          setCurrentTime(targetTime);
+        } else if (videoRef.current) {
+          videoRef.current.currentTime = targetTime;
         }
+        setSeekFeedback("backward");
+        setTimeout(() => setSeekFeedback(null), 700);
+      } else if (xRatio > 0.55) {
+        const targetTime = Math.min(duration, currentTime + 10);
+        if (isYouTube) {
+          ytPlayerRef.current?.seekTo?.(targetTime, true);
+          setCurrentTime(targetTime);
+        } else if (videoRef.current) {
+          videoRef.current.currentTime = targetTime;
+        }
+        setSeekFeedback("forward");
+        setTimeout(() => setSeekFeedback(null), 700);
       }
     } else {
       handleUserActivity();
@@ -275,14 +425,15 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
 
   // Extract Real-time 4-Point Ambilight Palette from Video Frame
   useEffect(() => {
+    if (isYouTube) return;
     const interval = setInterval(() => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       if (video && canvas && !video.paused && !video.ended && video.readyState >= 2) {
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
         if (ctx) {
-          ctx.drawImage(video, 0, 0, 16, 9);
           try {
+            ctx.drawImage(video, 0, 0, 16, 9);
             const frameData = ctx.getImageData(0, 0, 16, 9).data;
             let r = 0, g = 0, b = 0;
             const count = frameData.length / 4;
@@ -309,7 +460,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     }, 400);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isYouTube]);
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   const isFav = selectedTrack ? favoritedTrackIds.includes(selectedTrack.id) : false;
@@ -412,64 +563,87 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
         }}
       >
         <div
+          ref={cinemaStageRef}
           onClick={handleVideoTouch}
           style={{
             position: "relative",
             width: isMobile ? "100vw" : "100%",
             aspectRatio: "16 / 9",
-            borderRadius: isMobile ? "0px" : "24px",
+            borderRadius: isFullscreen ? "0px" : (isMobile ? "0px" : "24px"),
             overflow: "hidden",
             backgroundColor: "#050505",
             boxShadow: `0 0 50px ${dominantAmbilightHex}, 0 20px 50px rgba(0,0,0,0.9)`,
-            border: isMobile ? "none" : "1px solid rgba(255, 255, 255, 0.12)",
+            border: isFullscreen || isMobile ? "none" : "1px solid rgba(255, 255, 255, 0.12)",
             cursor: "pointer"
           }}
         >
-          <video
-            ref={videoRef}
-            key={videoStreamUrl}
-            src={videoStreamUrl}
-            preload="auto"
-            crossOrigin="anonymous"
-            playsInline={true}
-            controls={false}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onWaiting={() => setIsBuffering(true)}
-            onPlaying={() => setIsBuffering(false)}
-            onCanPlay={() => setIsBuffering(false)}
-            onError={() => {
-              // Graceful auto-recovery for network stalls or range reconnects
-              if (videoRef.current && currentTime > 0) {
-                const resumeAt = currentTime;
-                videoRef.current.src = videoStreamUrl;
-                videoRef.current.currentTime = resumeAt;
-                videoRef.current.play().catch(() => {});
-              }
-            }}
-            onTimeUpdate={() => {
-              if (videoRef.current && !isDraggingSeekerRef.current) {
-                setCurrentTime(videoRef.current.currentTime);
-              }
-            }}
-            onLoadedMetadata={() => {
-              if (videoRef.current) {
-                setDuration(videoRef.current.duration);
-                videoRef.current.volume = volume;
-                videoRef.current.muted = isMuted;
-                videoRef.current.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
-              }
-            }}
-            onEnded={() => {
-              setIsPlaying(false);
-              handleNextTrack();
-            }}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover"
-            }}
-          />
+          {isYouTube ? (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                overflow: "hidden",
+                position: "relative",
+                pointerEvents: "none"
+              }}
+            >
+              <div
+                id="yt-cinema-video-target"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  transform: "scale(1.08)",
+                  transformOrigin: "center center"
+                }}
+              />
+            </div>
+          ) : (
+            <video
+              ref={videoRef}
+              key={videoStreamUrl}
+              src={videoStreamUrl}
+              preload="auto"
+              crossOrigin="anonymous"
+              playsInline={true}
+              controls={false}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onWaiting={() => setIsBuffering(true)}
+              onPlaying={() => setIsBuffering(false)}
+              onCanPlay={() => setIsBuffering(false)}
+              onError={() => {
+                // Graceful auto-recovery for network stalls or range reconnects
+                if (videoRef.current && currentTime > 0) {
+                  const resumeAt = currentTime;
+                  videoRef.current.src = videoStreamUrl;
+                  videoRef.current.currentTime = resumeAt;
+                  videoRef.current.play().catch(() => {});
+                }
+              }}
+              onTimeUpdate={() => {
+                if (videoRef.current && !isDraggingSeekerRef.current) {
+                  setCurrentTime(videoRef.current.currentTime);
+                }
+              }}
+              onLoadedMetadata={() => {
+                if (videoRef.current) {
+                  setDuration(videoRef.current.duration);
+                  videoRef.current.volume = volume;
+                  videoRef.current.muted = isMuted;
+                  videoRef.current.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+                }
+              }}
+              onEnded={() => {
+                setIsPlaying(false);
+                handleNextTrack();
+              }}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover"
+              }}
+            />
+          )}
 
           {isBuffering && (
             <div

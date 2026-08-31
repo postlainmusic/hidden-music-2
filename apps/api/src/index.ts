@@ -1072,6 +1072,64 @@ app.post("/api/admin/sections/reorder", async (c) => {
   return c.json({ success: true, message: "Đã sắp xếp lại thứ tự các Section!" });
 });
 
+// --- ADMIN USERS MANAGEMENT ---
+
+app.get("/api/admin/users", async (c) => {
+  const guard = await requireAdmin(c);
+  if (!guard.ok) return guard.response;
+  if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);
+
+  try {
+    const { results } = await c.env.DB.prepare(
+      "SELECT id, username, email, name, avatar_url, role, status, last_login_device, last_ip, created_at, last_login_at FROM users ORDER BY created_at DESC LIMIT 100"
+    ).all();
+
+    return c.json({ success: true, users: results || [] });
+  } catch (err: any) {
+    return c.json({ success: true, users: [] });
+  }
+});
+
+app.patch("/api/admin/users/:id/role", async (c) => {
+  const guard = await requireAdmin(c);
+  if (!guard.ok) return guard.response;
+  if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);
+
+  const userId = c.req.param("id");
+  const { role } = await c.req.json();
+
+  if (!["admin", "vip", "listener"].includes(role)) {
+    return c.json({ success: false, error: "Role không hợp lệ" }, 400);
+  }
+
+  try {
+    await c.env.DB.prepare("UPDATE users SET role = ? WHERE id = ?").bind(role, userId).run();
+    return c.json({ success: true, message: "Đã cập nhật vai trò thành công!" });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
+app.patch("/api/admin/users/:id/status", async (c) => {
+  const guard = await requireAdmin(c);
+  if (!guard.ok) return guard.response;
+  if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);
+
+  const userId = c.req.param("id");
+  const { status } = await c.req.json();
+
+  if (!["active", "suspended"].includes(status)) {
+    return c.json({ success: false, error: "Trạng thái không hợp lệ" }, 400);
+  }
+
+  try {
+    await c.env.DB.prepare("UPDATE users SET status = ? WHERE id = ?").bind(status, userId).run();
+    return c.json({ success: true, message: "Đã cập nhật trạng thái người dùng!" });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
 // --- ADMIN ALBUMS & RELEASES MANAGEMENT ---
 
 app.post("/api/admin/albums", async (c) => {

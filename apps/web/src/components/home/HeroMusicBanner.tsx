@@ -15,21 +15,31 @@ interface HeroMusicBannerProps {
 }
 
 export const HeroMusicBanner: React.FC<HeroMusicBannerProps> = ({
-  headline = "IDK - MCK (Official Single)",
+  headline = "HVL (99%) - MCK",
   subheadline = "Thưởng thức bản Master Lossless 24-bit 96kHz độc quyền từ Album HVL (99%)",
   bannerUrl = "/covers/HVL_Album_Cover.webp",
-  trackId = "mck-02",
+  trackId,
   ctaText = "Nghe Ngay",
   badgeText = "BẢN PHÁT HÀNH MỚI",
   onOpen3D
 }) => {
-  const { playTrack, queue } = useAudioStore();
+  const { playTrack, queue, albums, selectAlbum } = useAudioStore();
 
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const targetTrack = queue.find((t) => t.id === trackId) || queue[0];
+    let targetTrack: Track | undefined;
+    if (trackId) {
+      targetTrack = queue.find((t) => t.id === trackId);
+    }
+    if (!targetTrack && queue.length > 0) {
+      targetTrack = queue[0];
+    }
     if (targetTrack) {
       playTrack(targetTrack);
+      if (targetTrack.album_id) {
+        const matched = albums.find((a) => a.id === targetTrack.album_id);
+        if (matched) selectAlbum(matched);
+      }
     }
     if (onOpen3D) onOpen3D();
   };

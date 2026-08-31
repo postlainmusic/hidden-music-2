@@ -11,6 +11,8 @@
  * - Full OS Lockscreen / MediaSession API Integration & Headphone Disconnect Guard
  */
 
+import { youTubeAudioBridge, isYouTubeSource } from "./YouTubeBridge";
+
 export interface AudioEngineTrack {
   id: string;
   title: string;
@@ -95,6 +97,33 @@ export class DualDeckAudioEngine {
       this.setupEventListeners(this.deckA, "A");
       this.setupEventListeners(this.deckB, "B");
       this.setupDeviceListeners();
+
+      // Subscribe to headless YouTube audio bridge
+      youTubeAudioBridge.onProgress((currentTime, duration) => {
+        if (this.currentTrack && isYouTubeSource(this.currentTrack.audioUrl)) {
+          const dur = duration > 0 ? duration : (this.currentTrack.duration || 180);
+          const progressPercent = dur > 0 ? (currentTime / dur) * 100 : 0;
+          this.progressSubscribers.forEach((cb) => cb({
+            currentTime,
+            duration: dur,
+            progressPercent,
+            bufferedPercent: progressPercent
+          }));
+        }
+      });
+
+      youTubeAudioBridge.onStateChange((isPlaying) => {
+        if (this.currentTrack && isYouTubeSource(this.currentTrack.audioUrl)) {
+          this.isPlaying = isPlaying;
+          this.playbackStateSubscribers.forEach((cb) => cb(isPlaying));
+        }
+      });
+
+      youTubeAudioBridge.onBuffering((isBuffering) => {
+        if (this.currentTrack && isYouTubeSource(this.currentTrack.audioUrl)) {
+          this.setBuffering(isBuffering);
+        }
+      });
     }
   }
 
@@ -341,6 +370,21 @@ export class DualDeckAudioEngine {
     this.trackStartedAt = Date.now();
     this.retryCount = 0;
 
+    // ── 1. NGUỒN YOUTUBE: Chuyển luồng sang headless YouTube audio bridge an toàn, không lỗi CORS ──
+    if (isYouTubeSource(track.audioUrl)) {
+      try { this.deckA.pause(); } catch {}
+      try { this.deckB.pause(); } catch {}
+      this.stopProgressLoop();
+      this.isPlaying = true;
+      await youTubeAudioBridge.playTrack(track.audioUrl);
+      this.updateMediaSession(track);
+      this.playbackStateSubscribers.forEach((cb) => cb(true));
+      return;
+    }
+
+    // Nếu chuyển từ bài YouTube sang bài R2 Lossless, dừng phát YouTube
+    youTubeAudioBridge.pause();
+
     const useCrossfade = (options.crossfade ?? true) && this.isPlaying && (this.currentTrack?.id !== track.id);
 
     // Determine target deck
@@ -421,6 +465,10 @@ export class DualDeckAudioEngine {
     clearTimeout(this.retryTimeoutId);
     this.crossfadeTimer = null;
 
+    if (this.currentTrack && isYouTubeSource(this.currentTrack.audioUrl)) {
+      youTubeAudioBridge.pause();
+    }
+
     try { this.deckA.pause(); } catch {}
     try { this.deckB.pause(); } catch {}
     this.isPlaying = false;
@@ -434,6 +482,13 @@ export class DualDeckAudioEngine {
   }
 
   public async resume(): Promise<void> {
+    if (this.currentTrack && isYouTubeSource(this.currentTrack.audioUrl)) {
+      youTubeAudioBridge.resume();
+      this.isPlaying = true;
+      this.playbackStateSubscribers.forEach((cb) => cb(true));
+      return;
+    }
+
     await this.ensureAudioContext();
     const currentAudio = this.getActiveAudio();
     if (currentAudio.src) {
@@ -460,6 +515,11 @@ export class DualDeckAudioEngine {
   }
 
   public seek(seconds: number): void {
+    if (this.currentTrack && isYouTubeSource(this.currentTrack.audioUrl)) {
+      youTubeAudioBridge.seekTo(seconds);
+      return;
+    }
+
     const audio = this.getActiveAudio();
     if (!isNaN(seconds) && audio) {
       try {
@@ -472,6 +532,8 @@ export class DualDeckAudioEngine {
   public setVolume(volume: number): void {
     this.masterVolume = Math.max(0, Math.min(1, volume));
     this.isMuted = this.masterVolume === 0;
+
+    youTubeAudioBridge.setVolume(this.masterVolume);
 
     if (this.masterGain && this.audioCtx) {
       this.masterGain.gain.setValueAtTime(this.isMuted ? 0 : this.masterVolume, this.audioCtx.currentTime);

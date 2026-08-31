@@ -38,10 +38,10 @@ const TEMPLATE_PRESETS: { type: SectionTemplateType; name: string; icon: any; de
     icon: Sparkles,
     desc: "Banner điện ảnh toàn cảnh giới thiệu Album/MV mới với nút Play tức thì",
     defaultCfg: {
-      headline: "IDK - MCK (Official Single)",
+      headline: "HVL (99%) - MCK",
       subheadline: "Thưởng thức bản Master Lossless 24-bit 96kHz độc quyền từ Album HVL (99%)",
       banner_url: HVL_COVER,
-      track_id: "mck-02",
+      track_id: "",
       cta_text: "Nghe Ngay",
       badge_text: "BẢN PHÁT HÀNH MỚI"
     }

@@ -462,7 +462,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpen3D }) => {
               headline={secConfig.headline || currentSection.title}
               subheadline={secConfig.subheadline || currentSection.subtitle}
               bannerUrl={secConfig.banner_url || HVL_COVER}
-              trackId={secConfig.track_id || "mck-02"}
+              trackId={secConfig.track_id}
               ctaText={secConfig.cta_text || "Nghe Ngay"}
               badgeText={secConfig.badge_text || "BẢN PHÁT HÀNH MỚI"}
               onOpen3D={onOpen3D}

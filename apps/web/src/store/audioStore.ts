@@ -624,7 +624,79 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   isLoginModalOpen: false,
   currentUser: getInitialUser(),
   favoritedTrackIds: getInitialFavorites(),
-  sections: [],
+  sections: [
+    {
+      id: "sec-hero-banner",
+      title: "Hero Music Banner",
+      template_type: "hero_banner",
+      sort_order: 1,
+      order_index: 1,
+      is_active: true,
+      is_enabled: 1,
+      config: {
+        headline: "01. Elegie - MCK (Official Single)",
+        subheadline: "Bản phát hành ALBUM mới nhất từ MCK. Chất lượng Lossless phòng thu 24-bit.",
+        banner_url: "https://media.postlain.com/covers/HVL_Album_Cover.jpg",
+        track_id: "mck-01",
+        cta_text: "Nghe Ngay",
+        badge_text: "BẢN PHÁT HÀNH MỚI"
+      }
+    },
+    {
+      id: "sec-album-showcase",
+      title: "HVL (99%) Showcase",
+      template_type: "album_showcase",
+      sort_order: 2,
+      order_index: 2,
+      is_active: true,
+      is_enabled: 1,
+      config: {
+        album_id: "hvl-99",
+        title: "HVL (99%)",
+        artist: "MCK",
+        cover_url: "https://media.postlain.com/covers/HVL_Album_Cover.jpg",
+        description: "Album phòng thu gồm 30 bài hát Lossless FLAC & 4K MV độc quyền."
+      }
+    },
+    {
+      id: "sec-artist-spotlight",
+      title: "Artist Spotlight",
+      template_type: "artist_spotlight",
+      sort_order: 3,
+      order_index: 3,
+      is_active: true,
+      is_enabled: 1,
+      config: {
+        artist_name: "MCK (Nghiêm Vũ Hoàng Long)",
+        bio: "Nghệ sĩ Melodic Rap / R&B tiên phong với phong cách âm nhạc đậm chất cảm xúc và thử nghiệm.",
+        avatar_url: "https://media.postlain.com/covers/HVL_Album_Cover.jpg",
+        featured_track_id: "mck-01"
+      }
+    },
+    {
+      id: "sec-cover-flow",
+      title: "3D Cover Flow Vault",
+      template_type: "cover_flow",
+      sort_order: 4,
+      order_index: 4,
+      is_active: true,
+      is_enabled: 1,
+      config: { slots_count: 5 }
+    },
+    {
+      id: "sec-explore-universe",
+      title: "Explore Universe",
+      template_type: "explore_universe",
+      sort_order: 5,
+      order_index: 5,
+      is_active: true,
+      is_enabled: 1,
+      config: {
+        headline: "EXPLORE UNIVERSE",
+        subtext: "Không gian âm nhạc mở rộng đang được kết nối với hệ sinh thái streaming độc quyền."
+      }
+    }
+  ],
   topFavoriteTracks: [
     DEFAULT_TRACKS[0],
     DEFAULT_TRACKS[1],
@@ -1020,7 +1092,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         (t) => t.album_id === album.id || t.album?.toLowerCase() === album.title?.toLowerCase()
       );
       if (albumTracks.length > 0) {
-        playTrack(albumTracks[0], { crossfade: false });
+        // Natural numerical sort to guarantee the true 1st track (01. ...) is played first
+        const sorted = [...albumTracks].sort((a, b) => {
+          const numA = parseInt(a.title.match(/^\d+/)?.[0] || "999");
+          const numB = parseInt(b.title.match(/^\d+/)?.[0] || "999");
+          if (numA !== numB) return numA - numB;
+          return a.id.localeCompare(b.id);
+        });
+        playTrack(sorted[0], { crossfade: false });
       }
     }
   },
