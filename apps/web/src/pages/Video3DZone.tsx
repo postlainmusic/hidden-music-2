@@ -4,6 +4,7 @@ import { useAudioStore, Track } from "../store/audioStore";
 import { dualDeckAudioEngine } from "../audio/DualDeckAudioEngine";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { MeshGradientBackground, RGBColor } from "../components/MeshGradientBackground";
+import { sendTelemetryLog } from "../utils/telemetry";
 import {
   Play,
   Pause,
@@ -146,6 +147,16 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     setSelectedTrack(track);
     setIsBuffering(false);
     setIsPlaying(false);
+    sendTelemetryLog({
+      eventType: "play_track",
+      titleVi: `🎬 Bắt đầu phát Video MV 4K: "${track.title}" (${track.artist || "MCK"})`,
+      severity: "info",
+      details: {
+        trackTitle: track.title,
+        videoUrl: track.videoUrl,
+        quality: "4K Master"
+      }
+    });
   };
 
   const handleNextTrack = () => {
@@ -357,7 +368,8 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
             ref={videoRef}
             key={videoStreamUrl}
             src={videoStreamUrl}
-            preload="metadata"
+            preload="auto"
+            crossOrigin="anonymous"
             playsInline={true}
             controls={false}
             onPlay={() => setIsPlaying(true)}
@@ -365,6 +377,15 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
             onWaiting={() => setIsBuffering(true)}
             onPlaying={() => setIsBuffering(false)}
             onCanPlay={() => setIsBuffering(false)}
+            onError={() => {
+              // Graceful auto-recovery for network stalls or range reconnects
+              if (videoRef.current && currentTime > 0) {
+                const resumeAt = currentTime;
+                videoRef.current.src = videoStreamUrl;
+                videoRef.current.currentTime = resumeAt;
+                videoRef.current.play().catch(() => {});
+              }
+            }}
             onTimeUpdate={() => {
               if (videoRef.current && !isDraggingSeekerRef.current) {
                 setCurrentTime(videoRef.current.currentTime);

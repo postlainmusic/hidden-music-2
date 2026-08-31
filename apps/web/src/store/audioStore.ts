@@ -600,6 +600,8 @@ const getInitialFavorites = (): string[] => {
   }
 };
 
+let preloadNextTimeout: ReturnType<typeof setTimeout> | null = null;
+
 export const useAudioStore = create<AudioState>((set, get) => ({
   currentTrack: DEFAULT_TRACKS[0],
   queue: DEFAULT_TRACKS,
@@ -672,16 +674,21 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       { crossfade: shouldCrossfade }
     );
 
-    // Preload next track silently on idle deck after a 3s delay
+    // Preload next track silently on idle deck after steady 5s playback
+    if (preloadNextTimeout) {
+      clearTimeout(preloadNextTimeout);
+      preloadNextTimeout = null;
+    }
+
     const currentIndex = queue.findIndex((t) => t.id === track.id);
     if (currentIndex !== -1 && queue.length > 1) {
       const nextTrackItem = queue[(currentIndex + 1) % queue.length];
-      setTimeout(() => {
+      preloadNextTimeout = setTimeout(() => {
         const { currentTrack: activeT, isPlaying: isPl } = get();
         if (isPl && activeT?.id === track.id) {
           dualDeckAudioEngine.preloadNextTrack(nextTrackItem.audioUrl);
         }
-      }, 3000);
+      }, 5000);
     }
 
     set({
