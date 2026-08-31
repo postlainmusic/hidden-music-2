@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion";
 import { useAudioStore, Track } from "../store/audioStore";
 import { dualDeckAudioEngine } from "../audio/DualDeckAudioEngine";
-import { extractYouTubeId, loadYouTubeApi, isYouTubeSource } from "../audio/YouTubeBridge";
+import { extractYouTubeId, youTubeAudioBridge, isYouTubeSource } from "../audio/YouTubeBridge";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { MeshGradientBackground, RGBColor } from "../components/MeshGradientBackground";
 import { sendTelemetryLog } from "../utils/telemetry";
@@ -18,7 +18,8 @@ import {
   Disc3,
   RotateCcw,
   RotateCw,
-  Heart
+  Heart,
+  Sparkles
 } from "lucide-react";
 
 interface Video3DZoneProps {
@@ -36,7 +37,6 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   const [filterMode, setFilterMode] = useState<"release" | "all">("release");
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const ytPlayerRef = useRef<any>(null);
   const cinemaStageRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -84,8 +84,6 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   const displayedVideoTracks = filterMode === "release" && releaseTracks.length > 0 ? releaseTracks : queue;
   const releaseTitle = selectedAlbum?.title || selectedTrack?.album || "HVL (99%)";
 
-  const isYtReadyRef = useRef<boolean>(false);
-
   // Audio pause on Video Zone mount
   useEffect(() => {
     dualDeckAudioEngine.pause();
@@ -98,114 +96,40 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
           videoRef.current.src = "";
         } catch {}
       }
-      if (ytPlayerRef.current && typeof ytPlayerRef.current.destroy === "function") {
-        try { ytPlayerRef.current.destroy(); } catch {}
-        ytPlayerRef.current = null;
-      }
-      isYtReadyRef.current = false;
+      youTubeAudioBridge.pause();
     };
   }, []);
 
-  // Initialize and sync Headless YouTube Video Player API
+  // Sync with Headless YouTube Audio Bridge (0% iframe visual on page)
   useEffect(() => {
-    let pollTimer: any = null;
-    isYtReadyRef.current = false;
-
     if (isYouTube && youtubeId) {
-      let isMounted = true;
-      loadYouTubeApi().then(() => {
-        if (!isMounted) return;
-        const YT = (window as any).YT;
-        if (!YT || !YT.Player) return;
+      youTubeAudioBridge.playTrack(youtubeId);
+      youTubeAudioBridge.setVolume(isMuted ? 0 : volume);
+      setIsPlaying(true);
 
-        // Clean up previous instance before mounting new one
-        if (ytPlayerRef.current && typeof ytPlayerRef.current.destroy === "function") {
-          try { ytPlayerRef.current.destroy(); } catch {}
-          ytPlayerRef.current = null;
+      const unsubProgress = youTubeAudioBridge.onProgress((cur, dur) => {
+        if (!isDraggingSeekerRef.current) {
+          setCurrentTime(cur);
         }
-
-        try {
-          ytPlayerRef.current = new YT.Player("yt-cinema-video-target", {
-            host: "https://www.youtube-nocookie.com",
-            width: "100%",
-            height: "100%",
-            videoId: youtubeId,
-            playerVars: {
-              autoplay: 1,
-              controls: 0,
-              disablekb: 1,
-              fs: 0,
-              modestbranding: 1,
-              rel: 0,
-              cc_load_policy: 0,
-              iv_load_policy: 3,
-              playsinline: 1,
-              origin: window.location.origin
-            },
-            events: {
-              onReady: (e: any) => {
-                if (!isMounted) return;
-                isYtReadyRef.current = true;
-                try {
-                  e.target.setVolume(Math.round(volume * 100));
-                  e.target.playVideo();
-                } catch {}
-              },
-              onStateChange: (e: any) => {
-                if (!isMounted) return;
-                const st = e.data;
-                if (st === 1) { // playing
-                  setIsPlaying(true);
-                  setIsBuffering(false);
-                } else if (st === 2) { // paused
-                  setIsPlaying(false);
-                } else if (st === 3) { // buffering
-                  setIsBuffering(true);
-                } else if (st === 0) { // ended
-                  setIsPlaying(false);
-                  handleNextTrack();
-                }
-              },
-              onError: () => {
-                setIsBuffering(false);
-              }
-            }
-          });
-        } catch {
-          // Graceful fallback
+        if (dur > 0) {
+          setDuration(dur);
         }
+      });
 
-        pollTimer = setInterval(() => {
-          if (isMounted && isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === "function") {
-            try {
-              const cur = ytPlayerRef.current.getCurrentTime() || 0;
-              const dur = ytPlayerRef.current.getDuration() || 0;
-              if (!isDraggingSeekerRef.current) {
-                setCurrentTime(cur);
-              }
-              if (dur > 0) {
-                setDuration(dur);
-              }
-            } catch {}
-          }
-        }, 250);
+      const unsubState = youTubeAudioBridge.onStateChange((playing) => {
+        setIsPlaying(playing);
+      });
+
+      const unsubBuffer = youTubeAudioBridge.onBuffering((buffering) => {
+        setIsBuffering(buffering);
       });
 
       return () => {
-        isMounted = false;
-        if (pollTimer) clearInterval(pollTimer);
-        if (ytPlayerRef.current && typeof ytPlayerRef.current.destroy === "function") {
-          try { ytPlayerRef.current.destroy(); } catch {}
-          ytPlayerRef.current = null;
-        }
-        isYtReadyRef.current = false;
+        unsubProgress();
+        unsubState();
+        unsubBuffer();
+        youTubeAudioBridge.pause();
       };
-    } else {
-      if (ytPlayerRef.current && typeof ytPlayerRef.current.destroy === "function") {
-        try { ytPlayerRef.current.destroy(); } catch {}
-        ytPlayerRef.current = null;
-      }
-      isYtReadyRef.current = false;
     }
   }, [isYouTube, youtubeId]);
 
@@ -248,14 +172,10 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   const togglePlay = useCallback(() => {
     if (isYouTube) {
       if (isPlaying) {
-        if (isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.pauseVideo === "function") {
-          try { ytPlayerRef.current.pauseVideo(); } catch {}
-        }
+        youTubeAudioBridge.pause();
         setIsPlaying(false);
       } else {
-        if (isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.playVideo === "function") {
-          try { ytPlayerRef.current.playVideo(); } catch {}
-        }
+        youTubeAudioBridge.resume();
         setIsPlaying(true);
       }
       return;
@@ -329,17 +249,10 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   const toggleMute = () => {
     if (isYouTube) {
       if (isMuted) {
-        if (isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.unMute === "function") {
-          try {
-            ytPlayerRef.current.unMute();
-            ytPlayerRef.current.setVolume(Math.round(volume * 100));
-          } catch {}
-        }
+        youTubeAudioBridge.setVolume(volume);
         setIsMuted(false);
       } else {
-        if (isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.mute === "function") {
-          try { ytPlayerRef.current.mute(); } catch {}
-        }
+        youTubeAudioBridge.setVolume(0);
         setIsMuted(true);
       }
       return;
@@ -360,11 +273,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     const currIdx = SPEED_OPTIONS.indexOf(playbackRate);
     const nextRate = SPEED_OPTIONS[(currIdx + 1) % SPEED_OPTIONS.length] || 1.0;
     setPlaybackRate(nextRate);
-    if (isYouTube) {
-      if (isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.setPlaybackRate === "function") {
-        try { ytPlayerRef.current.setPlaybackRate(nextRate); } catch {}
-      }
-    } else if (videoRef.current) {
+    if (videoRef.current) {
       videoRef.current.playbackRate = nextRate;
     }
   };
@@ -397,9 +306,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     const newTime = parseFloat(e.target.value);
     setCurrentTime(newTime);
     if (isYouTube) {
-      if (isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
-        try { ytPlayerRef.current.seekTo(newTime, true); } catch {}
-      }
+      youTubeAudioBridge.seekTo(newTime);
     } else if (videoRef.current) {
       videoRef.current.currentTime = newTime;
     }
@@ -433,9 +340,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
       if (xRatio < 0.45) {
         const targetTime = Math.max(0, currentTime - 10);
         if (isYouTube) {
-          if (isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
-            try { ytPlayerRef.current.seekTo(targetTime, true); } catch {}
-          }
+          youTubeAudioBridge.seekTo(targetTime);
           setCurrentTime(targetTime);
         } else if (videoRef.current) {
           videoRef.current.currentTime = targetTime;
@@ -445,9 +350,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
       } else if (xRatio > 0.55) {
         const targetTime = Math.min(duration, currentTime + 10);
         if (isYouTube) {
-          if (isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
-            try { ytPlayerRef.current.seekTo(targetTime, true); } catch {}
-          }
+          youTubeAudioBridge.seekTo(targetTime);
           setCurrentTime(targetTime);
         } else if (videoRef.current) {
           videoRef.current.currentTime = targetTime;
@@ -518,63 +421,71 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        zIndex: 50,
-        color: "#ffffff"
+        justifyContent: "flex-start",
+        zIndex: 9999,
+        userSelect: "none"
       }}
     >
       {/* ─────────────────────────────────────────────────────────────────────
-          1. DYNAMIC AMBILIGHT MESH GRADIENT BACKGROUND
+          AMBILIGHT SHADER & CANVAS PROJECTION
       ────────────────────────────────────────────────────────────────────── */}
-      <MeshGradientBackground customColors={ambilightColors} intensity={1.2} />
+      <MeshGradientBackground
+        customColors={ambilightColors}
+        speed={0.0035}
+        distortion={0.5}
+        blendSteps={4}
+      />
+      <canvas ref={canvasRef} width="16" height="9" style={{ display: "none" }} />
 
-      {/* Hidden Offscreen Canvas for Ambilight extraction */}
-      <canvas ref={canvasRef} width={16} height={9} style={{ display: "none" }} />
-
-      {/* ── TOP HEADER BAR ── */}
+      {/* ─────────────────────────────────────────────────────────────────────
+          1. TOP NAVIGATION & HEADER
+      ────────────────────────────────────────────────────────────────────── */}
       <div
         style={{
-          flexShrink: 0,
           width: "100%",
-          maxWidth: "1100px",
-          padding: isMobile ? "12px 16px 6px" : "16px 24px 8px",
+          maxWidth: isMobile ? "100vw" : "1080px",
+          padding: isMobile ? "16px 16px 10px 16px" : "24px 24px 12px 24px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           zIndex: 40
         }}
       >
-        <button
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           onClick={onBackTo3DAlbum}
           style={{
             display: "flex",
             alignItems: "center",
             gap: "8px",
             padding: "8px 16px",
-            borderRadius: "999px",
+            borderRadius: "9999px",
             backgroundColor: "rgba(255, 255, 255, 0.08)",
             backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
             border: "1px solid rgba(255, 255, 255, 0.15)",
             color: "#ffffff",
             fontSize: "0.82rem",
             fontWeight: 700,
-            cursor: "pointer",
-            transition: "all 0.2s ease"
+            cursor: "pointer"
           }}
         >
-          <ArrowLeft size={15} />
+          <ArrowLeft size={16} />
           <span>3D Album</span>
-        </button>
+        </motion.button>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <span
             style={{
               padding: "4px 10px",
-              borderRadius: "999px",
-              backgroundColor: "rgba(236, 72, 153, 0.15)",
-              border: "1px solid rgba(236, 72, 153, 0.35)",
+              borderRadius: "9999px",
+              backgroundColor: "rgba(236, 72, 153, 0.2)",
+              border: "1px solid rgba(236, 72, 153, 0.4)",
               color: "#f472b6",
-              fontSize: "0.74rem",
-              fontWeight: 800
+              fontSize: "0.68rem",
+              fontWeight: 800,
+              letterSpacing: "0.08em"
             }}
           >
             4K CINEMA
@@ -586,7 +497,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────
-          2. MAIN 16:9 CINEMA VIDEO PLAYER
+          2. MAIN 16:9 CINEMA VIDEO PLAYER (ZERO YOUTUBE IFRAME OVERLAY)
       ────────────────────────────────────────────────────────────────────── */}
       <div
         style={{
@@ -619,20 +530,126 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
               style={{
                 width: "100%",
                 height: "100%",
-                overflow: "hidden",
                 position: "relative",
-                pointerEvents: "none"
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+                background: "#050508"
               }}
             >
+              {/* Blurred Ambient Background Artwork */}
               <div
-                id="yt-cinema-video-target"
                 style={{
-                  width: "100%",
-                  height: "100%",
-                  transform: "scale(1.18) translateY(-2%)",
-                  transformOrigin: "center center"
+                  position: "absolute",
+                  inset: -20,
+                  backgroundImage: `url(${selectedTrack?.cover || "/covers/HVL_Album_Cover.webp"})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  filter: "blur(30px) brightness(0.35) contrast(1.2)",
+                  transform: isPlaying ? "scale(1.08)" : "scale(1)",
+                  transition: "transform 10s ease-out"
                 }}
               />
+
+              {/* Radial gradient spotlight */}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: `radial-gradient(circle at center, transparent 30%, rgba(5,5,8,0.85) 90%)`,
+                  pointerEvents: "none"
+                }}
+              />
+
+              {/* Center Artwork Canvas with Vinyl Disc Peeking */}
+              <div
+                style={{
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 2,
+                  transform: isMobile ? "scale(0.85)" : "scale(1)"
+                }}
+              >
+                {/* Vinyl Record Behind Sleeve */}
+                <motion.div
+                  animate={{ rotate: isPlaying ? 360 : 0 }}
+                  transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+                  style={{
+                    position: "absolute",
+                    right: isPlaying ? "-40px" : "-10px",
+                    width: isMobile ? "160px" : "220px",
+                    height: isMobile ? "160px" : "220px",
+                    borderRadius: "50%",
+                    background: "radial-gradient(circle, #1a1a24 0%, #08080c 60%, #000000 100%)",
+                    border: "2px solid rgba(255,255,255,0.15)",
+                    boxShadow: "0 10px 30px rgba(0,0,0,0.8)",
+                    transition: "right 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "60px",
+                      height: "60px",
+                      borderRadius: "50%",
+                      backgroundImage: `url(${selectedTrack?.cover || "/covers/HVL_Album_Cover.webp"})`,
+                      backgroundSize: "cover",
+                      border: "2px solid rgba(255,255,255,0.3)"
+                    }}
+                  />
+                </motion.div>
+
+                {/* Album Cover Art */}
+                <div
+                  style={{
+                    position: "relative",
+                    width: isMobile ? "160px" : "220px",
+                    height: isMobile ? "160px" : "220px",
+                    borderRadius: "16px",
+                    overflow: "hidden",
+                    border: "1.5px solid rgba(255, 255, 255, 0.25)",
+                    boxShadow: "0 20px 50px rgba(0,0,0,0.9), 0 0 30px rgba(99, 102, 241, 0.3)",
+                    zIndex: 2
+                  }}
+                >
+                  <img
+                    src={selectedTrack?.cover || "/covers/HVL_Album_Cover.webp"}
+                    alt={selectedTrack?.title}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                </div>
+              </div>
+
+              {/* Visualizer Badge */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: isMobile ? "12px" : "20px",
+                  left: isMobile ? "14px" : "24px",
+                  zIndex: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "4px 10px",
+                  borderRadius: "999px",
+                  background: "rgba(0, 0, 0, 0.6)",
+                  backdropFilter: "blur(12px)",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  color: "#ffffff",
+                  fontSize: "0.68rem",
+                  fontWeight: 800,
+                  letterSpacing: "0.06em",
+                  pointerEvents: "none"
+                }}
+              >
+                <Sparkles size={11} color="#a5b4fc" />
+                <span>STUDIO CINEMA VISUALIZER</span>
+              </div>
             </div>
           ) : (
             <video

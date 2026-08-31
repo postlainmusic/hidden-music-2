@@ -116,7 +116,6 @@ class YouTubeAudioBridge {
 
       try {
         this.player = new YT.Player("yt-headless-audio-target", {
-          host: "https://www.youtube-nocookie.com",
           height: "1",
           width: "1",
           playerVars: {
@@ -129,7 +128,7 @@ class YouTubeAudioBridge {
             cc_load_policy: 0,
             iv_load_policy: 3,
             playsinline: 1,
-            origin: window.location.origin
+            enablejsapi: 1
           },
           events: {
             onReady: (event: any) => {
