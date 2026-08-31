@@ -130,7 +130,7 @@ export class DualDeckAudioEngine {
       this.gainA = this.audioCtx.createGain();
       this.gainB = this.audioCtx.createGain();
       this.gainA.gain.value = 1.0;
-      this.gainB.gain.value = 0.0;
+      this.gainB.gain.value = 1.0;
 
       // 2. Master Gain
       this.masterGain = this.audioCtx.createGain();
@@ -341,7 +341,7 @@ export class DualDeckAudioEngine {
     this.trackStartedAt = Date.now();
     this.retryCount = 0;
 
-    const useCrossfade = options.crossfade ?? (this.isPlaying && this.currentTrack?.id !== track.id);
+    const useCrossfade = (options.crossfade ?? true) && this.isPlaying && (this.currentTrack?.id !== track.id);
 
     if (useCrossfade) {
       // 0ms Smooth Crossfade to the alternate deck

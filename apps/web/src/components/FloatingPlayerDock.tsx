@@ -867,15 +867,13 @@ export const FloatingPlayerDock: React.FC = () => {
               </AnimatePresence>
 
               <button
-                onClick={() => {
-                  setShowInlineVolume((prev) => !prev);
-                }}
-                onDoubleClick={toggleMute}
-                title={`Âm lượng: ${Math.round((isMuted ? 0 : volume) * 100)}%`}
+                onClick={toggleMute}
+                onMouseEnter={() => setShowInlineVolume(true)}
+                title={isMuted || volume === 0 ? "Bật tiếng" : `Tắt tiếng (${Math.round(volume * 100)}%)`}
                 style={{
-                  background: showInlineVolume ? "#ffffff" : "rgba(255, 255, 255, 0.08)",
-                  color: showInlineVolume ? "#000000" : "#ffffff",
-                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  background: isMuted || volume === 0 ? "rgba(239, 68, 68, 0.2)" : showInlineVolume ? "#ffffff" : "rgba(255, 255, 255, 0.08)",
+                  color: isMuted || volume === 0 ? "#ef4444" : showInlineVolume ? "#000000" : "#ffffff",
+                  border: isMuted || volume === 0 ? "1px solid rgba(239, 68, 68, 0.4)" : "1px solid rgba(255, 255, 255, 0.15)",
                   borderRadius: "50%",
                   width: "34px",
                   height: "34px",

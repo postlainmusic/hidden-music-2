@@ -749,8 +749,14 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   toggleMute: () => {
+    const { volume } = get();
     const isMuted = dualDeckAudioEngine.toggleMute();
-    set({ isMuted });
+    if (!isMuted && volume === 0) {
+      dualDeckAudioEngine.setVolume(0.85);
+      set({ volume: 0.85, isMuted: false });
+    } else {
+      set({ isMuted });
+    }
   },
 
   toggleBassBoost: () => {
