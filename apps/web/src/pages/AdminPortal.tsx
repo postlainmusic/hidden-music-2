@@ -196,11 +196,43 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
     video_url: ""
   });
 
+  const [albumToDelete, setAlbumToDelete] = useState<any | null>(null);
+  const [isDeletingAlbum, setIsDeletingAlbum] = useState<boolean>(false);
+
   const token = typeof window !== "undefined" ? localStorage.getItem("vault_token") : null;
 
   const showToast = (msg: string) => {
     setStatusMessage(msg);
     setTimeout(() => setStatusMessage(null), 3500);
+  };
+
+  const handleDeleteAlbum = async () => {
+    if (!albumToDelete) return;
+    setIsDeletingAlbum(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/albums/${albumToDelete.id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message || `Đã xóa bản phát hành "${albumToDelete.title}" thành công!`);
+        setAlbumToDelete(null);
+        if (selectedAlbumId === albumToDelete.id) {
+          setSelectedAlbumId("hvl-99");
+        }
+        await fetchAlbums();
+        fetchLogs();
+      } else {
+        showToast(`Lỗi: ${data.error || "Không thể xóa album"}`);
+      }
+    } catch (err: any) {
+      showToast(`Lỗi kết nối: ${err.message}`);
+    } finally {
+      setIsDeletingAlbum(false);
+    }
   };
 
   // 1. Fetch Albums
@@ -872,6 +904,36 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
                           {album.artist} • {album.type?.toUpperCase()}
                         </span>
                       </div>
+
+                      {/* Delete Album Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAlbumToDelete(album);
+                        }}
+                        title={`Xóa bản phát hành ${album.title}`}
+                        style={{
+                          padding: "6px",
+                          borderRadius: "8px",
+                          backgroundColor: "rgba(239, 68, 68, 0.12)",
+                          border: "1px solid rgba(239, 68, 68, 0.25)",
+                          color: "#ef4444",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          transition: "all 0.18s ease",
+                          flexShrink: 0
+                        }}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(239, 68, 68, 0.25)";
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(239, 68, 68, 0.12)";
+                        }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </div>
                   );
                 })}
@@ -1839,6 +1901,113 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({ onBackToVault }) => {
                     </div>
                   );
                 })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── MODAL: CONFIRM DELETE ALBUM (ACCIDENTAL DATA LOSS PREVENTION) ── */}
+      <AnimatePresence>
+        {albumToDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.85)",
+              backdropFilter: "blur(18px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 10000,
+              padding: "20px"
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.92, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              style={{
+                width: "100%",
+                maxWidth: "460px",
+                backgroundColor: "#0f0e15",
+                borderRadius: "20px",
+                border: "1px solid rgba(239, 68, 68, 0.4)",
+                boxShadow: "0 25px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(239, 68, 68, 0.2)",
+                padding: "24px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "16px"
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{ width: "42px", height: "42px", borderRadius: "10px", backgroundColor: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.35)", display: "flex", alignItems: "center", justifyContent: "center", color: "#ef4444", flexShrink: 0 }}>
+                  <Trash2 size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "#ffffff" }}>
+                    Xác Nhận Xóa Bản Phát Hành?
+                  </h3>
+                  <span style={{ fontSize: "0.74rem", color: "rgba(255, 255, 255, 0.5)" }}>
+                    Hành động này không thể hoàn tác
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ padding: "12px 14px", borderRadius: "12px", backgroundColor: "rgba(239, 68, 68, 0.08)", border: "1px solid rgba(239, 68, 68, 0.2)" }}>
+                <p style={{ margin: 0, fontSize: "0.85rem", color: "#ffffff", fontWeight: 700 }}>
+                  {albumToDelete.title}
+                </p>
+                <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.6)" }}>
+                  {albumToDelete.artist} • {albumToDelete.type?.toUpperCase()}
+                </p>
+                <p style={{ margin: "8px 0 0", fontSize: "0.72rem", color: "#f87171", lineHeight: 1.4 }}>
+                  ⚠️ Khi xóa, toàn bộ các bài hát, video và lượt yêu thích liên quan của bản phát hành này trong hệ cơ sở dữ liệu sẽ bị xóa.
+                </p>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "4px" }}>
+                <button
+                  disabled={isDeletingAlbum}
+                  onClick={() => setAlbumToDelete(null)}
+                  style={{
+                    padding: "8px 18px",
+                    borderRadius: "10px",
+                    backgroundColor: "rgba(255, 255, 255, 0.06)",
+                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    color: "#ffffff",
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                    cursor: "pointer"
+                  }}
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  disabled={isDeletingAlbum}
+                  onClick={handleDeleteAlbum}
+                  style={{
+                    padding: "8px 20px",
+                    borderRadius: "10px",
+                    backgroundColor: "#ef4444",
+                    border: "none",
+                    color: "#ffffff",
+                    fontSize: "0.82rem",
+                    fontWeight: 700,
+                    cursor: isDeletingAlbum ? "not-allowed" : "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    boxShadow: "0 4px 14px rgba(239, 68, 68, 0.45)",
+                    opacity: isDeletingAlbum ? 0.6 : 1
+                  }}
+                >
+                  <Trash2 size={14} />
+                  <span>{isDeletingAlbum ? "Đang xóa..." : "Xác nhận Xóa"}</span>
+                </button>
               </div>
             </motion.div>
           </motion.div>

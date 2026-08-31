@@ -27,11 +27,12 @@ interface Video3DZoneProps {
 const SPEED_OPTIONS = [0.75, 1.0, 1.25, 1.5, 2.0];
 
 export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => {
-  const { currentTrack, queue, favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
+  const { currentTrack, queue, favoritedTrackIds, toggleFavoriteTrack, selectedAlbum } = useAudioStore();
   const isMobile = useIsMobile();
 
   // Local Video Track State
   const [selectedTrack, setSelectedTrack] = useState<Track>(() => currentTrack || queue[0]);
+  const [filterMode, setFilterMode] = useState<"release" | "all">("release");
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -62,6 +63,20 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
 
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDraggingSeekerRef = useRef<boolean>(false);
+
+  // Release filtered tracks
+  const releaseTracks = useMemo(() => {
+    return queue.filter((t) => {
+      if (selectedAlbum?.id) return t.album_id === selectedAlbum.id;
+      if (selectedAlbum?.title) return t.album?.toLowerCase() === selectedAlbum.title.toLowerCase();
+      if (selectedTrack?.album_id) return t.album_id === selectedTrack.album_id;
+      if (selectedTrack?.album) return t.album?.toLowerCase() === selectedTrack.album.toLowerCase();
+      return true;
+    });
+  }, [queue, selectedAlbum, selectedTrack]);
+
+  const displayedVideoTracks = filterMode === "release" && releaseTracks.length > 0 ? releaseTracks : queue;
+  const releaseTitle = selectedAlbum?.title || selectedTrack?.album || "HVL (99%)";
 
   // Audio pause on Video Zone mount
   useEffect(() => {
@@ -106,18 +121,61 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     }
   }, []);
 
-  // Fullscreen toggle
+  // Cross-Platform & iOS Safari Fullscreen toggle
   const toggleFullscreen = useCallback(async () => {
-    if (!containerRef.current) return;
     try {
-      if (!document.fullscreenElement) {
-        await containerRef.current.requestFullscreen();
+      const doc = document as any;
+      const elem = containerRef.current as any;
+      const videoElem = videoRef.current as any;
+
+      if (!doc.fullscreenElement && !doc.webkitFullscreenElement && !doc.mozFullScreenElement && !doc.msFullscreenElement) {
+        if (elem?.requestFullscreen) {
+          await elem.requestFullscreen();
+        } else if (elem?.webkitRequestFullscreen) {
+          await elem.webkitRequestFullscreen();
+        } else if (elem?.mozRequestFullScreen) {
+          await elem.mozRequestFullScreen();
+        } else if (elem?.msRequestFullscreen) {
+          await elem.msRequestFullscreen();
+        } else if (videoElem?.webkitEnterFullscreen) {
+          videoElem.webkitEnterFullscreen();
+        }
         setIsFullscreen(true);
       } else {
-        await document.exitFullscreen();
+        if (doc.exitFullscreen) {
+          await doc.exitFullscreen();
+        } else if (doc.webkitExitFullscreen) {
+          await doc.webkitExitFullscreen();
+        } else if (doc.mozCancelFullScreen) {
+          await doc.mozCancelFullScreen();
+        } else if (doc.msExitFullscreen) {
+          await doc.msExitFullscreen();
+        }
         setIsFullscreen(false);
       }
-    } catch {}
+    } catch (err) {
+      console.warn("Fullscreen error notice:", err);
+    }
+  }, []);
+
+  // Fullscreen change listener
+  useEffect(() => {
+    const handleFsChange = () => {
+      const doc = document as any;
+      const isFs = Boolean(doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement);
+      setIsFullscreen(isFs);
+    };
+
+    document.addEventListener("fullscreenchange", handleFsChange);
+    document.addEventListener("webkitfullscreenchange", handleFsChange);
+    document.addEventListener("mozfullscreenchange", handleFsChange);
+    document.addEventListener("MSFullscreenChange", handleFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFsChange);
+      document.removeEventListener("webkitfullscreenchange", handleFsChange);
+      document.removeEventListener("mozfullscreenchange", handleFsChange);
+      document.removeEventListener("MSFullscreenChange", handleFsChange);
+    };
   }, []);
 
   const toggleMute = () => {
@@ -262,15 +320,17 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
       onMouseMove={handleUserActivity}
       onClick={handleUserActivity}
       style={{
-        position: "relative",
+        position: "fixed",
+        inset: 0,
         width: "100vw",
-        minHeight: "100dvh",
+        height: "100dvh",
+        maxHeight: "100dvh",
         backgroundColor: "#000000",
-        overflowX: "hidden",
+        overflow: "hidden",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        zIndex: 10,
+        zIndex: 50,
         color: "#ffffff"
       }}
     >
@@ -285,9 +345,10 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
       {/* ── TOP HEADER BAR ── */}
       <div
         style={{
+          flexShrink: 0,
           width: "100%",
           maxWidth: "1100px",
-          padding: isMobile ? "16px 16px 8px" : "20px 24px",
+          padding: isMobile ? "12px 16px 6px" : "16px 24px 8px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -331,7 +392,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
             4K CINEMA
           </span>
           <span style={{ fontSize: "0.82rem", color: "rgba(255, 255, 255, 0.6)", fontWeight: 600 }}>
-            HVL (30 Videos)
+            {releaseTitle} ({displayedVideoTracks.length} Videos)
           </span>
         </div>
       </div>
@@ -639,19 +700,19 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
         <div
           style={{
             width: "100%",
-            padding: isMobile ? "14px 16px 8px" : "18px 0 12px",
+            padding: isMobile ? "10px 16px 6px" : "14px 0 8px",
             display: "flex",
             flexDirection: "column",
-            gap: "10px"
+            gap: "8px"
           }}
         >
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
             <div style={{ minWidth: 0 }}>
-              <h2 style={{ margin: 0, fontSize: isMobile ? "1.1rem" : "1.35rem", fontWeight: 800, color: "#ffffff", letterSpacing: "0.02em" }}>
+              <h2 style={{ margin: 0, fontSize: isMobile ? "1.05rem" : "1.25rem", fontWeight: 800, color: "#ffffff", letterSpacing: "0.02em" }}>
                 {selectedTrack?.title}
               </h2>
-              <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: "rgba(255, 255, 255, 0.55)", fontWeight: 600 }}>
-                {selectedTrack?.artist || "MCK"} • Album HVL (99%)
+              <p style={{ margin: "3px 0 0", fontSize: "0.82rem", color: "rgba(255, 255, 255, 0.55)", fontWeight: 600 }}>
+                {selectedTrack?.artist || "MCK"} • {releaseTitle}
               </p>
             </div>
 
@@ -659,7 +720,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
               <button
                 onClick={() => selectedTrack?.id && toggleFavoriteTrack(selectedTrack.id)}
                 style={{
-                  padding: "8px 14px",
+                  padding: "6px 12px",
                   borderRadius: "999px",
                   backgroundColor: isFav ? "rgba(239, 68, 68, 0.2)" : "rgba(255, 255, 255, 0.08)",
                   border: isFav ? "1px solid rgba(239, 68, 68, 0.5)" : "1px solid rgba(255, 255, 255, 0.15)",
@@ -667,132 +728,174 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                   display: "flex",
                   alignItems: "center",
                   gap: "6px",
-                  fontSize: "0.8rem",
+                  fontSize: "0.78rem",
                   fontWeight: 700,
                   cursor: "pointer"
                 }}
               >
-                <Heart size={14} fill={isFav ? "#ef4444" : "none"} />
+                <Heart size={13} fill={isFav ? "#ef4444" : "none"} />
                 <span>{isFav ? "Đã Thích" : "Thích"}</span>
               </button>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* YouTube-Style Playlist Queue */}
-        <div
-          style={{
-            width: "100%",
-            padding: isMobile ? "0 16px 80px" : "8px 0 60px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "12px"
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: "4px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <ListMusic size={18} color="#ec4899" />
-              <span style={{ fontSize: "0.92rem", fontWeight: 800, color: "#ffffff", letterSpacing: "0.04em" }}>
-                DANH SÁCH PHÁT VIDEO ({queue.length})
-              </span>
-            </div>
-            <span style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.45)", fontWeight: 600 }}>
-              Chất lượng 4K Master
+      {/* ─────────────────────────────────────────────────────────────────────
+          3. SCROLLABLE VIDEO PLAYLIST TRAY (INTERNAL SCROLL ONLY)
+      ────────────────────────────────────────────────────────────────────── */}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          width: "100%",
+          maxWidth: isMobile ? "100vw" : "1080px",
+          padding: isMobile ? "6px 16px 36px" : "8px 24px 40px",
+          overflowY: "auto",
+          overflowX: "hidden",
+          WebkitOverflowScrolling: "touch",
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px",
+          zIndex: 30
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px", paddingBottom: "4px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <ListMusic size={17} color="#ec4899" />
+            <span style={{ fontSize: "0.88rem", fontWeight: 800, color: "#ffffff", letterSpacing: "0.03em" }}>
+              DANH SÁCH VIDEO ({displayedVideoTracks.length})
             </span>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {queue.map((track, idx) => {
-              const isCurrent = track.id === selectedTrack?.id;
+          {/* Filter Pills: Release vs All Videos */}
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <button
+              onClick={() => setFilterMode("release")}
+              style={{
+                padding: "3px 10px",
+                borderRadius: "999px",
+                border: filterMode === "release" ? "1px solid #ec4899" : "1px solid rgba(255,255,255,0.12)",
+                backgroundColor: filterMode === "release" ? "rgba(236, 72, 153, 0.2)" : "rgba(255,255,255,0.04)",
+                color: filterMode === "release" ? "#f472b6" : "rgba(255,255,255,0.6)",
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: "all 0.2s ease"
+              }}
+            >
+              {releaseTitle} ({releaseTracks.length})
+            </button>
+            <button
+              onClick={() => setFilterMode("all")}
+              style={{
+                padding: "3px 10px",
+                borderRadius: "999px",
+                border: filterMode === "all" ? "1px solid #6366f1" : "1px solid rgba(255,255,255,0.12)",
+                backgroundColor: filterMode === "all" ? "rgba(99, 102, 241, 0.2)" : "rgba(255,255,255,0.04)",
+                color: filterMode === "all" ? "#818cf8" : "rgba(255,255,255,0.6)",
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: "all 0.2s ease"
+              }}
+            >
+              Tất cả ({queue.length})
+            </button>
+          </div>
+        </div>
 
-              return (
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {displayedVideoTracks.map((track, idx) => {
+            const isCurrent = track.id === selectedTrack?.id;
+
+            return (
+              <div
+                key={track.id || idx}
+                onClick={() => handleSelectTrack(track)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "8px 12px",
+                  borderRadius: "14px",
+                  backgroundColor: isCurrent ? "rgba(99, 102, 241, 0.22)" : "rgba(255, 255, 255, 0.03)",
+                  border: isCurrent ? "1px solid rgba(168, 85, 247, 0.6)" : "1px solid rgba(255, 255, 255, 0.06)",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease"
+                }}
+              >
                 <div
-                  key={track.id || idx}
-                  onClick={() => handleSelectTrack(track)}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "14px",
-                    padding: "8px 12px",
-                    borderRadius: "14px",
-                    backgroundColor: isCurrent ? "rgba(99, 102, 241, 0.22)" : "rgba(255, 255, 255, 0.03)",
-                    border: isCurrent ? "1px solid rgba(168, 85, 247, 0.6)" : "1px solid rgba(255, 255, 255, 0.06)",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease"
+                    position: "relative",
+                    width: isMobile ? "90px" : "110px",
+                    aspectRatio: "16 / 9",
+                    borderRadius: "8px",
+                    overflow: "hidden",
+                    backgroundColor: "#111118",
+                    flexShrink: 0
                   }}
                 >
+                  <img
+                    src={track.coverUrl || "/covers/HVL_Album_Cover.webp"}
+                    alt={track.title}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
                   <div
                     style={{
-                      position: "relative",
-                      width: isMobile ? "96px" : "120px",
-                      aspectRatio: "16 / 9",
-                      borderRadius: "8px",
-                      overflow: "hidden",
-                      backgroundColor: "#111118",
-                      flexShrink: 0
+                      position: "absolute",
+                      bottom: "3px",
+                      right: "4px",
+                      padding: "1px 5px",
+                      borderRadius: "4px",
+                      backgroundColor: "rgba(0, 0, 0, 0.75)",
+                      fontSize: "0.62rem",
+                      fontWeight: 700,
+                      color: "#ffffff"
                     }}
                   >
-                    <img
-                      src={track.coverUrl || "/covers/HVL_Album_Cover.webp"}
-                      alt={track.title}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    />
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: "3px",
-                        right: "4px",
-                        padding: "1px 5px",
-                        borderRadius: "4px",
-                        backgroundColor: "rgba(0, 0, 0, 0.75)",
-                        fontSize: "0.65rem",
-                        fontWeight: 700,
-                        color: "#ffffff"
-                      }}
-                    >
-                      {formatTime(track.duration)}
-                    </div>
-                  </div>
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <span
-                      style={{
-                        fontSize: "0.88rem",
-                        fontWeight: 700,
-                        color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.85)",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        display: "block"
-                      }}
-                    >
-                      {track.title}
-                    </span>
-
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "3px" }}>
-                      <span style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.45)" }}>
-                        {track.artist || "MCK"}
-                      </span>
-                      {isCurrent && (
-                        <span
-                          style={{
-                            padding: "1px 6px",
-                            borderRadius: "4px",
-                            backgroundColor: "rgba(52, 211, 153, 0.2)",
-                            color: "#34d399",
-                            fontSize: "0.65rem",
-                            fontWeight: 800
-                          }}
-                        >
-                          ĐANG PHÁT
-                        </span>
-                      )}
-                    </div>
+                    {formatTime(track.duration)}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span
+                    style={{
+                      fontSize: "0.85rem",
+                      fontWeight: 700,
+                      color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.85)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      display: "block"
+                    }}
+                  >
+                    {track.title}
+                  </span>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "3px" }}>
+                    <span style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.45)" }}>
+                      {track.artist || "MCK"}
+                    </span>
+                    {isCurrent && (
+                      <span
+                        style={{
+                          padding: "1px 6px",
+                          borderRadius: "4px",
+                          backgroundColor: "rgba(52, 211, 153, 0.2)",
+                          color: "#34d399",
+                          fontSize: "0.62rem",
+                          fontWeight: 800
+                        }}
+                      >
+                        ĐANG PHÁT
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

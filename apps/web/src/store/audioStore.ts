@@ -570,6 +570,15 @@ interface AudioState {
   seedHvlToD1: () => Promise<{ success: boolean; message: string }>;
 }
 
+export const normalizeAudioUrl = (url?: string): string => {
+  if (!url) return `${STREAM_BASE}/audio/01.%20Elegie.m4a`;
+  let normalized = url.trim();
+  if (normalized.includes(".flac")) {
+    normalized = normalized.replace(/\.flac(\?.*)?$/i, ".m4a$1");
+  }
+  return normalized;
+};
+
 // Apply dynamic theme color variables on root DOM
 const updateCssTheme = (palette: TrackPalette) => {
   if (typeof document === "undefined") return;
@@ -655,21 +664,39 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   },
 
   playTrack: (track: Track, options: { crossfade?: boolean } = {}) => {
-    updateCssTheme(track.palette);
-    studioBeatEngine.setTrack(track.title, track.bpm);
+    const cleanTrack: Track = {
+      ...track,
+      audioUrl: normalizeAudioUrl(track.audioUrl)
+    };
 
-    const { crossfadeEnabled, queue } = get();
+    updateCssTheme(cleanTrack.palette);
+    studioBeatEngine.setTrack(cleanTrack.title, cleanTrack.bpm);
+
+    const { crossfadeEnabled, queue, albums } = get();
     const shouldCrossfade = options.crossfade ?? crossfadeEnabled;
+
+    // Automatically sync selectedAlbum if known
+    if (cleanTrack.album_id) {
+      const matchedAlbum = albums.find((a) => a.id === cleanTrack.album_id);
+      if (matchedAlbum) {
+        set({ selectedAlbum: matchedAlbum });
+      }
+    } else if (cleanTrack.album) {
+      const matchedAlbum = albums.find((a) => a.title?.toLowerCase() === cleanTrack.album?.toLowerCase());
+      if (matchedAlbum) {
+        set({ selectedAlbum: matchedAlbum });
+      }
+    }
 
     dualDeckAudioEngine.playTrack(
       {
-        id: track.id,
-        title: track.title,
-        artist: track.artist,
-        album: track.album,
-        duration: track.duration,
-        audioUrl: track.audioUrl,
-        coverUrl: track.coverUrl
+        id: cleanTrack.id,
+        title: cleanTrack.title,
+        artist: cleanTrack.artist,
+        album: cleanTrack.album,
+        duration: cleanTrack.duration,
+        audioUrl: cleanTrack.audioUrl,
+        coverUrl: cleanTrack.coverUrl
       },
       { crossfade: shouldCrossfade }
     );
@@ -680,20 +707,20 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       preloadNextTimeout = null;
     }
 
-    const currentIndex = queue.findIndex((t) => t.id === track.id);
+    const currentIndex = queue.findIndex((t) => t.id === cleanTrack.id);
     if (currentIndex !== -1 && queue.length > 1) {
       const nextTrackItem = queue[(currentIndex + 1) % queue.length];
       preloadNextTimeout = setTimeout(() => {
         const { currentTrack: activeT, isPlaying: isPl } = get();
-        if (isPl && activeT?.id === track.id) {
-          dualDeckAudioEngine.preloadNextTrack(nextTrackItem.audioUrl);
+        if (isPl && activeT?.id === cleanTrack.id) {
+          dualDeckAudioEngine.preloadNextTrack(normalizeAudioUrl(nextTrackItem.audioUrl));
         }
       }, 5000);
     }
 
     set({
-      currentTrack: track,
-      duration: track.duration,
+      currentTrack: cleanTrack,
+      duration: cleanTrack.duration,
       isBuffering: false,
       isPlaying: true
     });
@@ -899,13 +926,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           }
           return {
             id: t.id,
+            album_id: t.album_id || "hvl-99",
             title: t.title,
             artist: t.artist || "MCK",
             album: t.album || "HVL",
             duration: t.duration_sec || t.duration || 200,
             coverUrl: t.cover_url || t.coverUrl || HVL_COVER,
-            audioUrl: t.audio_url || t.audioUrl,
+            audioUrl: normalizeAudioUrl(t.audio_url || t.audioUrl),
             videoUrl: t.video_url || t.videoUrl,
+            r2Key: t.r2_key || t.r2Key,
             palette: pal,
             genre: t.genre || t.mood_tier || "Melodic Rap",
             bpm: t.bpm || 120
@@ -965,7 +994,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
             album: t.album || "HVL",
             duration: t.duration_sec || t.duration || 200,
             coverUrl: t.cover_url || t.coverUrl || HVL_COVER,
-            audioUrl: t.audio_url || t.audioUrl,
+            audioUrl: normalizeAudioUrl(t.audio_url || t.audioUrl),
             videoUrl: t.video_url || t.videoUrl,
             r2Key: t.r2_key || t.r2Key,
             palette: pal,
@@ -985,6 +1014,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
   selectAlbum: (album: Album | null) => {
     set({ selectedAlbum: album });
+    if (album) {
+      const { queue, playTrack } = get();
+      const albumTracks = queue.filter(
+        (t) => t.album_id === album.id || t.album?.toLowerCase() === album.title?.toLowerCase()
+      );
+      if (albumTracks.length > 0) {
+        playTrack(albumTracks[0], { crossfade: false });
+      }
+    }
   },
 
   seedHvlToD1: async () => {

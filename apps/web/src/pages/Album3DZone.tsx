@@ -34,9 +34,28 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault, onOpenV
     playTrack,
     togglePlay,
     favoritedTrackIds,
-    toggleFavoriteTrack
+    toggleFavoriteTrack,
+    selectedAlbum,
+    queue
   } = useAudioStore();
   const isMobile = useIsMobile();
+
+  // Dynamically resolve active release info & tracks
+  const activeReleaseTracks = queue.filter((t) => {
+    if (selectedAlbum?.id) return t.album_id === selectedAlbum.id;
+    if (selectedAlbum?.title) return t.album?.toLowerCase() === selectedAlbum.title.toLowerCase();
+    if (currentTrack?.album_id) return t.album_id === currentTrack.album_id;
+    if (currentTrack?.album) return t.album?.toLowerCase() === currentTrack.album.toLowerCase();
+    return true;
+  });
+
+  const displayTracks = activeReleaseTracks.length > 0
+    ? activeReleaseTracks
+    : (currentTrack ? [currentTrack] : DEFAULT_TRACKS);
+
+  const albumTitle = selectedAlbum?.title || currentTrack?.album || "HVL (99%)";
+  const albumCover = selectedAlbum?.cover_url || currentTrack?.coverUrl || "/covers/HVL_Album_Cover.webp";
+  const totalTracksCount = displayTracks.length;
   
   // Mobile In-Place Flip State (290x290 square)
   const [isMobileFlipped, setIsMobileFlipped] = useState<boolean>(false);
@@ -330,8 +349,8 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault, onOpenV
             }}
           >
             <img
-              src={currentTrack?.coverUrl || "/covers/HVL_Album_Cover.webp"}
-              alt="Album Cover"
+              src={albumCover}
+              alt={albumTitle}
               style={{
                 width: "100%",
                 height: "100%",
@@ -390,7 +409,7 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault, onOpenV
                 }}
               >
                 <RotateCcw size={11} color="#ef4444" />
-                <span>Chạm xem 30 bài</span>
+                <span>Chạm xem {totalTracksCount} bài</span>
               </div>
             )}
           </div>
@@ -426,7 +445,7 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault, onOpenV
                 }}
               >
                 <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "#ef4444" }}>
-                  30 Tracks (HVL)
+                  {totalTracksCount} Tracks ({albumTitle})
                 </span>
                 <span style={{ fontSize: "0.68rem", color: "rgba(255, 255, 255, 0.45)" }}>
                   Chạm để lật lại
@@ -443,7 +462,7 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault, onOpenV
                   gap: "3px",
                 }}
               >
-                {DEFAULT_TRACKS.map((track, idx) => {
+                {displayTracks.map((track, idx) => {
                   const isCurrent = currentTrack?.id === track.id;
                   const isFav = favoritedTrackIds.includes(track.id);
 

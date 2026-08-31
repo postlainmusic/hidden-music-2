@@ -32,8 +32,17 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpen3D }) => {
     vaultSlots,
     sections,
     queue,
-    albums
+    albums,
+    selectAlbum
   } = useAudioStore();
+
+  const [isMobile, setIsMobile] = useState<boolean>(() => (typeof window !== "undefined" ? window.innerWidth < 768 : false));
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Live In-Place Admin HUD State
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
@@ -87,16 +96,41 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpen3D }) => {
 
   const currentSection = activeSections[activeSectionIndex] || activeSections[0];
 
-  const handleAlbumClick = (slot?: VaultSlot) => {
+  const handleAlbumClick = (slot?: VaultSlot, albumOverride?: any) => {
     if (isTransitioning || isCenteringForVault) return;
     if (hasTouchMovedRef.current) return;
-    if (slot && slot.status !== "live") return;
+    if (slot && slot.status !== "live" && !albumOverride) return;
+
+    let targetAlbum: any = null;
+    if (albumOverride) {
+      targetAlbum = albumOverride;
+    } else if (slot?.album_id) {
+      targetAlbum = albums.find((a) => a.id === slot.album_id) || null;
+    } else if (slot?.title) {
+      targetAlbum = albums.find((a) => a.title?.toLowerCase() === slot.title?.toLowerCase()) || null;
+    }
+
+    if (!targetAlbum && (slot?.title?.includes("HVL") || !slot)) {
+      targetAlbum = albums.find((a) => a.id === "hvl-99" || a.title?.includes("HVL")) || null;
+    }
+
+    if (targetAlbum) {
+      selectAlbum(targetAlbum);
+    }
+
     if (onOpen3D) onOpen3D();
   };
 
   const handleTrackSelect = (track: Track) => {
     if (hasTouchMovedRef.current) return;
     playTrack(track);
+    if (track.album_id) {
+      const matched = albums.find((a) => a.id === track.album_id);
+      if (matched) selectAlbum(matched);
+    } else if (track.album) {
+      const matched = albums.find((a) => a.title?.toLowerCase() === track.album?.toLowerCase());
+      if (matched) selectAlbum(matched);
+    }
     if (onOpen3D) onOpen3D();
   };
 
@@ -332,12 +366,22 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpen3D }) => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              style={{ position: "relative", width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
+              style={{
+                position: "relative",
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                flexDirection: isMobile ? "column" : "row",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: isMobile ? "10px 14px" : "0"
+              }}
             >
-              {/* Sleeve Card: Shifts left when revealed */}
+              {/* Sleeve Card: Shifts left when revealed on Desktop, centered on Mobile */}
               <motion.div
                 animate={{
-                  x: sec1Stage === "revealed" ? -180 : 0
+                  x: isMobile ? 0 : (sec1Stage === "revealed" ? -180 : 0),
+                  y: isMobile ? (sec1Stage === "revealed" ? -10 : 0) : 0
                 }}
                 transition={{
                   duration: isCenteringForVault ? 0.7 : 0.6,
@@ -345,16 +389,18 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpen3D }) => {
                 }}
                 onClick={() => handleAlbumClick(activeSlots[2])}
                 style={{
-                  position: "absolute",
+                  position: isMobile ? "relative" : "absolute",
                   zIndex: 15,
                   cursor: "pointer",
-                  userSelect: "none"
+                  userSelect: "none",
+                  display: "flex",
+                  justifyContent: "center"
                 }}
               >
                 <SquareVinylSleeve
                   coverUrl={albumCover}
                   title={albumTitle}
-                  size={280}
+                  size={isMobile ? 220 : 280}
                   isActive={true}
                 />
               </motion.div>
@@ -366,6 +412,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpen3D }) => {
                 favoritedTrackIds={favoritedTrackIds}
                 currentTrackId={currentTrack?.id}
                 isPlaying={isPlaying}
+                isMobile={isMobile}
                 onTrackSelect={handleTrackSelect}
                 onToggleFavorite={(e, trackId) => {
                   e.stopPropagation();

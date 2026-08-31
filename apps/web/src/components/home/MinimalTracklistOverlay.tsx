@@ -9,6 +9,7 @@ interface MinimalTracklistOverlayProps {
   favoritedTrackIds: string[];
   currentTrackId?: string | null;
   isPlaying?: boolean;
+  isMobile?: boolean;
   onTrackSelect: (track: Track) => void;
   onToggleFavorite: (e: React.MouseEvent, trackId: string) => void;
 }
@@ -25,6 +26,7 @@ export const MinimalTracklistOverlay: React.FC<MinimalTracklistOverlayProps> = (
   favoritedTrackIds,
   currentTrackId,
   isPlaying,
+  isMobile = false,
   onTrackSelect,
   onToggleFavorite
 }) => {
@@ -35,18 +37,21 @@ export const MinimalTracklistOverlay: React.FC<MinimalTracklistOverlayProps> = (
       initial={{ opacity: 0 }}
       animate={{
         opacity: isVisible ? 1 : 0,
-        x: isVisible ? 130 : 0,
+        x: isMobile ? 0 : isVisible ? 130 : 0,
+        y: isMobile ? (isVisible ? 0 : 15) : 0,
         pointerEvents: isVisible ? "auto" : "none"
       }}
       transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
       style={{
-        position: "absolute",
-        width: "320px",
+        position: isMobile ? "relative" : "absolute",
+        width: isMobile ? "100%" : "320px",
+        maxWidth: isMobile ? "340px" : "320px",
         display: "flex",
         flexDirection: "column",
         gap: "6px",
         zIndex: 10,
-        userSelect: "none"
+        userSelect: "none",
+        marginTop: isMobile ? "14px" : "0"
       }}
     >
       {displayTracks.map((track, i) => {

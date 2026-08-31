@@ -25,6 +25,7 @@ import { studioBeatEngine } from "../audio/StudioBeatEngine";
 export const FloatingPlayerDock: React.FC = () => {
   const {
     currentTrack,
+    queue,
     isPlaying,
     isBuffering,
     duration,
@@ -354,7 +355,7 @@ export const FloatingPlayerDock: React.FC = () => {
                   <SyncedLyricsView onSeek={(t) => seek(t)} />
                 ) : (
                   <div style={{ padding: "8px 16px 14px 16px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                    {DEFAULT_TRACKS.map((track, idx) => {
+                    {(queue && queue.length > 0 ? queue : DEFAULT_TRACKS).map((track, idx) => {
                       const isCur = track.id === currentTrack.id;
                       const isTrackFav = favoritedTrackIds.includes(track.id);
 
