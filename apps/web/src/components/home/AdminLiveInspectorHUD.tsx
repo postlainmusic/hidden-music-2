@@ -11,6 +11,8 @@ interface Props {
   setActiveEditingSection: (sec: DynamicSection | null) => void;
 }
 
+import { useIsMobile } from "../../hooks/useIsMobile";
+
 export const AdminLiveInspectorHUD: React.FC<Props> = ({
   isEditMode,
   setIsEditMode,
@@ -18,6 +20,7 @@ export const AdminLiveInspectorHUD: React.FC<Props> = ({
   setActiveEditingSection
 }) => {
   const { currentUser, albums, queue, updateSection } = useAudioStore();
+  const isMobile = useIsMobile();
 
   const isAdmin = currentUser?.role === "admin" || (
     currentUser?.email && [
@@ -55,19 +58,19 @@ export const AdminLiveInspectorHUD: React.FC<Props> = ({
 
   return (
     <>
-      {/* ── FLOATING TOP ADMIN BAR ── */}
+      {/* ── FLOATING TOP ADMIN BAR (COMPACT ON MOBILE) ── */}
       <motion.div
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         style={{
           position: "fixed",
-          top: "80px",
-          right: "24px",
+          top: isMobile ? "68px" : "80px",
+          right: isMobile ? "12px" : "24px",
           zIndex: 9999,
           display: "flex",
           alignItems: "center",
-          gap: "10px",
-          padding: "8px 14px",
+          gap: isMobile ? "6px" : "10px",
+          padding: isMobile ? "5px 10px" : "8px 14px",
           borderRadius: "9999px",
           backgroundColor: "rgba(11, 11, 18, 0.85)",
           backdropFilter: "blur(20px)",
@@ -77,59 +80,59 @@ export const AdminLiveInspectorHUD: React.FC<Props> = ({
             : "0 8px 30px rgba(0, 0, 0, 0.6)"
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
           <span
             style={{
-              width: "8px",
-              height: "8px",
+              width: "7px",
+              height: "7px",
               borderRadius: "50%",
               backgroundColor: isEditMode ? "#34d399" : "#6366f1",
               boxShadow: isEditMode ? "0 0 8px #34d399" : "none"
             }}
           />
-          <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#ffffff", letterSpacing: "0.05em" }}>
-            ADMIN HUD
+          <span style={{ fontSize: isMobile ? "0.68rem" : "0.75rem", fontWeight: 800, color: "#ffffff", letterSpacing: "0.05em" }}>
+            ADMIN
           </span>
         </div>
 
         <button
           onClick={() => setIsEditMode(!isEditMode)}
           style={{
-            padding: "5px 12px",
+            padding: isMobile ? "4px 8px" : "5px 12px",
             borderRadius: "9999px",
             backgroundColor: isEditMode ? "rgba(99, 102, 241, 0.25)" : "rgba(255, 255, 255, 0.08)",
             border: isEditMode ? "1px solid #6366f1" : "1px solid rgba(255, 255, 255, 0.1)",
             color: isEditMode ? "#a5b4fc" : "rgba(255, 255, 255, 0.8)",
-            fontSize: "0.74rem",
+            fontSize: isMobile ? "0.68rem" : "0.74rem",
             fontWeight: 700,
             display: "flex",
             alignItems: "center",
-            gap: "5px",
+            gap: "4px",
             cursor: "pointer"
           }}
         >
-          {isEditMode ? <EyeOff size={13} /> : <Eye size={13} />}
-          <span>{isEditMode ? "Tắt Edit Mode" : "Visual Inspector"}</span>
+          {isEditMode ? <EyeOff size={12} /> : <Eye size={12} />}
+          <span>{isEditMode ? "Tắt" : (isMobile ? "Inspector" : "Visual Inspector")}</span>
         </button>
 
         <a
           href="/admin"
           style={{
-            padding: "5px 10px",
+            padding: isMobile ? "4px 8px" : "5px 10px",
             borderRadius: "9999px",
             backgroundColor: "rgba(255, 255, 255, 0.05)",
             border: "1px solid rgba(255, 255, 255, 0.1)",
             color: "#ffffff",
-            fontSize: "0.74rem",
+            fontSize: isMobile ? "0.68rem" : "0.74rem",
             fontWeight: 700,
             textDecoration: "none",
             display: "flex",
             alignItems: "center",
-            gap: "4px"
+            gap: "3px"
           }}
         >
-          <span>Admin Portal</span>
-          <ArrowUpRight size={12} />
+          <span>{isMobile ? "Portal" : "Admin Portal"}</span>
+          <ArrowUpRight size={11} />
         </a>
       </motion.div>
 

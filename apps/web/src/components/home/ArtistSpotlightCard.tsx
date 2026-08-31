@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Play, Disc, ExternalLink } from "lucide-react";
 import { useAudioStore } from "../../store/audioStore";
+import { useIsMobile } from "../../hooks/useIsMobile";
 
 interface ArtistSpotlightCardProps {
   artistName?: string;
@@ -27,6 +28,7 @@ export const ArtistSpotlightCard: React.FC<ArtistSpotlightCardProps> = ({
   onOpen3D
 }) => {
   const { playTrack, queue } = useAudioStore();
+  const isMobile = useIsMobile();
 
   const handlePlayFeatured = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -37,24 +39,23 @@ export const ArtistSpotlightCard: React.FC<ArtistSpotlightCardProps> = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       style={{
         position: "relative",
         width: "100%",
-        maxWidth: "820px",
-        borderRadius: "24px",
-        background: "rgba(18, 18, 24, 0.7)",
-        backdropFilter: "blur(24px)",
-        WebkitBackdropFilter: "blur(24px)",
-        border: "1px solid rgba(255, 255, 255, 0.14)",
-        boxShadow: "0 24px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(255, 255, 255, 0.05)",
-        padding: "36px 40px",
+        maxWidth: isMobile ? "100%" : "820px",
+        background: "transparent",
+        border: "none",
+        boxShadow: "none",
+        padding: isMobile ? "10px 16px" : "20px 24px",
         display: "flex",
+        flexDirection: isMobile ? "column" : "row",
         alignItems: "center",
-        gap: "36px",
+        textAlign: isMobile ? "center" : "left",
+        gap: isMobile ? "20px" : "40px",
         zIndex: 5
       }}
     >
@@ -62,12 +63,12 @@ export const ArtistSpotlightCard: React.FC<ArtistSpotlightCardProps> = ({
       <div style={{ position: "relative", flexShrink: 0 }}>
         <div
           style={{
-            width: "180px",
-            height: "180px",
+            width: isMobile ? "140px" : "190px",
+            height: isMobile ? "140px" : "190px",
             borderRadius: "50%",
             overflow: "hidden",
-            border: "2px solid rgba(255, 255, 255, 0.25)",
-            boxShadow: "0 12px 36px rgba(0, 0, 0, 0.7), 0 0 24px rgba(99, 102, 241, 0.3)"
+            border: "1.5px solid rgba(255, 255, 255, 0.2)",
+            boxShadow: "0 0 45px rgba(99, 102, 241, 0.35), 0 16px 36px rgba(0, 0, 0, 0.8)"
           }}
         >
           <img
@@ -79,17 +80,27 @@ export const ArtistSpotlightCard: React.FC<ArtistSpotlightCardProps> = ({
       </div>
 
       {/* Artist Details */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "10px", minWidth: 0 }}>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: isMobile ? "center" : "flex-start",
+          gap: isMobile ? "10px" : "12px",
+          minWidth: 0
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <span
             style={{
-              padding: "4px 10px",
+              padding: "4px 12px",
               borderRadius: "999px",
-              background: "rgba(99, 102, 241, 0.18)",
-              border: "1px solid rgba(99, 102, 241, 0.35)",
+              background: "rgba(99, 102, 241, 0.2)",
+              border: "1px solid rgba(99, 102, 241, 0.4)",
               color: "#a5b4fc",
               fontSize: "0.72rem",
-              fontWeight: 700,
+              fontWeight: 800,
+              letterSpacing: "0.08em",
               textTransform: "uppercase"
             }}
           >
@@ -100,10 +111,11 @@ export const ArtistSpotlightCard: React.FC<ArtistSpotlightCardProps> = ({
         <h2
           style={{
             margin: 0,
-            fontSize: "2rem",
+            fontSize: isMobile ? "1.65rem" : "2.2rem",
             fontWeight: 900,
-            letterSpacing: "0.04em",
-            color: "#ffffff"
+            letterSpacing: "0.02em",
+            color: "#ffffff",
+            lineHeight: 1.2
           }}
         >
           {artistName}
@@ -112,53 +124,66 @@ export const ArtistSpotlightCard: React.FC<ArtistSpotlightCardProps> = ({
         <p
           style={{
             margin: 0,
-            fontSize: "0.88rem",
+            fontSize: isMobile ? "0.82rem" : "0.9rem",
             color: "rgba(255, 255, 255, 0.65)",
-            lineHeight: 1.55
+            lineHeight: 1.55,
+            maxWidth: isMobile ? "320px" : "540px"
           }}
         >
           {bio}
         </p>
 
         {/* Featured Single Button & Socials */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "8px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: isMobile ? "center" : "flex-start",
+            gap: "14px",
+            marginTop: "6px",
+            width: "100%"
+          }}
+        >
           <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.96 }}
             onClick={handlePlayFeatured}
             style={{
-              padding: "10px 20px",
-              borderRadius: "14px",
-              background: "rgba(255, 255, 255, 0.08)",
-              border: "1px solid rgba(255, 255, 255, 0.2)",
+              padding: "10px 22px",
+              borderRadius: "999px",
+              background: "rgba(255, 255, 255, 0.12)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              border: "1px solid rgba(255, 255, 255, 0.25)",
               color: "#ffffff",
               display: "flex",
               alignItems: "center",
               gap: "8px",
               fontSize: "0.84rem",
               fontWeight: 700,
-              cursor: "pointer"
+              cursor: "pointer",
+              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)"
             }}
           >
             <Play size={14} fill="#ffffff" />
             <span>Nghe {featuredTrackTitle}</span>
           </motion.button>
 
-          <div style={{ display: "flex", gap: "12px" }}>
+          <div style={{ display: "flex", gap: "10px" }}>
             <a
               href={spotifyUrl}
               target="_blank"
               rel="noreferrer"
               style={{
-                width: "36px",
-                height: "36px",
+                width: "38px",
+                height: "38px",
                 borderRadius: "50%",
-                background: "rgba(255, 255, 255, 0.06)",
-                border: "1px solid rgba(255, 255, 255, 0.12)",
+                background: "rgba(255, 255, 255, 0.08)",
+                border: "1px solid rgba(255, 255, 255, 0.15)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "rgba(255, 255, 255, 0.7)",
+                color: "rgba(255, 255, 255, 0.75)",
                 textDecoration: "none"
               }}
             >
@@ -169,15 +194,15 @@ export const ArtistSpotlightCard: React.FC<ArtistSpotlightCardProps> = ({
               target="_blank"
               rel="noreferrer"
               style={{
-                width: "36px",
-                height: "36px",
+                width: "38px",
+                height: "38px",
                 borderRadius: "50%",
-                background: "rgba(255, 255, 255, 0.06)",
-                border: "1px solid rgba(255, 255, 255, 0.12)",
+                background: "rgba(255, 255, 255, 0.08)",
+                border: "1px solid rgba(255, 255, 255, 0.15)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "rgba(255, 255, 255, 0.7)",
+                color: "rgba(255, 255, 255, 0.75)",
                 textDecoration: "none"
               }}
             >

@@ -319,12 +319,13 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpen3D }) => {
           position: "relative",
           width: "100%",
           maxWidth: "880px",
-          height: "380px",
+          height: isMobile ? "calc(100dvh - 160px)" : "420px",
+          maxHeight: isMobile ? "680px" : "500px",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           border: isEditMode ? "1px dashed rgba(99, 102, 241, 0.4)" : "none",
-          borderRadius: "20px"
+          background: "transparent"
         }}
       >
         {/* Floating In-Place Section Element Edit Trigger */}

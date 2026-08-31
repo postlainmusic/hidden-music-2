@@ -1,7 +1,8 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Play, Sparkles } from "lucide-react";
-import { useAudioStore } from "../../store/audioStore";
+import { useAudioStore, Track } from "../../store/audioStore";
+import { useIsMobile } from "../../hooks/useIsMobile";
 
 interface HeroMusicBannerProps {
   headline?: string;
@@ -24,6 +25,7 @@ export const HeroMusicBanner: React.FC<HeroMusicBannerProps> = ({
   onOpen3D
 }) => {
   const { playTrack, queue, albums, selectAlbum } = useAudioStore();
+  const isMobile = useIsMobile();
 
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -54,15 +56,15 @@ export const HeroMusicBanner: React.FC<HeroMusicBannerProps> = ({
         position: "relative",
         width: "100%",
         maxWidth: "880px",
-        height: "360px",
-        borderRadius: "24px",
+        height: isMobile ? "320px" : "360px",
+        borderRadius: isMobile ? "20px" : "28px",
         overflow: "hidden",
         display: "flex",
         alignItems: "flex-end",
-        padding: "36px 40px",
-        boxShadow: "0 24px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(255, 255, 255, 0.08)",
-        border: "1px solid rgba(255, 255, 255, 0.15)",
-        background: "#08080c"
+        padding: isMobile ? "24px 20px" : "36px 40px",
+        border: "none",
+        boxShadow: "none",
+        background: "transparent"
       }}
     >
       {/* Background Banner Backdrop Image */}

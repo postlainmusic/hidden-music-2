@@ -42,8 +42,7 @@ export const Album3DScene: React.FC = () => {
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
-      alpha: true, // Transparent canvas so ambient mesh shows through seamlessly
-      powerPreference: "high-performance",
+      alpha: true // Transparent canvas so ambient mesh shows through seamlessly
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));

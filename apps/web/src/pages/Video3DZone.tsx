@@ -84,6 +84,8 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   const displayedVideoTracks = filterMode === "release" && releaseTracks.length > 0 ? releaseTracks : queue;
   const releaseTitle = selectedAlbum?.title || selectedTrack?.album || "HVL (99%)";
 
+  const isYtReadyRef = useRef<boolean>(false);
+
   // Audio pause on Video Zone mount
   useEffect(() => {
     dualDeckAudioEngine.pause();
@@ -96,15 +98,19 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
           videoRef.current.src = "";
         } catch {}
       }
-      if (ytPlayerRef.current && typeof ytPlayerRef.current.pauseVideo === "function") {
-        try { ytPlayerRef.current.pauseVideo(); } catch {}
+      if (ytPlayerRef.current && typeof ytPlayerRef.current.destroy === "function") {
+        try { ytPlayerRef.current.destroy(); } catch {}
+        ytPlayerRef.current = null;
       }
+      isYtReadyRef.current = false;
     };
   }, []);
 
   // Initialize and sync Headless YouTube Video Player API
   useEffect(() => {
     let pollTimer: any = null;
+    isYtReadyRef.current = false;
+
     if (isYouTube && youtubeId) {
       let isMounted = true;
       loadYouTubeApi().then(() => {
@@ -112,59 +118,65 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
         const YT = (window as any).YT;
         if (!YT || !YT.Player) return;
 
-        if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === "function") {
-          try {
-            ytPlayerRef.current.loadVideoById({ videoId: youtubeId });
-            ytPlayerRef.current.playVideo();
-          } catch {}
-        } else {
-          try {
-            ytPlayerRef.current = new YT.Player("yt-cinema-video-target", {
-              width: "100%",
-              height: "100%",
-              videoId: youtubeId,
-              playerVars: {
-                autoplay: 1,
-                controls: 0,
-                disablekb: 1,
-                fs: 0,
-                modestbranding: 1,
-                rel: 0,
-                iv_load_policy: 3,
-                playsinline: 1,
-                origin: window.location.origin
+        // Clean up previous instance before mounting new one
+        if (ytPlayerRef.current && typeof ytPlayerRef.current.destroy === "function") {
+          try { ytPlayerRef.current.destroy(); } catch {}
+          ytPlayerRef.current = null;
+        }
+
+        try {
+          ytPlayerRef.current = new YT.Player("yt-cinema-video-target", {
+            host: "https://www.youtube-nocookie.com",
+            width: "100%",
+            height: "100%",
+            videoId: youtubeId,
+            playerVars: {
+              autoplay: 1,
+              controls: 0,
+              disablekb: 1,
+              fs: 0,
+              modestbranding: 1,
+              rel: 0,
+              cc_load_policy: 0,
+              iv_load_policy: 3,
+              playsinline: 1,
+              origin: window.location.origin
+            },
+            events: {
+              onReady: (e: any) => {
+                if (!isMounted) return;
+                isYtReadyRef.current = true;
+                try {
+                  e.target.setVolume(Math.round(volume * 100));
+                  e.target.playVideo();
+                } catch {}
               },
-              events: {
-                onReady: (e: any) => {
-                  try {
-                    e.target.setVolume(Math.round(volume * 100));
-                    e.target.playVideo();
-                  } catch {}
-                },
-                onStateChange: (e: any) => {
-                  const st = e.data;
-                  if (st === 1) { // playing
-                    setIsPlaying(true);
-                    setIsBuffering(false);
-                  } else if (st === 2) { // paused
-                    setIsPlaying(false);
-                  } else if (st === 3) { // buffering
-                    setIsBuffering(true);
-                  } else if (st === 0) { // ended
-                    setIsPlaying(false);
-                    handleNextTrack();
-                  }
-                },
-                onError: () => {
+              onStateChange: (e: any) => {
+                if (!isMounted) return;
+                const st = e.data;
+                if (st === 1) { // playing
+                  setIsPlaying(true);
                   setIsBuffering(false);
+                } else if (st === 2) { // paused
+                  setIsPlaying(false);
+                } else if (st === 3) { // buffering
+                  setIsBuffering(true);
+                } else if (st === 0) { // ended
+                  setIsPlaying(false);
+                  handleNextTrack();
                 }
+              },
+              onError: () => {
+                setIsBuffering(false);
               }
-            });
-          } catch {}
+            }
+          });
+        } catch {
+          // Graceful fallback
         }
 
         pollTimer = setInterval(() => {
-          if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === "function") {
+          if (isMounted && isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === "function") {
             try {
               const cur = ytPlayerRef.current.getCurrentTime() || 0;
               const dur = ytPlayerRef.current.getDuration() || 0;
@@ -182,11 +194,18 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
       return () => {
         isMounted = false;
         if (pollTimer) clearInterval(pollTimer);
+        if (ytPlayerRef.current && typeof ytPlayerRef.current.destroy === "function") {
+          try { ytPlayerRef.current.destroy(); } catch {}
+          ytPlayerRef.current = null;
+        }
+        isYtReadyRef.current = false;
       };
     } else {
-      if (ytPlayerRef.current && typeof ytPlayerRef.current.pauseVideo === "function") {
-        try { ytPlayerRef.current.pauseVideo(); } catch {}
+      if (ytPlayerRef.current && typeof ytPlayerRef.current.destroy === "function") {
+        try { ytPlayerRef.current.destroy(); } catch {}
+        ytPlayerRef.current = null;
       }
+      isYtReadyRef.current = false;
     }
   }, [isYouTube, youtubeId]);
 
@@ -229,10 +248,14 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   const togglePlay = useCallback(() => {
     if (isYouTube) {
       if (isPlaying) {
-        ytPlayerRef.current?.pauseVideo?.();
+        if (isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.pauseVideo === "function") {
+          try { ytPlayerRef.current.pauseVideo(); } catch {}
+        }
         setIsPlaying(false);
       } else {
-        ytPlayerRef.current?.playVideo?.();
+        if (isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.playVideo === "function") {
+          try { ytPlayerRef.current.playVideo(); } catch {}
+        }
         setIsPlaying(true);
       }
       return;
@@ -306,11 +329,17 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   const toggleMute = () => {
     if (isYouTube) {
       if (isMuted) {
-        ytPlayerRef.current?.unMute?.();
-        ytPlayerRef.current?.setVolume?.(Math.round(volume * 100));
+        if (isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.unMute === "function") {
+          try {
+            ytPlayerRef.current.unMute();
+            ytPlayerRef.current.setVolume(Math.round(volume * 100));
+          } catch {}
+        }
         setIsMuted(false);
       } else {
-        ytPlayerRef.current?.mute?.();
+        if (isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.mute === "function") {
+          try { ytPlayerRef.current.mute(); } catch {}
+        }
         setIsMuted(true);
       }
       return;
@@ -332,7 +361,9 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     const nextRate = SPEED_OPTIONS[(currIdx + 1) % SPEED_OPTIONS.length] || 1.0;
     setPlaybackRate(nextRate);
     if (isYouTube) {
-      ytPlayerRef.current?.setPlaybackRate?.(nextRate);
+      if (isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.setPlaybackRate === "function") {
+        try { ytPlayerRef.current.setPlaybackRate(nextRate); } catch {}
+      }
     } else if (videoRef.current) {
       videoRef.current.playbackRate = nextRate;
     }
@@ -366,7 +397,9 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     const newTime = parseFloat(e.target.value);
     setCurrentTime(newTime);
     if (isYouTube) {
-      ytPlayerRef.current?.seekTo?.(newTime, true);
+      if (isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
+        try { ytPlayerRef.current.seekTo(newTime, true); } catch {}
+      }
     } else if (videoRef.current) {
       videoRef.current.currentTime = newTime;
     }
@@ -400,7 +433,9 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
       if (xRatio < 0.45) {
         const targetTime = Math.max(0, currentTime - 10);
         if (isYouTube) {
-          ytPlayerRef.current?.seekTo?.(targetTime, true);
+          if (isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
+            try { ytPlayerRef.current.seekTo(targetTime, true); } catch {}
+          }
           setCurrentTime(targetTime);
         } else if (videoRef.current) {
           videoRef.current.currentTime = targetTime;
@@ -410,7 +445,9 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
       } else if (xRatio > 0.55) {
         const targetTime = Math.min(duration, currentTime + 10);
         if (isYouTube) {
-          ytPlayerRef.current?.seekTo?.(targetTime, true);
+          if (isYtReadyRef.current && ytPlayerRef.current && typeof ytPlayerRef.current.seekTo === "function") {
+            try { ytPlayerRef.current.seekTo(targetTime, true); } catch {}
+          }
           setCurrentTime(targetTime);
         } else if (videoRef.current) {
           videoRef.current.currentTime = targetTime;
@@ -592,7 +629,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                 style={{
                   width: "100%",
                   height: "100%",
-                  transform: "scale(1.08)",
+                  transform: "scale(1.18) translateY(-2%)",
                   transformOrigin: "center center"
                 }}
               />

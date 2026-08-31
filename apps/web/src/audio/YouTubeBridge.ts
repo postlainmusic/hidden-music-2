@@ -35,7 +35,14 @@ export function loadYouTubeApi(): Promise<void> {
     if (!isApiLoading) {
       isApiLoading = true;
       const tag = document.createElement("script");
-      tag.src = "https://www.youtube.com/iframe_api";
+      // Use youtube-nocookie to eliminate Google Ads conversion tracking cookies & CORS errors
+      tag.src = "https://www.youtube-nocookie.com/iframe_api";
+      tag.onerror = () => {
+        // Fallback if nocookie script domain is blocked
+        const fallbackTag = document.createElement("script");
+        fallbackTag.src = "https://www.youtube.com/iframe_api";
+        document.head.appendChild(fallbackTag);
+      };
       const firstScriptTag = document.getElementsByTagName("script")[0];
       firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
 
@@ -53,6 +60,7 @@ class YouTubeAudioBridge {
   private player: any = null;
   private containerEl: HTMLDivElement | null = null;
   private isPlayerReady: boolean = false;
+  private isInitializing: boolean = false;
   private currentVideoId: string | null = null;
   private isPlaying: boolean = false;
   private volume: number = 85; // 0 - 100
@@ -95,54 +103,68 @@ class YouTubeAudioBridge {
   }
 
   public async init(): Promise<void> {
-    if (this.isPlayerReady || typeof window === "undefined") return;
+    if (this.isPlayerReady || this.isInitializing || typeof window === "undefined") return;
+    this.isInitializing = true;
     await loadYouTubeApi();
 
     return new Promise((resolve) => {
       const YT = (window as any).YT;
-      if (!YT || !YT.Player) return resolve();
+      if (!YT || !YT.Player) {
+        this.isInitializing = false;
+        return resolve();
+      }
 
-      this.player = new YT.Player("yt-headless-audio-target", {
-        height: "1",
-        width: "1",
-        playerVars: {
-          autoplay: 0,
-          controls: 0,
-          disablekb: 1,
-          fs: 0,
-          modestbranding: 1,
-          rel: 0,
-          playsinline: 1,
-          origin: window.location.origin
-        },
-        events: {
-          onReady: (event: any) => {
-            this.isPlayerReady = true;
-            this.player.setVolume(this.volume);
-            resolve();
+      try {
+        this.player = new YT.Player("yt-headless-audio-target", {
+          host: "https://www.youtube-nocookie.com",
+          height: "1",
+          width: "1",
+          playerVars: {
+            autoplay: 0,
+            controls: 0,
+            disablekb: 1,
+            fs: 0,
+            modestbranding: 1,
+            rel: 0,
+            cc_load_policy: 0,
+            iv_load_policy: 3,
+            playsinline: 1,
+            origin: window.location.origin
           },
-          onStateChange: (event: any) => {
-            const state = event.data;
-            // YT.PlayerState: UNSTARTED (-1), ENDED (0), PLAYING (1), PAUSED (2), BUFFERING (3), CUED (5)
-            if (state === 1) { // PLAYING
-              this.isPlaying = true;
-              this.emitState(true);
+          events: {
+            onReady: (event: any) => {
+              this.isPlayerReady = true;
+              this.isInitializing = false;
+              try {
+                this.player.setVolume(this.volume);
+              } catch {}
+              resolve();
+            },
+            onStateChange: (event: any) => {
+              const state = event.data;
+              // YT.PlayerState: UNSTARTED (-1), ENDED (0), PLAYING (1), PAUSED (2), BUFFERING (3), CUED (5)
+              if (state === 1) { // PLAYING
+                this.isPlaying = true;
+                this.emitState(true);
+                this.emitBuffering(false);
+                this.startPolling();
+              } else if (state === 2 || state === 0) { // PAUSED or ENDED
+                this.isPlaying = false;
+                this.emitState(false);
+                this.stopPolling();
+              } else if (state === 3) { // BUFFERING
+                this.emitBuffering(true);
+              }
+            },
+            onError: () => {
               this.emitBuffering(false);
-              this.startPolling();
-            } else if (state === 2 || state === 0) { // PAUSED or ENDED
-              this.isPlaying = false;
-              this.emitState(false);
-              this.stopPolling();
-            } else if (state === 3) { // BUFFERING
-              this.emitBuffering(true);
             }
-          },
-          onError: (event: any) => {
-            console.warn("YouTube Bridge Notice:", event.data);
-            this.emitBuffering(false);
           }
-        }
-      });
+        });
+      } catch {
+        this.isInitializing = false;
+        resolve();
+      }
     });
   }
 
@@ -154,14 +176,16 @@ class YouTubeAudioBridge {
       await this.init();
     }
 
-    if (this.player && typeof this.player.loadVideoById === "function") {
-      this.currentVideoId = videoId;
-      this.player.loadVideoById({ videoId });
-      this.player.setVolume(this.volume);
-      this.player.playVideo();
-      this.isPlaying = true;
-      this.emitState(true);
-      this.startPolling();
+    if (this.isPlayerReady && this.player && typeof this.player.loadVideoById === "function") {
+      try {
+        this.currentVideoId = videoId;
+        this.player.loadVideoById({ videoId });
+        this.player.setVolume(this.volume);
+        this.player.playVideo();
+        this.isPlaying = true;
+        this.emitState(true);
+        this.startPolling();
+      } catch {}
     }
   }
 
