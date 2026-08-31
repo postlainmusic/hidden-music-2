@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { useAudioStore, Track, DEFAULT_TRACKS } from "../store/audioStore";
+import { useAudioStore, DEFAULT_TRACKS } from "../store/audioStore";
 import { dualDeckAudioEngine, ProgressState } from "../audio/DualDeckAudioEngine";
 import {
   Play,
@@ -16,8 +16,7 @@ import {
   ListMusic,
   Mic2,
   Heart,
-  Disc3,
-  X
+  Disc3
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SyncedLyricsView } from "./SyncedLyricsView";

@@ -12,7 +12,7 @@ import { ArtistSpotlightCard } from "../components/home/ArtistSpotlightCard";
 import { VideoPremierePlayer } from "../components/home/VideoPremierePlayer";
 import { EditorialPressCard } from "../components/home/EditorialPressCard";
 import { AdminLiveInspectorHUD } from "../components/home/AdminLiveInspectorHUD";
-import { Sliders, Sparkles } from "lucide-react";
+import { Sliders } from "lucide-react";
 
 const HVL_COVER = "/covers/HVL_Album_Cover.webp";
 
@@ -21,7 +21,7 @@ interface HomePageProps {
   onOpen3D?: () => void;
 }
 
-export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) => {
+export const HomePage: React.FC<HomePageProps> = ({ onOpen3D }) => {
   const {
     currentTrack,
     playTrack,
@@ -32,8 +32,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
     vaultSlots,
     sections,
     queue,
-    albums,
-    currentUser
+    albums
   } = useAudioStore();
 
   // Live In-Place Admin HUD State
@@ -44,9 +43,9 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
   const activeSections: DynamicSection[] = sections && sections.filter((s) => Boolean(s.is_active ?? s.is_enabled)).length > 0
     ? sections.filter((s) => Boolean(s.is_active ?? s.is_enabled))
     : [
-        { id: "sec-default-1", title: "Album Showcase", subtitle: "Top 5 Bài Hát", template_type: "album_showcase", sort_order: 1, is_active: true },
-        { id: "sec-default-2", title: "3D Cover Flow", subtitle: "Băng chuyền 3D", template_type: "cover_flow", sort_order: 2, is_active: true },
-        { id: "sec-default-3", title: "Explore Universe", subtitle: "3D Space", template_type: "explore_universe", sort_order: 3, is_active: true }
+        { id: "sec-default-1", title: "Album Showcase", subtitle: "Top 5 Bài Hát", template_type: "album_showcase", sort_order: 1, is_active: true, config: {} },
+        { id: "sec-default-2", title: "3D Cover Flow", subtitle: "Băng chuyền 3D", template_type: "cover_flow", sort_order: 2, is_active: true, config: {} },
+        { id: "sec-default-3", title: "Explore Universe", subtitle: "3D Space", template_type: "explore_universe", sort_order: 3, is_active: true, config: {} }
       ];
 
   const [activeSectionIndex, setActiveSectionIndex] = useState<number>(0);
@@ -54,7 +53,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onExploreClick, onOpen3D }) 
   // Section 1 State: "revealed" (Bìa trượt sang trái + 5 bài hát bên phải) - Automatically Revealed & Fully Fluid!
   const [sec1Stage, setSec1Stage] = useState<"center" | "revealed">("revealed");
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
-  const [isCenteringForVault, setIsCenteringForVault] = useState<boolean>(false);
+  const [isCenteringForVault] = useState<boolean>(false);
 
   // Section 2 Revolver Index: Khởi tạo 2 (HVL ở chính giữa thanh 5 điểm)
   const [revolverIndex, setRevolverIndex] = useState<number>(2);

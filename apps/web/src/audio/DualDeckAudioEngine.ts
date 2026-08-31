@@ -50,7 +50,6 @@ export class DualDeckAudioEngine {
   private gainB: GainNode | null = null;
   private masterGain: GainNode | null = null;
   private subBassFilter: BiquadFilterNode | null = null;
-  private compressor: DynamicsCompressorNode | null = null;
   private masterAnalyser: AnalyserNode | null = null;
 
   // DSP Controls
@@ -62,7 +61,7 @@ export class DualDeckAudioEngine {
   // State Tracking
   private currentTrack: AudioEngineTrack | null = null;
   private isPlaying: boolean = false;
-  private isBuffering: boolean = false;
+  private isBufferingState: boolean = false;
   private retryCount: number = 0;
   private maxRetries: number = 3;
   private retryTimeoutId: any = null;
@@ -257,7 +256,7 @@ export class DualDeckAudioEngine {
       }
     });
 
-    audio.addEventListener("error", (e) => {
+    audio.addEventListener("error", () => {
       if (this.activeDeckId === deckId && this.currentTrack) {
         this.handleNetworkError(audio, deckId);
       }
@@ -277,7 +276,7 @@ export class DualDeckAudioEngine {
     }
   }
 
-  private handleNetworkError(audio: HTMLAudioElement, deckId: DeckId): void {
+  private handleNetworkError(audio: HTMLAudioElement, _deckId: DeckId): void {
     if (this.retryCount < this.maxRetries && this.currentTrack) {
       this.retryCount++;
       const backoffMs = Math.pow(2, this.retryCount) * 400; // 800ms, 1600ms, 3200ms
@@ -598,8 +597,12 @@ export class DualDeckAudioEngine {
   }
 
   private setBuffering(buffering: boolean): void {
-    this.isBuffering = buffering;
+    this.isBufferingState = buffering;
     this.bufferingSubscribers.forEach((cb) => cb(buffering));
+  }
+
+  public getIsBuffering(): boolean {
+    return this.isBufferingState;
   }
 
   public subscribeProgress(callback: ProgressCallback): () => void {

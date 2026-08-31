@@ -10,6 +10,7 @@
 - **Layering & Canvas Invariant**: Background Canvas (`MeshGradientBackground` / WebGL) MUST remain at `zIndex: 0`. All pages and main containers MUST have `background: transparent`.
 - **Static-First CSS Invariant**: All elements appearing after $t > 0$ MUST declare static inline CSS `style={{ opacity: 0, pointerEvents: "none" }}` to eliminate initial hydration flash (FOUC).
 - **Geometric Bounding Invariant**: Horizontal layouts MUST be center-balanced with $W_{\text{total}} \le 85\%$ viewport width ($W \le 880\text{px}$ on desktop) to prevent horizontal overflow on $900\text{px}-1366\text{px}$ screens.
+- **Apple-Grade Minimalism & Zero-Tech-Clutter Invariant**: Tuyệt đối KHÔNG tự ý chèn các đoạn text dư thừa, nhãn công nghệ/hạ tầng (ví dụ: "D1 Database", "R2 Storage", "Engine", các chuỗi debug/code-like) vào UI người dùng. Mọi giao diện phải giữ chuẩn tối giản sang trọng, sạch sẽ, tập trung 100% vào nghệ thuật và âm nhạc.
 
 ### Next.js 16 & React 19 Engineering
 - **Strict Component Boundaries**: Explicitly declare `'use client'` at the top of interactive components. Keep leaf nodes client-side to minimize bundle size.

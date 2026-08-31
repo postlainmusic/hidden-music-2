@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Save, Disc3, Sparkles, Sliders, CheckCircle2, Music2, Eye, Shield, Film, BookOpen, Globe, UserCheck, Flame } from "lucide-react";
+import { X, Save, Disc3, Sparkles, Sliders } from "lucide-react";
 import { DynamicSection } from "../../store/audioStore";
 
 const HVL_COVER = "/covers/HVL_Album_Cover.webp";

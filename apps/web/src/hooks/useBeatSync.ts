@@ -21,6 +21,7 @@ export const useBeatSync = (options?: UseBeatSyncOptions) => {
 
     const loop = () => {
       const state = studioBeatEngine.update();
+      setBeatState(state);
 
       // Trigger user event callbacks
       if (optionsRef.current?.enableEvents) {
@@ -31,7 +32,7 @@ export const useBeatSync = (options?: UseBeatSyncOptions) => {
           optionsRef.current.onKickHit(state.kickImpact, state.isKickRoll);
         }
         if (state.isSnareHit && optionsRef.current.onSnareHit) {
-          optionsRef.current.onSnareHit(state.snareFlash);
+          optionsRef.current.onSnareHit(state.snareImpact || state.snareStrobe);
         }
       }
 

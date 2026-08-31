@@ -245,10 +245,10 @@ export const Album3DScene: React.FC = () => {
       particleMaterial.uniforms.uHighTreble.value = beatState.highTreble;
       particleMaterial.uniforms.uSubImpact.value = beatState.subImpact;
       particleMaterial.uniforms.uKickImpact.value = beatState.kickImpact;
-      particleMaterial.uniforms.uBassImpact.value = beatState.bassImpact;
+      particleMaterial.uniforms.uBassImpact.value = beatState.subImpact;
       particleMaterial.uniforms.uKickRoll.value = beatState.kickRollIntensity;
       particleMaterial.uniforms.uDownbeatPulse.value = beatState.downbeatPulse;
-      particleMaterial.uniforms.uSnareFlash.value = beatState.snareFlash;
+      particleMaterial.uniforms.uSnareFlash.value = beatState.snareImpact || beatState.snareStrobe;
       particleMaterial.uniforms.uBeatProgress.value = beatState.beatProgress;
       particleMaterial.uniforms.uMoodTier.value = moodTier;
 

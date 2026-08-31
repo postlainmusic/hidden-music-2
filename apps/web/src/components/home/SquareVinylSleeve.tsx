@@ -10,6 +10,7 @@ interface SquareVinylSleeveProps extends HTMLMotionProps<"div"> {
   isPlaceholder?: boolean;
   isActive?: boolean;
   onClick?: (e: React.MouseEvent) => void;
+  children?: React.ReactNode;
 }
 
 export const SquareVinylSleeve: React.FC<SquareVinylSleeveProps> = ({

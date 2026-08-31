@@ -6,6 +6,7 @@ import { FloatingPlayerDock } from "../components/FloatingPlayerDock";
 import { MobilePlayerDock } from "../components/MobilePlayerDock";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { studioBeatEngine } from "../audio/StudioBeatEngine";
+import { MeshGradientBackground } from "../components/MeshGradientBackground";
 
 interface Album3DZoneProps {
   onBackToVault: () => void;
@@ -17,6 +18,14 @@ const formatDuration = (seconds: number) => {
   const s = Math.floor(seconds % 60);
   return `${m}:${s < 10 ? "0" : ""}${s}`;
 };
+
+// Dark Gothic Crimson Palette for HVL 3D Album Zone
+const GOTHIC_CRIMSON_PALETTE = [
+  { r: 239, g: 68, b: 68 },   // Crimson
+  { r: 185, g: 28, b: 28 },   // Deep Dark Red
+  { r: 90, g: 25, b: 35 },    // Blood Amber
+  { r: 20, g: 24, b: 35 }     // Obsidian Void
+];
 
 export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault, onOpenVideo3D }) => {
   const {
@@ -32,7 +41,6 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault, onOpenV
   // Mobile In-Place Flip State (290x290 square)
   const [isMobileFlipped, setIsMobileFlipped] = useState<boolean>(false);
   
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const cardWrapperRef = useRef<HTMLDivElement | null>(null);
   const halationBacklightRef = useRef<HTMLDivElement | null>(null);
   const gothicSheenRef = useRef<HTMLDivElement | null>(null);
@@ -54,189 +62,43 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault, onOpenV
     };
   };
 
-  // High-Performance 60fps/120fps Dark Gothic Atmosphere & Crimson Halation Engine
+  // 60fps/120fps Studio Audio Beat Engine & Card Physics
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
     let animId: number;
-    let width = (canvas.width = window.innerWidth);
-    let height = (canvas.height = window.innerHeight);
-
-    // 35mm Analog Film Grain Texture Generator
-    const grainCanvas = document.createElement("canvas");
-    grainCanvas.width = 128;
-    grainCanvas.height = 128;
-    const grainCtx = grainCanvas.getContext("2d");
-    if (grainCtx) {
-      const imgData = grainCtx.createImageData(128, 128);
-      for (let i = 0; i < imgData.data.length; i += 4) {
-        const val = Math.floor(Math.random() * 255);
-        imgData.data[i] = val;
-        imgData.data[i + 1] = val;
-        imgData.data[i + 2] = val;
-        imgData.data[i + 3] = 26; // Gritty 35mm film noise
-      }
-      grainCtx.putImageData(imgData, 0, 0);
-    }
-    const grainPattern = ctx.createPattern(grainCanvas, "repeat");
-
-    const handleResize = () => {
-      if (!canvas) return;
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    };
-
-    window.addEventListener("resize", handleResize);
-
-    // Heavy Dark Gothic Volumetric Smoke Clouds
-    const smokeClouds = [
-      { x: width * 0.25, y: height * 0.35, vx: 0.18, vy: 0.14, radius: width * 0.45, color: { r: 185, g: 28, b: 28 } }, // Crimson Blood
-      { x: width * 0.75, y: height * 0.40, vx: -0.15, vy: 0.18, radius: width * 0.50, color: { r: 153, g: 27, b: 27 } }, // Dark Red
-      { x: width * 0.50, y: height * 0.70, vx: 0.12, vy: -0.16, radius: width * 0.55, color: { r: 67, g: 20, b: 7 } },   // Blood Amber
-      { x: width * 0.20, y: height * 0.80, vx: -0.10, vy: -0.12, radius: width * 0.40, color: { r: 15, g: 23, b: 42 } }  // Obsidian Void
-    ];
-
-    let t = 0;
 
     const render = () => {
-      t += 0.006;
       const beatState = studioBeatEngine.update();
       const subImpact = beatState.subImpact;
       const kickImpact = beatState.kickImpact;
-      const kickRollIntensity = beatState.kickRollIntensity;
       const energy = beatState.overallEnergy;
 
-      const centerX = width / 2;
-      const centerY = height / 2;
+      // 1. Reactive 3D Card Dynamics & Mouse Tilt
+      if (cardWrapperRef.current && !isMobile) {
+        const tiltX = mousePos.current.y * 1.5;
+        const tiltY = mousePos.current.x * 1.5;
+        const kickScale = 1.0 + kickImpact * 0.04 + subImpact * 0.02;
+        const floatY = Math.sin(Date.now() * 0.002) * 6;
 
-      // ─────────────────────────────────────────────────────────────
-      // 1. DARK GOTHIC ABYSS & VOLUMETRIC SMOKE
-      // ─────────────────────────────────────────────────────────────
-      ctx.fillStyle = "#030305";
-      ctx.fillRect(0, 0, width, height);
-
-      ctx.globalCompositeOperation = "screen";
-
-      // Render Heavy Atmospheric Smoke Clouds
-      smokeClouds.forEach((cloud, i) => {
-        const speed = 1.0 + energy * 1.6;
-        cloud.x += (cloud.vx + Math.sin(t * 1.1 + i * 1.5) * 0.6) * speed;
-        cloud.y += (cloud.vy + Math.cos(t * 1.0 + i * 1.2) * 0.6) * speed;
-
-        if (cloud.x < -cloud.radius * 0.3) cloud.vx = Math.abs(cloud.vx);
-        if (cloud.x > width + cloud.radius * 0.3) cloud.vx = -Math.abs(cloud.vx);
-        if (cloud.y < -cloud.radius * 0.3) cloud.vy = Math.abs(cloud.vy);
-        if (cloud.y > height + cloud.radius * 0.3) cloud.vy = -Math.abs(cloud.vy);
-
-        const dynamicRadius = cloud.radius * (0.90 + subImpact * 0.45 + kickImpact * 0.30);
-        const dynamicAlpha = Math.min(0.48, 0.12 + subImpact * 0.25 + kickImpact * 0.20);
-
-        const grad = ctx.createRadialGradient(cloud.x, cloud.y, 0, cloud.x, cloud.y, dynamicRadius);
-        grad.addColorStop(0, `rgba(${cloud.color.r}, ${cloud.color.g}, ${cloud.color.b}, ${dynamicAlpha.toFixed(3)})`);
-        grad.addColorStop(0.40, `rgba(${cloud.color.r}, ${cloud.color.g}, ${cloud.color.b}, ${(dynamicAlpha * 0.45).toFixed(3)})`);
-        grad.addColorStop(0.80, `rgba(${cloud.color.r}, ${cloud.color.g}, ${cloud.color.b}, ${(dynamicAlpha * 0.10).toFixed(3)})`);
-        grad.addColorStop(1, "rgba(0, 0, 0, 0)");
-
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(cloud.x, cloud.y, dynamicRadius, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      // ─────────────────────────────────────────────────────────────
-      // 2. VOLUMETRIC CRIMSON KICK & SILVER SNARE HALATION FLARES
-      // ─────────────────────────────────────────────────────────────
-      const effectiveKick = Math.max(kickImpact, kickRollIntensity);
-      const snarePower = beatState.snareImpact || beatState.snareStrobe;
-
-      // 2A. Snare Hit: Subtle High-Frequency Indigo Sheen (Soft & Non-Jarring)
-      if (snarePower > 0.15 && isPlaying) {
-        const snareWidth = Math.min(width, height) * (0.85 + snarePower * 0.3);
-        const snareGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, snareWidth * 0.5);
-        const snareAlpha = Math.min(0.35, 0.1 + snarePower * 0.25);
-
-        snareGrad.addColorStop(0, `rgba(99, 102, 241, ${snareAlpha.toFixed(3)})`);
-        snareGrad.addColorStop(0.40, `rgba(129, 140, 248, ${(snareAlpha * 0.5).toFixed(3)})`);
-        snareGrad.addColorStop(0.80, `rgba(67, 56, 202, ${(snareAlpha * 0.1).toFixed(3)})`);
-        snareGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
-
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.scale(1.4, 0.45);
-        ctx.fillStyle = snareGrad;
-        ctx.beginPath();
-        ctx.arc(0, 0, snareWidth * 0.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+        cardWrapperRef.current.style.transform = `translate3d(0, ${floatY}px, 0) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale3d(${kickScale}, ${kickScale}, 1)`;
       }
 
-      // 2B. Kick / 808 Hit: Volumetric Crimson Red Halation Streak
-      if (effectiveKick > 0.04 && isPlaying) {
-        const streakWidth = Math.min(width, height) * (0.85 + effectiveKick * 0.40);
-        const halationGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, streakWidth * 0.5);
-        const halationAlpha = Math.min(0.65, 0.25 + effectiveKick * 0.40);
-
-        halationGrad.addColorStop(0, `rgba(239, 68, 68, ${halationAlpha.toFixed(3)})`);
-        halationGrad.addColorStop(0.35, `rgba(220, 38, 38, ${(halationAlpha * 0.6).toFixed(3)})`);
-        halationGrad.addColorStop(0.70, `rgba(127, 29, 29, ${(halationAlpha * 0.15).toFixed(3)})`);
-        halationGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
-
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.scale(1.4, 0.65); // Anamorphic widescreen stretch
-        ctx.fillStyle = halationGrad;
-        ctx.beginPath();
-        ctx.arc(0, 0, streakWidth * 0.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-
-      // ─────────────────────────────────────────────────────────────
-      // 3. 35mm ANALOG FILM GRAIN OVERLAY
-      // ─────────────────────────────────────────────────────────────
-      ctx.globalCompositeOperation = "source-over";
-      if (grainPattern) {
-        ctx.fillStyle = grainPattern;
-        ctx.fillRect(0, 0, width, height);
-      }
-
-      // ─────────────────────────────────────────────────────────────
-      // 4. ZERO-JITTER GOTHIC OBSIDIAN CARD INERTIA DYNAMICS
-      // ─────────────────────────────────────────────────────────────
-      if (cardWrapperRef.current) {
-        // Subtle micro punch
-        const scale = 1.0 + kickImpact * 0.035 + kickRollIntensity * 0.025 + snarePower * 0.02;
-        const tiltX = mousePos.current.y + Math.sin(t * 1.5) * 0.8;
-        const tiltY = mousePos.current.x + Math.cos(t * 1.2) * 0.8;
-        cardWrapperRef.current.style.transform = `scale(${scale.toFixed(3)}) rotateX(${tiltX.toFixed(2)}deg) rotateY(${tiltY.toFixed(2)}deg)`;
-      }
-
-      // Dark Crimson Halation Backlight
+      // 2. Halation Backlight Flare Pulse
       if (halationBacklightRef.current) {
-        const halationPower = Math.min(0.85, subImpact * 0.5 + effectiveKick * 0.75 + snarePower * 0.35);
-        halationBacklightRef.current.style.opacity = `${isPlaying ? halationPower.toFixed(2) : "0.15"}`;
-        halationBacklightRef.current.style.transform = `scale(${1.0 + effectiveKick * 0.12 + snarePower * 0.08})`;
+        const flareOpacity = 0.25 + subImpact * 0.55 + kickImpact * 0.35;
+        const flareScale = 1.0 + subImpact * 0.28 + kickImpact * 0.18;
+        halationBacklightRef.current.style.opacity = `${Math.min(1.0, flareOpacity)}`;
+        halationBacklightRef.current.style.transform = `scale(${flareScale})`;
       }
 
-      // Cold Gothic Metallic Specular Sweep
+      // 3. Gothic Sheen Metal Edge Glow
       if (gothicSheenRef.current) {
-        const sheenX = (Math.sin(t * 1.8) * 60 + 50).toFixed(1);
-        const sheenOpacity = Math.min(0.6, (beatState.vocalPresence * 0.40) + (snarePower * 0.5));
-        gothicSheenRef.current.style.opacity = `${isPlaying ? sheenOpacity.toFixed(2) : "0"}`;
-        gothicSheenRef.current.style.transform = `translateX(${sheenX}%) skewX(-25deg)`;
+        gothicSheenRef.current.style.opacity = `${Math.min(0.8, energy * 0.9)}`;
+        gothicSheenRef.current.style.left = `${(Math.sin(Date.now() * 0.001) * 0.5 + 0.5) * 100}%`;
       }
 
-      // Front Card Gothic Obsidian Border & Snare / Kick Strobe Shadow (Velvety Red & Indigo, ZERO White Blast)
+      // 4. Front Card Reactive Glow Border
       if (frontCardRef.current) {
-        if (beatState.isSnareHit || snarePower > 0.4) {
-          // Snare: Sleek Indigo Velvet Accent
-          frontCardRef.current.style.borderColor = "rgba(129, 140, 248, 0.85)";
-          frontCardRef.current.style.boxShadow =
-            "0 35px 90px rgba(0, 0, 0, 0.98), 0 0 35px rgba(99, 102, 241, 0.55), inset 0 0 15px rgba(99, 102, 241, 0.25)";
-        } else if (beatState.isKickRoll || effectiveKick > 0.4) {
+        if (kickImpact > 0.4) {
           frontCardRef.current.style.borderColor = "rgba(239, 68, 68, 0.90)";
           frontCardRef.current.style.boxShadow =
             "0 35px 90px rgba(0, 0, 0, 0.98), 0 0 40px rgba(239, 68, 68, 0.70), inset 0 0 18px rgba(239, 68, 68, 0.25)";
@@ -250,7 +112,7 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault, onOpenV
         }
       }
 
-      // Live Ground-Truth Studio Audio HUD Updates
+      // 5. Studio Audio HUD Updates
       if (bpmTextRef.current) {
         bpmTextRef.current.textContent = `${beatState.liveBpm} BPM`;
       }
@@ -279,7 +141,6 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault, onOpenV
     render();
 
     return () => {
-      window.removeEventListener("resize", handleResize);
       cancelAnimationFrame(animId);
     };
   }, [currentTrack, isPlaying, isMobile]);
@@ -330,19 +191,9 @@ export const Album3DZone: React.FC<Album3DZoneProps> = ({ onBackToVault, onOpenV
       }}
     >
       {/* ─────────────────────────────────────────────────────────────────────
-          1. VOLUMETRIC CANVAS (DARK GOTHIC SMOKE + CRIMSON HALATION + FILM GRAIN)
+          1. DYNAMIC GOTHIC CRIMSON MESH GRADIENT BACKGROUND
       ────────────────────────────────────────────────────────────────────── */}
-      <canvas
-        ref={canvasRef}
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          pointerEvents: "none",
-          zIndex: 1,
-        }}
-      />
+      <MeshGradientBackground customColors={GOTHIC_CRIMSON_PALETTE} intensity={1.1} />
 
       {/* ─────────────────────────────────────────────────────────────────────
           2. TOP IMMERSIVE BAR (BACK TO VAULT)

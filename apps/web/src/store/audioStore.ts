@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { dualDeckAudioEngine, ProgressState } from "../audio/DualDeckAudioEngine";
+import { dualDeckAudioEngine } from "../audio/DualDeckAudioEngine";
 import { studioBeatEngine } from "../audio/StudioBeatEngine";
 import { albumMatrixRegistry } from "../audio/AlbumMatrixPreloader";
 
@@ -707,9 +707,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       // Use engine's own getCurrentTrack() — if null, no track has been loaded yet.
       // Video3DZone now only calls pause() (no src destruction), so resume() works correctly.
       const engineHasTrack = dualDeckAudioEngine.getCurrentTrack() !== null;
-      if (!engineHasTrack) {
+      if (!engineHasTrack && currentTrack) {
         playTrack(currentTrack, { crossfade: false });
-      } else {
+      } else if (engineHasTrack) {
         dualDeckAudioEngine.resume();
         set({ isPlaying: true });
       }

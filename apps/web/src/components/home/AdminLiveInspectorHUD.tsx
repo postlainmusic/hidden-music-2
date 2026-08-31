@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Sliders, Eye, EyeOff, Sparkles, Settings2, Plus, ArrowUpRight } from "lucide-react";
+import React from "react";
+import { motion } from "framer-motion";
+import { Eye, EyeOff, ArrowUpRight } from "lucide-react";
 import { useAudioStore, DynamicSection } from "../../store/audioStore";
 import SectionElementEditorModal from "../admin/SectionElementEditorModal";
 
@@ -17,7 +17,7 @@ export const AdminLiveInspectorHUD: React.FC<Props> = ({
   activeEditingSection,
   setActiveEditingSection
 }) => {
-  const { currentUser, sections, albums, queue, updateSection } = useAudioStore();
+  const { currentUser, albums, queue, updateSection } = useAudioStore();
 
   const isAdmin = currentUser?.role === "admin" || (
     currentUser?.email && [

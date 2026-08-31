@@ -8,8 +8,10 @@ CREATE TABLE IF NOT EXISTS users (
     name TEXT,
     password_hash TEXT DEFAULT 'oauth_google',
     avatar_url TEXT,
-    role TEXT DEFAULT 'free', -- 'admin' | 'vip' | 'free'
-    status TEXT DEFAULT 'active', -- 'active' | 'banned'
+    role TEXT DEFAULT 'listener', -- 'admin' | 'vip' | 'listener'
+    status TEXT DEFAULT 'active', -- 'active' | 'suspended'
+    last_login_device TEXT,
+    last_ip TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_login_at INTEGER
 );
@@ -85,13 +87,15 @@ CREATE TABLE IF NOT EXISTS vault_slots (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS audit_logs (
+CREATE TABLE IF NOT EXISTS activity_logs (
     id TEXT PRIMARY KEY,
-    admin_id TEXT NOT NULL,
-    action TEXT NOT NULL,
-    target_type TEXT NOT NULL,
-    target_id TEXT,
-    details TEXT,
+    user_id TEXT,
+    user_email TEXT,
+    event_type TEXT NOT NULL, -- 'login' | 'play_track' | 'favorite' | 'admin_action' | 'client_error' | 'api_error'
+    title_vi TEXT NOT NULL,   -- Human-readable Vietnamese summary
+    details_json TEXT,        -- JSON string of device, browser, ip, error stack, metadata
+    severity TEXT DEFAULT 'info', -- 'info' | 'warning' | 'error'
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
 

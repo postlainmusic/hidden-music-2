@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart, ArrowRight } from "lucide-react";
 import { useAudioStore, Track, VaultSlot } from "../store/audioStore";
@@ -19,7 +19,7 @@ const formatDuration = (seconds: number) => {
   return `${m}:${s < 10 ? "0" : ""}${s}`;
 };
 
-export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onExploreClick, onOpen3D }) => {
+export const MobileHomePage: React.FC<MobileHomePageProps> = ({ onOpen3D }) => {
   const {
     currentTrack,
     playTrack,

@@ -4,7 +4,6 @@ import { MeshGradientBackground } from "./components/MeshGradientBackground";
 import { GlassNavbar } from "./components/GlassNavbar";
 import { VaultGate } from "./components/VaultGate";
 import { HomePage } from "./pages/HomePage";
-import { MobileHomePage } from "./pages/MobileHomePage";
 import { Album3DZone } from "./pages/Album3DZone";
 import { Video3DZone } from "./pages/Video3DZone";
 import { AdminPortal } from "./pages/AdminPortal";
@@ -83,22 +82,15 @@ export const App: React.FC = () => {
             >
               <MeshGradientBackground />
               <GlassNavbar
-                activeTab={activeTab === "explore" ? "explore" : activeTab === "admin" ? "admin" : "vault"}
+                activeTab={activeTab === "explore" ? "explore" : "vault"}
                 onTabChange={(t) => handleTabChange(t as MainTabType)}
               />
 
               {activeTab === "vault" ? (
-                isMobile ? (
-                  <MobileHomePage
-                    onExploreClick={() => handleTabChange("explore")}
-                    onOpen3D={() => handleTabChange("3d")}
-                  />
-                ) : (
-                  <HomePage
-                    onExploreClick={() => handleTabChange("explore")}
-                    onOpen3D={() => handleTabChange("3d")}
-                  />
-                )
+                <HomePage
+                  onExploreClick={() => handleTabChange("explore")}
+                  onOpen3D={() => handleTabChange("3d")}
+                />
               ) : (
                 <div
                   style={{

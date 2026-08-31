@@ -3,12 +3,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAudioStore, Track } from "../store/audioStore";
 import { dualDeckAudioEngine } from "../audio/DualDeckAudioEngine";
 import { useIsMobile } from "../hooks/useIsMobile";
-import * as THREE from "three";
+import { MeshGradientBackground, RGBColor } from "../components/MeshGradientBackground";
 import {
   Play,
   Pause,
-  SkipForward,
-  SkipBack,
   Volume2,
   VolumeX,
   Maximize2,
@@ -16,20 +14,19 @@ import {
   ArrowLeft,
   ListMusic,
   Disc3,
-  X,
-  Sparkles,
-  ShieldCheck,
-  Check
+  RotateCcw,
+  RotateCw,
+  Heart
 } from "lucide-react";
 
 interface Video3DZoneProps {
   onBackTo3DAlbum: () => void;
 }
 
-const SPEED_OPTIONS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+const SPEED_OPTIONS = [0.75, 1.0, 1.25, 1.5, 2.0];
 
 export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => {
-  const { currentTrack, queue } = useAudioStore();
+  const { currentTrack, queue, favoritedTrackIds, toggleFavoriteTrack } = useAudioStore();
   const isMobile = useIsMobile();
 
   // Local Video Track State
@@ -38,38 +35,39 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const particlesCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isBuffering, setIsBuffering] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
-  const [volume, setVolume] = useState<number>(0.9);
+  const [volume] = useState<number>(0.9);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [playbackRate, setPlaybackRate] = useState<number>(1.0);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showControls, setShowControls] = useState<boolean>(true);
-  const [showSpeedMenu, setShowSpeedMenu] = useState<boolean>(false);
-  const [isQueueOpen, setIsQueueOpen] = useState<boolean>(false);
-  const [hoverTime, setHoverTime] = useState<number | null>(null);
-  const [hoverPosition, setHoverPosition] = useState<number>(0);
-  const [ambilightColor, setAmbilightColor] = useState<string>("rgba(99, 102, 241, 0.45)");
 
-  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Dynamic 4-Point Ambilight Palette extracted from Video Frames
+  const [ambilightColors, setAmbilightColors] = useState<RGBColor[]>([
+    { r: 99, g: 102, b: 241 },   // Indigo
+    { r: 236, g: 72, b: 153 },   // Pink
+    { r: 168, g: 85, b: 247 },   // Purple
+    { r: 59, g: 130, b: 246 }    // Blue
+  ]);
+  const [dominantAmbilightHex, setDominantAmbilightHex] = useState<string>("rgba(99, 102, 241, 0.5)");
+
+  // Double-tap seek ripple feedback state
+  const [seekFeedback, setSeekFeedback] = useState<"backward" | "forward" | null>(null);
+  const lastTapTimeRef = useRef<number>(0);
+
+  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDraggingSeekerRef = useRef<boolean>(false);
 
-  // 1. AUDIO PAUSE-ONLY on Video Zone mount
-  // CRITICAL: Do NOT call removeAttribute('src') or .load() on audio elements.
-  // Those operations fire an 'error' event which triggers handleNetworkError() inside
-  // DualDeckAudioEngine, causing exponential-backoff retries that re-download FLAC files.
-  // Simply pausing the engine is sufficient — bandwidth is freed when audio stops buffering.
+  // Audio pause on Video Zone mount
   useEffect(() => {
     dualDeckAudioEngine.pause();
-    // Also mark the store as not-playing so the 3s preload timer in playTrack() skips.
     useAudioStore.setState({ isPlaying: false });
 
     return () => {
-      // Cleanly stop video on unmount
       if (videoRef.current) {
         try {
           videoRef.current.pause();
@@ -118,18 +116,8 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
         await document.exitFullscreen();
         setIsFullscreen(false);
       }
-    } catch (err) {}
+    } catch {}
   }, []);
-
-  // Volume & Mute
-  const handleVolumeChange = (newVol: number) => {
-    setVolume(newVol);
-    setIsMuted(newVol === 0);
-    if (videoRef.current) {
-      videoRef.current.volume = newVol;
-      videoRef.current.muted = newVol === 0;
-    }
-  };
 
   const toggleMute = () => {
     if (!videoRef.current) return;
@@ -143,33 +131,27 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     }
   };
 
-  // Speed
-  const handleSpeedSelect = (rate: number) => {
-    setPlaybackRate(rate);
+  // Cycle Speed
+  const handleCycleSpeed = () => {
+    const currIdx = SPEED_OPTIONS.indexOf(playbackRate);
+    const nextRate = SPEED_OPTIONS[(currIdx + 1) % SPEED_OPTIONS.length] || 1.0;
+    setPlaybackRate(nextRate);
     if (videoRef.current) {
-      videoRef.current.playbackRate = rate;
+      videoRef.current.playbackRate = nextRate;
     }
-    setShowSpeedMenu(false);
   };
 
-  // Track switching — purely local, does NOT touch the global audioStore
+  // Track switching
   const handleSelectTrack = (track: Track) => {
     setSelectedTrack(track);
     setIsBuffering(false);
     setIsPlaying(false);
-    if (isMobile) setIsQueueOpen(false);
   };
 
   const handleNextTrack = () => {
     const currentIndex = queue.findIndex((t) => t.id === selectedTrack.id);
     const nextIndex = (currentIndex + 1) % queue.length;
     handleSelectTrack(queue[nextIndex]);
-  };
-
-  const handlePrevTrack = () => {
-    const currentIndex = queue.findIndex((t) => t.id === selectedTrack.id);
-    const prevIndex = (currentIndex - 1 + queue.length) % queue.length;
-    handleSelectTrack(queue[prevIndex]);
   };
 
   // Timeline Seeker
@@ -181,152 +163,48 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     }
   };
 
-  const handleTimelineMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pos = (e.clientX - rect.left) / rect.width;
-    const clampedPos = Math.max(0, Math.min(1, pos));
-    setHoverPosition(clampedPos * 100);
-    setHoverTime(clampedPos * duration);
-  };
-
-  const handleTimelineMouseLeave = () => {
-    setHoverTime(null);
-  };
-
-  // Auto-hide controls
+  // Auto-hide controls (2.5s)
   const handleUserActivity = useCallback(() => {
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     if (isPlaying) {
       controlsTimeoutRef.current = setTimeout(() => {
-        if (!showSpeedMenu && !isDraggingSeekerRef.current && !isQueueOpen) {
+        if (!isDraggingSeekerRef.current) {
           setShowControls(false);
         }
-      }, 3500);
+      }, 2500);
     }
-  }, [isPlaying, showSpeedMenu, isQueueOpen]);
+  }, [isPlaying]);
 
-  // Keyboard controls
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) return;
+  // Double-tap to Seek -10s / +10s on Video
+  const handleVideoTouch = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    const now = Date.now();
+    const timeDiff = now - lastTapTimeRef.current;
+    lastTapTimeRef.current = now;
 
-      if (e.code === "Space") {
-        e.preventDefault();
-        togglePlay();
-      } else if (e.key === "f" || e.key === "F") {
-        e.preventDefault();
-        toggleFullscreen();
-      } else if (e.key === "m" || e.key === "M") {
-        e.preventDefault();
-        toggleMute();
-      } else if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        if (videoRef.current) {
-          videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5);
-        }
-      } else if (e.key === "ArrowRight") {
-        e.preventDefault();
-        if (videoRef.current) {
-          videoRef.current.currentTime = Math.min(duration, videoRef.current.currentTime + 5);
+    if (timeDiff < 300) {
+      // Double tap detected
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clientX = "touches" in e ? (e as any).changedTouches?.[0]?.clientX || 0 : (e as any).clientX;
+      const xRatio = (clientX - rect.left) / rect.width;
+
+      if (videoRef.current) {
+        if (xRatio < 0.45) {
+          videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 10);
+          setSeekFeedback("backward");
+          setTimeout(() => setSeekFeedback(null), 700);
+        } else if (xRatio > 0.55) {
+          videoRef.current.currentTime = Math.min(duration, videoRef.current.currentTime + 10);
+          setSeekFeedback("forward");
+          setTimeout(() => setSeekFeedback(null), 700);
         }
       }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [togglePlay, toggleFullscreen, toggleMute, duration]);
-
-  // 2. High-Performance Three.js Ambient Particles (Zero Lag)
-  useEffect(() => {
-    const canvas = particlesCanvasRef.current;
-    if (!canvas) return;
-
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      alpha: true,
-      antialias: false,
-      powerPreference: "high-performance"
-    });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
-
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.z = 15;
-
-    const count = 1000;
-    const pos = new Float32Array(count * 3);
-    const col = new Float32Array(count * 3);
-
-    const colorA = new THREE.Color("#6366f1");
-    const colorB = new THREE.Color("#ec4899");
-    const colorC = new THREE.Color("#06b6d4");
-
-    for (let i = 0; i < count; i++) {
-      const i3 = i * 3;
-      const radius = 8 + Math.random() * 30;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(Math.random() * 2 - 1);
-
-      pos[i3] = radius * Math.sin(phi) * Math.cos(theta);
-      pos[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-      pos[i3 + 2] = radius * Math.cos(phi) - 8;
-
-      const mixed = colorA.clone().lerp(Math.random() > 0.5 ? colorB : colorC, Math.random());
-      col[i3] = mixed.r;
-      col[i3 + 1] = mixed.g;
-      col[i3 + 2] = mixed.b;
+    } else {
+      handleUserActivity();
     }
+  };
 
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    geometry.setAttribute("color", new THREE.BufferAttribute(col, 3));
-
-    const material = new THREE.PointsMaterial({
-      size: 0.12,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.65,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
-    });
-
-    const points = new THREE.Points(geometry, material);
-    scene.add(points);
-
-    let animId: number;
-    let lastTime = performance.now();
-
-    const animate = (now: number) => {
-      const delta = (now - lastTime) * 0.001;
-      lastTime = now;
-
-      points.rotation.y += delta * 0.04;
-      points.rotation.x += delta * 0.02;
-
-      renderer.render(scene, camera);
-      animId = requestAnimationFrame(animate);
-    };
-    animId = requestAnimationFrame(animate);
-
-    const handleResize = () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    };
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener("resize", handleResize);
-      geometry.dispose();
-      material.dispose();
-      renderer.dispose();
-    };
-  }, []);
-
-  // 3. Throttled Ambilight extraction loop
+  // Extract Real-time 4-Point Ambilight Palette from Video Frame
   useEffect(() => {
     const interval = setInterval(() => {
       const video = videoRef.current;
@@ -347,7 +225,15 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
             r = Math.round(r / count);
             g = Math.round(g / count);
             b = Math.round(b / count);
-            setAmbilightColor(`rgba(${r}, ${g}, ${b}, 0.55)`);
+
+            // Sample 4 quadrants for organic mesh gradient
+            const q1 = { r: Math.min(255, r + 30), g: Math.max(0, g - 20), b: Math.max(0, b - 10) };
+            const q2 = { r: Math.max(0, r - 30), g: Math.max(0, g - 10), b: Math.min(255, b + 40) };
+            const q3 = { r: Math.max(0, r - 10), g: Math.min(255, g + 30), b: Math.max(0, b - 20) };
+            const q4 = { r: Math.min(255, r + 20), g: Math.min(255, g + 20), b: Math.min(255, b + 20) };
+
+            setAmbilightColors([q1, q2, q3, q4]);
+            setDominantAmbilightHex(`rgba(${r}, ${g}, ${b}, 0.55)`);
           } catch {}
         }
       }
@@ -357,6 +243,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   }, []);
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const isFav = selectedTrack ? favoritedTrackIds.includes(selectedTrack.id) : false;
 
   return (
     <div
@@ -368,604 +255,525 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
         width: "100vw",
         minHeight: "100dvh",
         backgroundColor: "#000000",
-        overflow: "hidden",
+        overflowX: "hidden",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
-        zIndex: 10
+        zIndex: 10,
+        color: "#ffffff"
       }}
     >
-      {/* Background Pure Three.js Ambient Particles */}
-      <canvas
-        ref={particlesCanvasRef}
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          zIndex: 0,
-          pointerEvents: "none"
-        }}
-      />
+      {/* ─────────────────────────────────────────────────────────────────────
+          1. DYNAMIC AMBILIGHT MESH GRADIENT BACKGROUND
+      ────────────────────────────────────────────────────────────────────── */}
+      <MeshGradientBackground customColors={ambilightColors} intensity={1.2} />
 
-      {/* Hidden Offscreen Canvas for Ambilight */}
+      {/* Hidden Offscreen Canvas for Ambilight extraction */}
       <canvas ref={canvasRef} width={16} height={9} style={{ display: "none" }} />
 
-      {/* Dynamic Ambilight Backlight Halo */}
-      <motion.div
-        animate={{
-          x: isQueueOpen && !isMobile ? 160 : 0,
-          scale: isQueueOpen ? (isMobile ? 0.92 : 0.82) : 1
-        }}
-        transition={{ type: "spring", damping: 26, stiffness: 220 }}
-        style={{
-          position: "absolute",
-          width: isMobile ? "94vw" : "min(86vw, 1080px)",
-          aspectRatio: "16 / 9",
-          borderRadius: "32px",
-          background: ambilightColor,
-          filter: isMobile ? "blur(40px)" : "blur(80px)",
-          opacity: 0.85,
-          zIndex: 1,
-          pointerEvents: "none"
-        }}
-      />
-
       {/* ── TOP HEADER BAR ── */}
-      <AnimatePresence>
-        {showControls && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              padding: isMobile ? "16px 20px" : "24px 36px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              zIndex: 50,
-              background: "linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, transparent 100%)"
-            }}
-          >
-            {/* Back to 3D Album */}
-            <button
-              onClick={onBackTo3DAlbum}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: isMobile ? "8px 14px" : "10px 18px",
-                borderRadius: "999px",
-                backgroundColor: "rgba(255, 255, 255, 0.08)",
-                backdropFilter: "blur(20px)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                color: "#ffffff",
-                fontSize: isMobile ? "0.78rem" : "0.85rem",
-                fontWeight: 700,
-                cursor: "pointer",
-                transition: "all 0.2s ease"
-              }}
-            >
-              <ArrowLeft size={15} />
-              <span>Quay lại 3D Album</span>
-            </button>
-
-            {/* Video Queue Toggle Button */}
-            <button
-              onClick={() => setIsQueueOpen(!isQueueOpen)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: isMobile ? "8px 14px" : "10px 18px",
-                borderRadius: "999px",
-                backgroundColor: isQueueOpen ? "rgba(99, 102, 241, 0.35)" : "rgba(255, 255, 255, 0.08)",
-                backdropFilter: "blur(20px)",
-                border: isQueueOpen ? "1px solid #6366f1" : "1px solid rgba(255, 255, 255, 0.15)",
-                color: isQueueOpen ? "#a5b4fc" : "#ffffff",
-                fontSize: isMobile ? "0.78rem" : "0.85rem",
-                fontWeight: 700,
-                cursor: "pointer",
-                transition: "all 0.2s ease"
-              }}
-            >
-              <ListMusic size={15} />
-              <span>{isQueueOpen ? "Đóng Hàng Đợi" : `Hàng Đợi Video (${queue.length})`}</span>
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── LEFT SLIDE-OUT VIDEO QUEUE DRAWER ── */}
-      <AnimatePresence>
-        {isQueueOpen && (
-          <motion.div
-            initial={{ x: "-100%", opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: "-100%", opacity: 0 }}
-            transition={{ type: "spring", damping: 28, stiffness: 260 }}
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              bottom: 0,
-              width: isMobile ? "85vw" : "360px",
-              backgroundColor: "rgba(10, 10, 16, 0.88)",
-              backdropFilter: "blur(30px)",
-              borderRight: "1px solid rgba(255, 255, 255, 0.12)",
-              boxShadow: "20px 0 50px rgba(0, 0, 0, 0.8)",
-              zIndex: 60,
-              display: "flex",
-              flexDirection: "column",
-              padding: "24px 20px"
-            }}
-          >
-            {/* Drawer Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: "16px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)" }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "#ffffff" }}>
-                  Hàng Đợi Video
-                </h3>
-                <p style={{ margin: "2px 0 0", fontSize: "0.74rem", color: "rgba(255, 255, 255, 0.5)" }}>
-                  {queue.length} Video phòng thu độc quyền
-                </p>
-              </div>
-              <button
-                onClick={() => setIsQueueOpen(false)}
-                style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "50%",
-                  backgroundColor: "rgba(255, 255, 255, 0.08)",
-                  border: "1px solid rgba(255, 255, 255, 0.15)",
-                  color: "rgba(255, 255, 255, 0.6)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer"
-                }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Video List Items */}
-            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px", marginTop: "16px" }}>
-              {queue.map((track, idx) => {
-                const isCurrent = track.id === selectedTrack?.id;
-                return (
-                  <div
-                    key={track.id}
-                    onClick={() => handleSelectTrack(track)}
-                    style={{
-                      padding: "10px 12px",
-                      borderRadius: "12px",
-                      backgroundColor: isCurrent ? "rgba(99, 102, 241, 0.22)" : "rgba(255, 255, 255, 0.03)",
-                      border: isCurrent ? "1px solid #6366f1" : "1px solid rgba(255, 255, 255, 0.06)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                      cursor: "pointer",
-                      transition: "all 0.2s"
-                    }}
-                  >
-                    <span style={{ fontSize: "0.75rem", fontWeight: 800, color: isCurrent ? "#a5b4fc" : "rgba(255,255,255,0.4)", width: "20px" }}>
-                      {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
-                    </span>
-
-                    <img
-                      src={track.coverUrl}
-                      alt={track.title}
-                      style={{ width: "38px", height: "38px", borderRadius: "8px", objectFit: "cover" }}
-                    />
-
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontSize: "0.84rem", fontWeight: 700, color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.8)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {track.title}
-                        </span>
-                      </div>
-                      <span style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.45)" }}>
-                        {track.artist}
-                      </span>
-                    </div>
-
-                    {isCurrent && (
-                      <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#34d399", boxShadow: "0 0 8px #34d399" }} />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── MAIN 3D CINEMA VIDEO SCREEN CONTAINER ── */}
-      <motion.div
-        animate={{
-          x: isQueueOpen && !isMobile ? 160 : 0,
-          y: isQueueOpen && isMobile ? -60 : 0,
-          scale: isQueueOpen ? (isMobile ? 0.92 : 0.82) : 1
-        }}
-        transition={{ type: "spring", damping: 26, stiffness: 220 }}
+      <div
         style={{
-          position: "relative",
-          width: isMobile ? "94vw" : "min(86vw, 1080px)",
-          aspectRatio: "16 / 9",
-          borderRadius: isMobile ? "18px" : "24px",
-          overflow: "hidden",
-          backgroundColor: "#050505",
-          boxShadow: `0 0 60px ${ambilightColor}, 0 24px 60px rgba(0,0,0,0.9)`,
-          border: "1px solid rgba(255, 255, 255, 0.12)",
-          zIndex: 20
+          width: "100%",
+          maxWidth: "1100px",
+          padding: isMobile ? "16px 16px 8px" : "20px 24px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          zIndex: 40
         }}
       >
-        {/* Native HTML5 Video Element with autoPlay & onLoadedMetadata */}
-        <video
-          ref={videoRef}
-          key={videoStreamUrl}
-          src={videoStreamUrl}
-          preload="metadata"
-          playsInline={true}
-          controls={false}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onWaiting={() => setIsBuffering(true)}
-          onPlaying={() => setIsBuffering(false)}
-          onCanPlay={() => setIsBuffering(false)}
-          onTimeUpdate={() => {
-            if (videoRef.current && !isDraggingSeekerRef.current) {
-              setCurrentTime(videoRef.current.currentTime);
-            }
-          }}
-          onLoadedMetadata={() => {
-            if (videoRef.current) {
-              setDuration(videoRef.current.duration);
-              videoRef.current.volume = volume;
-              videoRef.current.muted = isMuted;
-              // Single authoritative play call after metadata — autoPlay removed to prevent race
-              videoRef.current.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
-            }
-          }}
-          onEnded={() => {
-            setIsPlaying(false);
-            handleNextTrack();
-          }}
-          onClick={togglePlay}
-          onDoubleClick={toggleFullscreen}
+        <button
+          onClick={onBackTo3DAlbum}
           style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "8px 16px",
+            borderRadius: "999px",
+            backgroundColor: "rgba(255, 255, 255, 0.08)",
+            backdropFilter: "blur(20px)",
+            border: "1px solid rgba(255, 255, 255, 0.15)",
+            color: "#ffffff",
+            fontSize: "0.82rem",
+            fontWeight: 700,
+            cursor: "pointer",
+            transition: "all 0.2s ease"
+          }}
+        >
+          <ArrowLeft size={15} />
+          <span>3D Album</span>
+        </button>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span
+            style={{
+              padding: "4px 10px",
+              borderRadius: "999px",
+              backgroundColor: "rgba(236, 72, 153, 0.15)",
+              border: "1px solid rgba(236, 72, 153, 0.35)",
+              color: "#f472b6",
+              fontSize: "0.74rem",
+              fontWeight: 800
+            }}
+          >
+            4K CINEMA
+          </span>
+          <span style={{ fontSize: "0.82rem", color: "rgba(255, 255, 255, 0.6)", fontWeight: 600 }}>
+            HVL (30 Videos)
+          </span>
+        </div>
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────────────
+          2. MAIN 16:9 CINEMA VIDEO PLAYER
+      ────────────────────────────────────────────────────────────────────── */}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: isMobile ? "100vw" : "1080px",
+          padding: isMobile ? "0" : "0 24px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          zIndex: 30
+        }}
+      >
+        <div
+          onClick={handleVideoTouch}
+          style={{
+            position: "relative",
+            width: isMobile ? "100vw" : "100%",
+            aspectRatio: "16 / 9",
+            borderRadius: isMobile ? "0px" : "24px",
+            overflow: "hidden",
+            backgroundColor: "#050505",
+            boxShadow: `0 0 50px ${dominantAmbilightHex}, 0 20px 50px rgba(0,0,0,0.9)`,
+            border: isMobile ? "none" : "1px solid rgba(255, 255, 255, 0.12)",
             cursor: "pointer"
           }}
-        />
-
-        {/* Buffering Spinner */}
-        {isBuffering && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "rgba(0, 0, 0, 0.4)",
-              pointerEvents: "none",
-              zIndex: 32
+        >
+          <video
+            ref={videoRef}
+            key={videoStreamUrl}
+            src={videoStreamUrl}
+            preload="metadata"
+            playsInline={true}
+            controls={false}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onWaiting={() => setIsBuffering(true)}
+            onPlaying={() => setIsBuffering(false)}
+            onCanPlay={() => setIsBuffering(false)}
+            onTimeUpdate={() => {
+              if (videoRef.current && !isDraggingSeekerRef.current) {
+                setCurrentTime(videoRef.current.currentTime);
+              }
             }}
-          >
-            <Disc3 size={48} color="#ffffff" className="animate-spin text-opacity-80" />
-          </div>
-        )}
-
-        {/* Center Play/Pause Splash */}
-        {!isPlaying && !isBuffering && (
-          <div
-            onClick={togglePlay}
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "rgba(0, 0, 0, 0.45)",
-              backdropFilter: "blur(6px)",
-              cursor: "pointer",
-              zIndex: 30
+            onLoadedMetadata={() => {
+              if (videoRef.current) {
+                setDuration(videoRef.current.duration);
+                videoRef.current.volume = volume;
+                videoRef.current.muted = isMuted;
+                videoRef.current.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+              }
             }}
-          >
+            onEnded={() => {
+              setIsPlaying(false);
+              handleNextTrack();
+            }}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover"
+            }}
+          />
+
+          {isBuffering && (
             <div
               style={{
-                width: isMobile ? "64px" : "80px",
-                height: isMobile ? "64px" : "80px",
-                borderRadius: "50%",
-                backgroundColor: "rgba(255, 255, 255, 0.18)",
-                backdropFilter: "blur(24px)",
-                border: "1px solid rgba(255, 255, 255, 0.3)",
+                position: "absolute",
+                inset: 0,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "#ffffff"
+                backgroundColor: "rgba(0, 0, 0, 0.35)",
+                pointerEvents: "none",
+                zIndex: 32
               }}
             >
-              <Play size={isMobile ? 28 : 36} style={{ marginLeft: "4px" }} />
+              <Disc3 size={44} color="#ffffff" className="animate-spin text-opacity-80" />
             </div>
-          </div>
-        )}
-
-        {/* ── TOP-LEFT VIDEO TITLE OVERLAY ── */}
-        <AnimatePresence>
-          {showControls && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              onClick={() => setIsQueueOpen(!isQueueOpen)}
-              style={{
-                position: "absolute",
-                top: isMobile ? "12px" : "18px",
-                left: isMobile ? "12px" : "18px",
-                zIndex: 35,
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                padding: "8px 14px",
-                borderRadius: "12px",
-                backgroundColor: "rgba(10, 10, 16, 0.7)",
-                backdropFilter: "blur(16px)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                cursor: "pointer"
-              }}
-            >
-              <div style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: isPlaying ? "#34d399" : "#f59e0b" }} />
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <span style={{ color: "#ffffff", fontWeight: 800, fontSize: isMobile ? "0.78rem" : "0.88rem", letterSpacing: "0.02em" }}>
-                  {selectedTrack?.title || "MCK Music Video"}
-                </span>
-                <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: "0.7rem" }}>
-                  {selectedTrack?.artist || "MCK"} • {selectedTrack?.album || "HVL"}
-                </span>
-              </div>
-            </motion.div>
           )}
-        </AnimatePresence>
 
-        {/* ── BOTTOM GLASS CONTROL BAR ── */}
-        <AnimatePresence>
-          {showControls && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              style={{
-                position: "absolute",
-                bottom: 0,
-                left: 0,
-                right: 0,
-                padding: isMobile ? "14px 16px 12px" : "20px 28px 18px",
-                background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 60%, transparent 100%)",
-                display: "flex",
-                flexDirection: "column",
-                gap: "10px",
-                zIndex: 40
-              }}
-            >
-              {/* Timeline Scrubber Bar with Hover Tooltip */}
-              <div
-                onMouseMove={handleTimelineMouseMove}
-                onMouseLeave={handleTimelineMouseLeave}
-                style={{ position: "relative", width: "100%", height: "16px", display: "flex", alignItems: "center", cursor: "pointer" }}
+          {/* Double-tap Seek Feedback */}
+          <AnimatePresence>
+            {seekFeedback === "backward" && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                style={{
+                  position: "absolute",
+                  left: "15%",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  padding: "16px",
+                  borderRadius: "50%",
+                  backgroundColor: "rgba(0,0,0,0.65)",
+                  backdropFilter: "blur(12px)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "4px",
+                  zIndex: 35
+                }}
               >
-                {hoverTime !== null && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: `${hoverPosition}%`,
-                      top: "-28px",
-                      transform: "translateX(-50%)",
-                      padding: "2px 6px",
-                      borderRadius: "4px",
-                      backgroundColor: "rgba(0,0,0,0.9)",
-                      border: "1px solid rgba(255,255,255,0.2)",
-                      fontSize: "10px",
-                      fontFamily: "monospace",
-                      color: "#ffffff",
-                      pointerEvents: "none"
-                    }}
-                  >
-                    {formatTime(hoverTime)}
+                <RotateCcw size={26} color="#ffffff" />
+                <span style={{ fontSize: "0.75rem", fontWeight: 800 }}>-10s</span>
+              </motion.div>
+            )}
+
+            {seekFeedback === "forward" && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                style={{
+                  position: "absolute",
+                  right: "15%",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  padding: "16px",
+                  borderRadius: "50%",
+                  backgroundColor: "rgba(0,0,0,0.65)",
+                  backdropFilter: "blur(12px)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "4px",
+                  zIndex: 35
+                }}
+              >
+                <RotateCw size={26} color="#ffffff" />
+                <span style={{ fontSize: "0.75rem", fontWeight: 800 }}>+10s</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Controls Overlay */}
+          <AnimatePresence>
+            {(showControls || !isPlaying) && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.4) 100%)",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  padding: isMobile ? "12px 14px" : "18px 24px",
+                  zIndex: 30
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleUserActivity();
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#ec4899", boxShadow: "0 0 10px #ec4899" }} />
+                    <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#ffffff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "240px" }}>
+                      {selectedTrack?.title}
+                    </span>
                   </div>
-                )}
 
-                {/* Progress Fill */}
-                <div style={{ width: "100%", height: "6px", backgroundColor: "rgba(255, 255, 255, 0.2)", borderRadius: "999px", overflow: "hidden", position: "relative" }}>
-                  <div style={{ width: `${progressPercent}%`, height: "100%", backgroundColor: "#ffffff" }} />
-                </div>
-
-                <input
-                  type="range"
-                  min={0}
-                  max={duration || 100}
-                  step={0.1}
-                  value={currentTime}
-                  onChange={handleSeek}
-                  onMouseDown={() => { isDraggingSeekerRef.current = true; }}
-                  onMouseUp={() => { isDraggingSeekerRef.current = false; }}
-                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer" }}
-                />
-              </div>
-
-              {/* Controls Row */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center" }}>
-                {/* Left: Queue Quick Button & Timecode */}
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                   <button
-                    onClick={() => setIsQueueOpen(!isQueueOpen)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCycleSpeed();
+                    }}
                     style={{
-                      background: "rgba(255, 255, 255, 0.08)",
-                      border: "1px solid rgba(255, 255, 255, 0.12)",
-                      borderRadius: "8px",
-                      padding: "5px 10px",
+                      padding: "4px 10px",
+                      borderRadius: "6px",
+                      backgroundColor: "rgba(255, 255, 255, 0.12)",
+                      border: "1px solid rgba(255, 255, 255, 0.2)",
                       color: "#ffffff",
-                      fontSize: "0.74rem",
+                      fontSize: "0.75rem",
                       fontWeight: 700,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
                       cursor: "pointer"
                     }}
                   >
-                    <ListMusic size={13} />
-                    <span>30 Videos</span>
-                  </button>
-
-                  <div style={{ fontSize: isMobile ? "0.72rem" : "0.8rem", fontFamily: "monospace", color: "rgba(255, 255, 255, 0.7)" }}>
-                    <span style={{ color: "#ffffff", fontWeight: 700 }}>{formatTime(currentTime)}</span>
-                    <span style={{ margin: "0 4px", opacity: 0.5 }}>/</span>
-                    <span>{formatTime(duration)}</span>
-                  </div>
-                </div>
-
-                {/* Center: Playback Controls */}
-                <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "12px" : "18px" }}>
-                  <button
-                    onClick={handlePrevTrack}
-                    style={{ background: "none", border: "none", color: "rgba(255,255,255,0.85)", cursor: "pointer", padding: "4px" }}
-                  >
-                    <SkipBack size={isMobile ? 18 : 22} />
-                  </button>
-
-                  <button
-                    onClick={togglePlay}
-                    style={{
-                      width: isMobile ? "38px" : "46px",
-                      height: isMobile ? "38px" : "46px",
-                      borderRadius: "50%",
-                      backgroundColor: "#ffffff",
-                      color: "#000000",
-                      border: "none",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                      boxShadow: "0 4px 20px rgba(255, 255, 255, 0.35)"
-                    }}
-                  >
-                    {isPlaying ? <Pause size={isMobile ? 18 : 22} /> : <Play size={isMobile ? 18 : 22} style={{ marginLeft: "2px" }} />}
-                  </button>
-
-                  <button
-                    onClick={handleNextTrack}
-                    style={{ background: "none", border: "none", color: "rgba(255,255,255,0.85)", cursor: "pointer", padding: "4px" }}
-                  >
-                    <SkipForward size={isMobile ? 18 : 22} />
+                    {playbackRate}x
                   </button>
                 </div>
 
-                {/* Right: Volume, Speed & Fullscreen */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: isMobile ? "10px" : "14px" }}>
-                  {!isMobile && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <button
-                        onClick={toggleMute}
-                        style={{ background: "none", border: "none", color: "#ffffff", cursor: "pointer", padding: "4px" }}
-                      >
-                        {isMuted || volume === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}
-                      </button>
-                      <input
-                        type="range"
-                        min={0}
-                        max={1}
-                        step={0.05}
-                        value={isMuted ? 0 : volume}
-                        onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                        style={{ width: "65px", height: "3px", accentColor: "#ffffff", cursor: "pointer" }}
-                      />
-                    </div>
-                  )}
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    togglePlay();
+                  }}
+                  style={{
+                    alignSelf: "center",
+                    width: isMobile ? "54px" : "64px",
+                    height: isMobile ? "54px" : "64px",
+                    borderRadius: "50%",
+                    backgroundColor: "rgba(255, 255, 255, 0.2)",
+                    backdropFilter: "blur(20px)",
+                    border: "1px solid rgba(255, 255, 255, 0.4)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#ffffff",
+                    cursor: "pointer"
+                  }}
+                >
+                  {isPlaying ? <Pause size={isMobile ? 24 : 28} /> : <Play size={isMobile ? 24 : 28} style={{ marginLeft: "3px" }} />}
+                </div>
 
-                  {/* Speed Menu */}
-                  <div style={{ position: "relative" }}>
-                    <button
-                      onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+                <div>
+                  <div style={{ position: "relative", marginBottom: "8px" }}>
+                    <div
                       style={{
-                        background: "rgba(255, 255, 255, 0.08)",
-                        border: "1px solid rgba(255, 255, 255, 0.12)",
-                        borderRadius: "8px",
-                        padding: "4px 8px",
-                        color: "#ffffff",
-                        fontSize: "0.72rem",
-                        fontFamily: "monospace",
-                        cursor: "pointer"
+                        position: "absolute",
+                        top: "50%",
+                        left: 0,
+                        right: 0,
+                        height: "4px",
+                        transform: "translateY(-50%)",
+                        backgroundColor: "rgba(255, 255, 255, 0.2)",
+                        borderRadius: "999px"
                       }}
                     >
-                      {playbackRate}x
-                    </button>
-
-                    {showSpeedMenu && (
                       <div
                         style={{
-                          position: "absolute",
-                          bottom: "100%",
-                          right: 0,
-                          marginBottom: "8px",
-                          padding: "4px",
-                          borderRadius: "12px",
-                          backgroundColor: "rgba(10, 10, 16, 0.95)",
-                          border: "1px solid rgba(255, 255, 255, 0.15)",
-                          backdropFilter: "blur(20px)",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "2px",
-                          zIndex: 60,
-                          minWidth: "90px"
+                          height: "100%",
+                          width: `${progressPercent}%`,
+                          background: "linear-gradient(90deg, #6366f1, #ec4899)",
+                          borderRadius: "999px"
                         }}
-                      >
-                        {SPEED_OPTIONS.map((rate) => (
-                          <button
-                            key={rate}
-                            onClick={() => handleSpeedSelect(rate)}
-                            style={{
-                              padding: "6px 10px",
-                              borderRadius: "8px",
-                              backgroundColor: playbackRate === rate ? "#ffffff" : "transparent",
-                              color: playbackRate === rate ? "#000000" : "#ffffff",
-                              border: "none",
-                              fontSize: "0.72rem",
-                              fontFamily: "monospace",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              cursor: "pointer"
-                            }}
-                          >
-                            <span>{rate}x</span>
-                            {playbackRate === rate && <Check size={12} />}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                      />
+                    </div>
+
+                    <input
+                      type="range"
+                      min={0}
+                      max={duration || 100}
+                      step={0.1}
+                      value={currentTime}
+                      onChange={handleSeek}
+                      onMouseDown={() => { isDraggingSeekerRef.current = true; }}
+                      onMouseUp={() => { isDraggingSeekerRef.current = false; }}
+                      onTouchStart={() => { isDraggingSeekerRef.current = true; }}
+                      onTouchEnd={() => { isDraggingSeekerRef.current = false; }}
+                      style={{
+                        position: "relative",
+                        width: "100%",
+                        height: "16px",
+                        opacity: 0,
+                        cursor: "pointer",
+                        zIndex: 10
+                      }}
+                    />
                   </div>
 
-                  <button
-                    onClick={toggleFullscreen}
-                    style={{ background: "none", border: "none", color: "#ffffff", cursor: "pointer", padding: "4px" }}
-                  >
-                    {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-                  </button>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: "0.78rem", color: "rgba(255, 255, 255, 0.75)", fontWeight: 700 }}>
+                      {formatTime(currentTime)} / {formatTime(duration)}
+                    </span>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleMute();
+                        }}
+                        style={{ background: "none", border: "none", color: "#ffffff", cursor: "pointer" }}
+                      >
+                        {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFullscreen();
+                        }}
+                        style={{ background: "none", border: "none", color: "#ffffff", cursor: "pointer" }}
+                      >
+                        {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Video Info */}
+        <div
+          style={{
+            width: "100%",
+            padding: isMobile ? "14px 16px 8px" : "18px 0 12px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
+            <div style={{ minWidth: 0 }}>
+              <h2 style={{ margin: 0, fontSize: isMobile ? "1.1rem" : "1.35rem", fontWeight: 800, color: "#ffffff", letterSpacing: "0.02em" }}>
+                {selectedTrack?.title}
+              </h2>
+              <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: "rgba(255, 255, 255, 0.55)", fontWeight: 600 }}>
+                {selectedTrack?.artist || "MCK"} • Album HVL (99%)
+              </p>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <button
+                onClick={() => selectedTrack?.id && toggleFavoriteTrack(selectedTrack.id)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: "999px",
+                  backgroundColor: isFav ? "rgba(239, 68, 68, 0.2)" : "rgba(255, 255, 255, 0.08)",
+                  border: isFav ? "1px solid rgba(239, 68, 68, 0.5)" : "1px solid rgba(255, 255, 255, 0.15)",
+                  color: isFav ? "#ef4444" : "#ffffff",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "0.8rem",
+                  fontWeight: 700,
+                  cursor: "pointer"
+                }}
+              >
+                <Heart size={14} fill={isFav ? "#ef4444" : "none"} />
+                <span>{isFav ? "Đã Thích" : "Thích"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* YouTube-Style Playlist Queue */}
+        <div
+          style={{
+            width: "100%",
+            padding: isMobile ? "0 16px 80px" : "8px 0 60px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: "4px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <ListMusic size={18} color="#ec4899" />
+              <span style={{ fontSize: "0.92rem", fontWeight: 800, color: "#ffffff", letterSpacing: "0.04em" }}>
+                DANH SÁCH PHÁT VIDEO ({queue.length})
+              </span>
+            </div>
+            <span style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.45)", fontWeight: 600 }}>
+              Chất lượng 4K Master
+            </span>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {queue.map((track, idx) => {
+              const isCurrent = track.id === selectedTrack?.id;
+
+              return (
+                <div
+                  key={track.id || idx}
+                  onClick={() => handleSelectTrack(track)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "14px",
+                    padding: "8px 12px",
+                    borderRadius: "14px",
+                    backgroundColor: isCurrent ? "rgba(99, 102, 241, 0.22)" : "rgba(255, 255, 255, 0.03)",
+                    border: isCurrent ? "1px solid rgba(168, 85, 247, 0.6)" : "1px solid rgba(255, 255, 255, 0.06)",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "relative",
+                      width: isMobile ? "96px" : "120px",
+                      aspectRatio: "16 / 9",
+                      borderRadius: "8px",
+                      overflow: "hidden",
+                      backgroundColor: "#111118",
+                      flexShrink: 0
+                    }}
+                  >
+                    <img
+                      src={track.coverUrl || "/covers/HVL_Album_Cover.webp"}
+                      alt={track.title}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: "3px",
+                        right: "4px",
+                        padding: "1px 5px",
+                        borderRadius: "4px",
+                        backgroundColor: "rgba(0, 0, 0, 0.75)",
+                        fontSize: "0.65rem",
+                        fontWeight: 700,
+                        color: "#ffffff"
+                      }}
+                    >
+                      {formatTime(track.duration)}
+                    </div>
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span
+                      style={{
+                        fontSize: "0.88rem",
+                        fontWeight: 700,
+                        color: isCurrent ? "#ffffff" : "rgba(255, 255, 255, 0.85)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        display: "block"
+                      }}
+                    >
+                      {track.title}
+                    </span>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "3px" }}>
+                      <span style={{ fontSize: "0.75rem", color: "rgba(255, 255, 255, 0.45)" }}>
+                        {track.artist || "MCK"}
+                      </span>
+                      {isCurrent && (
+                        <span
+                          style={{
+                            padding: "1px 6px",
+                            borderRadius: "4px",
+                            backgroundColor: "rgba(52, 211, 153, 0.2)",
+                            color: "#34d399",
+                            fontSize: "0.65rem",
+                            fontWeight: 800
+                          }}
+                        >
+                          ĐANG PHÁT
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

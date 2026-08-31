@@ -136,30 +136,61 @@ app.post("/api/auth/google", async (c) => {
 
     const userId = `usr_${googleId}`;
     const now = Date.now();
-    const assignedRole = isAdminEmail(email, c.env.ADMIN_EMAILS) ? "admin" : "free";
+    const assignedRole = isAdminEmail(email, c.env.ADMIN_EMAILS) ? "admin" : "listener";
+    const ip = c.req.header("CF-Connecting-IP") || c.req.header("x-forwarded-for") || "127.0.0.1";
+    const country = c.req.header("cf-ipcountry") || "VN";
+    const city = c.req.header("cf-ipcity") || "Hanoi";
+    const ua = c.req.header("user-agent") || "";
 
     if (c.env.DB) {
-      await c.env.DB.prepare(
-        `INSERT INTO users (id, google_id, email, username, name, password_hash, avatar_url, role, status, created_at, last_login_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', datetime('now'), ?)
-         ON CONFLICT(email) DO UPDATE SET
-           name = excluded.name,
-           avatar_url = excluded.avatar_url,
-           google_id = excluded.google_id,
-           last_login_at = excluded.last_login_at`
-      )
-        .bind(
-          userId,
-          googleId,
-          email,
-          email.split("@")[0],
-          name,
-          "oauth_google",
-          picture,
-          assignedRole,
-          now
+      try {
+        await c.env.DB.prepare(
+          `INSERT INTO users (id, google_id, email, username, name, password_hash, avatar_url, role, status, last_login_device, last_ip, created_at, last_login_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, datetime('now'), ?)
+           ON CONFLICT(email) DO UPDATE SET
+             name = excluded.name,
+             avatar_url = excluded.avatar_url,
+             google_id = excluded.google_id,
+             last_login_device = excluded.last_login_device,
+             last_ip = excluded.last_ip,
+             last_login_at = excluded.last_login_at`
         )
-        .run();
+          .bind(
+            userId,
+            googleId,
+            email,
+            email.split("@")[0],
+            name,
+            "oauth_google",
+            picture,
+            assignedRole,
+            ua,
+            ip,
+            now
+          )
+          .run();
+
+        // Record visual Vietnamese login log
+        const locationStr = [city, country, ip].filter(Boolean).join(" - ");
+        await recordActivityLog(c, {
+          userId,
+          userEmail: email,
+          eventType: "login",
+          titleVi: `👤 Người dùng ${name} (${email}) đã đăng nhập thành công từ ${locationStr}`,
+          details: {
+            googleId,
+            name,
+            ip,
+            country,
+            city,
+            userAgent: ua,
+            loginTime: new Date().toISOString()
+          },
+          severity: "info"
+        });
+      } catch (dbErr) {
+        console.warn("DB login persist error:", dbErr);
+      }
     }
 
     const user = {
@@ -1930,6 +1961,200 @@ app.post("/api/admin/restore", async (c) => {
   return c.json({ success: true, message: "Đã khôi phục toàn bộ dữ liệu hệ thống thành công!" });
 });
 
+// --- HELPER TO RECORD ACTIVITY & AUDIT LOGS IN D1 ---
+async function recordActivityLog(
+  c: any,
+  entry: {
+    userId?: string;
+    userEmail?: string;
+    eventType: string; // 'login' | 'play_track' | 'favorite' | 'admin_action' | 'client_error' | 'api_error'
+    titleVi: string;
+    details?: any;
+    severity?: "info" | "warning" | "error";
+  }
+) {
+  if (!c.env.DB) return;
+  try {
+    // Ensure table exists safely
+    await c.env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS activity_logs (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        user_email TEXT,
+        event_type TEXT NOT NULL,
+        title_vi TEXT NOT NULL,
+        details_json TEXT,
+        severity TEXT DEFAULT 'info',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    const logId = `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const ip = c.req.header("CF-Connecting-IP") || c.req.header("x-forwarded-for") || "127.0.0.1";
+    const country = c.req.header("cf-ipcountry") || "VN";
+    const city = c.req.header("cf-ipcity") || "Hanoi";
+    const ua = c.req.header("user-agent") || "";
+
+    const enrichedDetails = {
+      ip,
+      country,
+      city,
+      userAgent: ua,
+      ...(entry.details || {})
+    };
+
+    await c.env.DB.prepare(`
+      INSERT INTO activity_logs (id, user_id, user_email, event_type, title_vi, details_json, severity, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    `).bind(
+      logId,
+      entry.userId || "anonymous",
+      entry.userEmail || "anonymous",
+      entry.eventType,
+      entry.titleVi,
+      JSON.stringify(enrichedDetails),
+      entry.severity || "info"
+    ).run();
+  } catch (err) {
+    console.warn("Failed to record activity log:", err);
+  }
+}
+
+// --- TELEMETRY & CLIENT LOGGING ENDPOINT ---
+app.post("/api/telemetry/log", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { event_type, title_vi, details, severity, user_id, user_email } = body;
+
+    const user = await getAuthUser(c);
+    const finalUserId = user?.id || user_id || "guest";
+    const finalEmail = user?.email || user_email || "guest@hiddenmusic.vault";
+
+    await recordActivityLog(c, {
+      userId: finalUserId,
+      userEmail: finalEmail,
+      eventType: event_type || "client_event",
+      titleVi: title_vi || "Sự kiện người dùng",
+      details: details || {},
+      severity: (severity as any) || "info"
+    });
+
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 400);
+  }
+});
+
+// --- ADMIN EXCEL-STYLE LOGS ENDPOINT ---
+app.get("/api/admin/logs", async (c) => {
+  const guard = await requireAdmin(c);
+  if (!guard.ok) return guard.response;
+  if (!c.env.DB) return c.json({ success: true, logs: [], total: 0 });
+
+  const queryType = c.req.query("type");
+  const querySeverity = c.req.query("severity");
+  const searchQuery = c.req.query("q");
+  const limit = Math.min(200, parseInt(c.req.query("limit") || "100", 10));
+  const offset = parseInt(c.req.query("offset") || "0", 10);
+  const format = c.req.query("format") || "json";
+
+  try {
+    await c.env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS activity_logs (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        user_email TEXT,
+        event_type TEXT NOT NULL,
+        title_vi TEXT NOT NULL,
+        details_json TEXT,
+        severity TEXT DEFAULT 'info',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
+
+    let sql = "SELECT * FROM activity_logs WHERE 1=1";
+    const params: any[] = [];
+
+    if (queryType && queryType !== "all") {
+      sql += " AND event_type = ?";
+      params.push(queryType);
+    }
+
+    if (querySeverity && querySeverity !== "all") {
+      sql += " AND severity = ?";
+      params.push(querySeverity);
+    }
+
+    if (searchQuery) {
+      sql += " AND (title_vi LIKE ? OR user_email LIKE ? OR details_json LIKE ?)";
+      const pattern = `%${searchQuery}%`;
+      params.push(pattern, pattern, pattern);
+    }
+
+    sql += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
+    params.push(limit, offset);
+
+    const stmt = c.env.DB.prepare(sql);
+    const { results } = await stmt.bind(...params).all();
+
+    const countRes: any = await c.env.DB.prepare("SELECT COUNT(*) as count FROM activity_logs").first();
+    const total = countRes?.count || (results ? results.length : 0);
+
+    // CSV Export formatting if requested
+    if (format === "csv") {
+      let csv = "ID,Thời Gian,Mức Độ,Loại Sự Kiện,Tiêu Đề (Tiếng Việt),Email Người Dùng,IP & Vị Trí,Thiết Bị,Chi Tiết\n";
+      for (const row of results as any[]) {
+        let details: any = {};
+        try { details = JSON.parse(row.details_json || "{}"); } catch {}
+        const ip = details.ip || "";
+        const country = details.country || "";
+        const city = details.city || "";
+        const location = [city, country, ip].filter(Boolean).join(" - ");
+        const device = [details.device, details.os, details.browser].filter(Boolean).join(" / ") || details.userAgent || "";
+        
+        const cleanTitle = `"${(row.title_vi || "").replace(/"/g, '""')}"`;
+        const cleanDetails = `"${JSON.stringify(details).replace(/"/g, '""')}"`;
+        csv += `${row.id},${row.created_at},${row.severity},${row.event_type},${cleanTitle},${row.user_email},"${location}","${device}",${cleanDetails}\n`;
+      }
+      return new Response(csv, {
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="hidden-music-logs-${Date.now()}.csv"`
+        }
+      });
+    }
+
+    return c.json({
+      success: true,
+      logs: results || [],
+      total
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message, logs: [], total: 0 }, 500);
+  }
+});
+
+// Clear Logs Endpoint
+app.delete("/api/admin/logs/clear", async (c) => {
+  const guard = await requireAdmin(c);
+  if (!guard.ok) return guard.response;
+  if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);
+
+  try {
+    await c.env.DB.prepare("DELETE FROM activity_logs").run();
+    await recordActivityLog(c, {
+      userId: guard.user?.id || "admin",
+      userEmail: guard.user?.email || "admin",
+      eventType: "admin_action",
+      titleVi: "Admin vừa làm sạch toàn bộ Nhật ký hoạt động (Clear Logs)",
+      severity: "warning"
+    });
+    return c.json({ success: true, message: "Đã xóa sạch nhật ký hoạt động!" });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
 // --- USER RBAC & STATS OVERVIEW ---
 
 app.get("/api/admin/users", async (c) => {
@@ -1939,6 +2164,7 @@ app.get("/api/admin/users", async (c) => {
 
   const { results } = await c.env.DB.prepare(`
     SELECT u.id, u.email, u.name, u.avatar_url, u.role, u.status, u.created_at, u.last_login_at,
+           u.last_login_device, u.last_ip,
            COUNT(f.track_id) as favorites_count
     FROM users u
     LEFT JOIN user_favorites f ON u.id = f.user_id
@@ -1957,13 +2183,23 @@ app.patch("/api/admin/users/:id/role", async (c) => {
   const id = c.req.param("id");
   const { role } = await c.req.json();
 
-  if (!["admin", "vip", "free"].includes(role)) {
+  if (!["admin", "vip", "listener", "free"].includes(role)) {
     return c.json({ success: false, error: "Role không hợp lệ" }, 400);
   }
 
-  await c.env.DB.prepare("UPDATE users SET role = ? WHERE id = ?").bind(role, id).run();
+  const normalizedRole = role === "free" ? "listener" : role;
+  await c.env.DB.prepare("UPDATE users SET role = ? WHERE id = ?").bind(normalizedRole, id).run();
 
-  return c.json({ success: true, message: `Đã cập nhật quyền thành: ${role.toUpperCase()}` });
+  await recordActivityLog(c, {
+    userId: guard.user?.id || "admin",
+    userEmail: guard.user?.email || "admin",
+    eventType: "admin_action",
+    titleVi: `Admin đã phân quyền cho User ID ${id} thành: ${normalizedRole.toUpperCase()}`,
+    details: { targetUserId: id, newRole: normalizedRole },
+    severity: "info"
+  });
+
+  return c.json({ success: true, message: `Đã cập nhật quyền thành: ${normalizedRole.toUpperCase()}` });
 });
 
 app.patch("/api/admin/users/:id/status", async (c) => {
@@ -1974,13 +2210,23 @@ app.patch("/api/admin/users/:id/status", async (c) => {
   const id = c.req.param("id");
   const { status } = await c.req.json();
 
-  if (!["active", "banned"].includes(status)) {
+  if (!["active", "suspended", "banned"].includes(status)) {
     return c.json({ success: false, error: "Trạng thái không hợp lệ" }, 400);
   }
 
-  await c.env.DB.prepare("UPDATE users SET status = ? WHERE id = ?").bind(status, id).run();
+  const normalizedStatus = status === "banned" ? "suspended" : status;
+  await c.env.DB.prepare("UPDATE users SET status = ? WHERE id = ?").bind(normalizedStatus, id).run();
 
-  return c.json({ success: true, message: `Đã đổi trạng thái tài khoản sang: ${status}` });
+  await recordActivityLog(c, {
+    userId: guard.user?.id || "admin",
+    userEmail: guard.user?.email || "admin",
+    eventType: "admin_action",
+    titleVi: `Admin đã đổi trạng thái tài khoản User ID ${id} thành: ${normalizedStatus === "active" ? "Đang hoạt động" : "Tạm khóa"}`,
+    details: { targetUserId: id, newStatus: normalizedStatus },
+    severity: normalizedStatus === "active" ? "info" : "warning"
+  });
+
+  return c.json({ success: true, message: `Đã đổi trạng thái tài khoản sang: ${normalizedStatus}` });
 });
 
 app.get("/api/admin/stats/overview", async (c) => {
@@ -1991,20 +2237,23 @@ app.get("/api/admin/stats/overview", async (c) => {
   let totalUsers = 1;
   let totalFavorites = 0;
   let totalSections = 3;
+  let totalLogs = 0;
 
   if (c.env.DB) {
     try {
-      const [tCount, uCount, fCount, sCount]: any = await Promise.all([
+      const [tCount, uCount, fCount, sCount, lCount]: any = await Promise.all([
         c.env.DB.prepare("SELECT COUNT(*) as count FROM tracks").first(),
         c.env.DB.prepare("SELECT COUNT(*) as count FROM users").first(),
         c.env.DB.prepare("SELECT COUNT(*) as count FROM user_favorites").first(),
-        c.env.DB.prepare("SELECT COUNT(*) as count FROM home_sections").first()
+        c.env.DB.prepare("SELECT COUNT(*) as count FROM home_sections").first(),
+        c.env.DB.prepare("SELECT COUNT(*) as count FROM activity_logs").first().catch(() => ({ count: 0 }))
       ]);
 
       totalTracks = tCount?.count ?? 30;
       totalUsers = uCount?.count ?? 1;
       totalFavorites = fCount?.count ?? 0;
       totalSections = sCount?.count ?? 3;
+      totalLogs = lCount?.count ?? 0;
     } catch (e) {
       console.warn("D1 stats count error:", e);
     }
@@ -2017,8 +2266,7 @@ app.get("/api/admin/stats/overview", async (c) => {
       totalUsers,
       totalFavorites,
       totalSections,
-      r2StorageEstimate: "5.4 GB Lossless FLAC & 4K MKV",
-      activeStreamHealth: "100% Operational (Cloudflare Edge)"
+      totalLogs
     }
   });
 });
