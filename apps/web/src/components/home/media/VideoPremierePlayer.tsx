@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Play } from "lucide-react";
 
@@ -28,6 +28,39 @@ export const VideoPremierePlayer: React.FC<VideoPremierePlayerProps> = ({
       setIsPlaying(true);
     }
   };
+
+  useEffect(() => {
+    const handleFullscreenChange = async () => {
+      const isFullscreen =
+        document.fullscreenElement === videoRef.current ||
+        (document as any).webkitFullscreenElement === videoRef.current;
+
+      try {
+        if (isFullscreen) {
+          // Khi vào fullscreen, tự động khóa hướng màn hình nằm ngang
+          if (screen.orientation && (screen.orientation as any).lock) {
+            await (screen.orientation as any).lock("landscape");
+          }
+        } else {
+          // Khi thoát fullscreen, trả lại hướng màn hình tự do
+          if (screen.orientation && screen.orientation.unlock) {
+            screen.orientation.unlock();
+          }
+        }
+      } catch (err) {
+        // Một số trình duyệt chặn lock orientation nếu chưa đủ quyền hoặc không hỗ trợ
+        console.warn("Screen orientation lock không khả dụng hoặc bị chặn:", err);
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+    };
+  }, []);
 
   return (
     <motion.div
@@ -64,7 +97,7 @@ export const VideoPremierePlayer: React.FC<VideoPremierePlayerProps> = ({
           poster={posterUrl}
           controls={isPlaying}
           playsInline
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
         />
