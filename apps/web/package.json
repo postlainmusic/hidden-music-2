@@ -6,6 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "npx tsx --test src/**/*.test.ts",
     "deploy": "wrangler pages deploy dist --project-name=hidden-music-web"
   },
   "dependencies": {
