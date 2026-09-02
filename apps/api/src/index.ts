@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { sign, verify } from "hono/jwt";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { z } from "zod";
@@ -41,6 +42,12 @@ function isAdminEmail(email: string, envAdminEmails?: string): boolean {
   return list.includes(email.toLowerCase());
 }
 
+const JWT_SECRET_FALLBACK = "default_vault_jwt_secret_key_change_in_production";
+
+function getJwtSecret(env: Bindings): string {
+  return env?.JWT_SECRET || JWT_SECRET_FALLBACK;
+}
+
 // Extract Authenticated User from Session Token
 async function getAuthUser(c: any) {
   const authHeader = c.req.header("Authorization") || c.req.header("x-vault-token") || "";
@@ -61,8 +68,11 @@ async function getAuthUser(c: any) {
   }
 
   try {
-    const userStr = decodeURIComponent(escape(atob(raw)));
-    const user = JSON.parse(userStr);
+    const secret = getJwtSecret(c.env);
+    const payload: any = await verify(raw, secret, "HS256");
+    if (!payload) return null;
+
+    const user: any = payload.user || payload;
     if (!user || !user.email) return null;
 
     const isSystemAdmin = isAdminEmail(user.email, c.env.ADMIN_EMAILS);
@@ -203,12 +213,14 @@ app.post("/api/auth/google", async (c) => {
       status: "active"
     };
 
-    // Safe UTF-8 Base64 Token
-    const safeBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(user))));
+    const secret = getJwtSecret(c.env);
+    // JWT token expires in 7 days
+    const exp = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60;
+    const jwtToken = await sign({ ...user, user, exp }, secret, "HS256");
 
     return c.json({
       success: true,
-      token: `sess_${safeBase64}`,
+      token: `sess_${jwtToken}`,
       user
     });
   } catch (err: any) {
