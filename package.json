@@ -16,11 +16,5 @@
     "deploy:api": "npm run deploy --workspace=apps/api",
     "ship": "node scripts/auto-ship.mjs",
     "auto-push": "git add . && git commit -m \"chore: update & auto-sync\" && git push origin main"
-  },
-  "dependencies": {
-    "web-audio-beat-detector": "^8.2.39"
-  },
-  "devDependencies": {
-    "@ffmpeg-installer/ffmpeg": "^1.1.0"
   }
 }

@@ -1,7 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { SquareVinylSleeve } from "./SquareVinylSleeve";
-import { VaultSlot } from "../../store/audioStore";
+import { VaultSlot } from "../../../store/audioStore";
 
 interface SleeveCarouselRevolverProps {
   isVisible: boolean;

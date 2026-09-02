@@ -1,8 +1,8 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Play, Disc, ExternalLink } from "lucide-react";
-import { useAudioStore } from "../../store/audioStore";
-import { useIsMobile } from "../../hooks/useIsMobile";
+import { useAudioStore } from "../../../store/audioStore";
+import { useIsMobile } from "../../../hooks/useIsMobile";
 
 interface ArtistSpotlightCardProps {
   artistName?: string;

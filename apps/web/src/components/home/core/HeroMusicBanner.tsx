@@ -1,8 +1,8 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Play, Sparkles } from "lucide-react";
-import { useAudioStore, Track } from "../../store/audioStore";
-import { useIsMobile } from "../../hooks/useIsMobile";
+import { useAudioStore, Track } from "../../../store/audioStore";
+import { useIsMobile } from "../../../hooks/useIsMobile";
 
 interface HeroMusicBannerProps {
   headline?: string;
