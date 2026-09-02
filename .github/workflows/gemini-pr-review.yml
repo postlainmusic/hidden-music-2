@@ -1,0 +1,74 @@
+name: Gemini PR Reviewer
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Lấy nội dung Git Diff của PR
+        id: get_diff
+        run: |
+          git diff origin/${{ github.base_ref }}...origin/${{ github.head_ref }} > pr_diff.txt
+          # Giới hạn kích thước diff để tránh tràn context nếu PR quá lớn
+          head -c 50000 pr_diff.txt > diff_trimmed.txt
+
+      - name: Gọi Gemini API soi lỗi code
+        id: gemini_review
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          DIFF_CONTENT=$(cat diff_trimmed.txt | jq -s -R .)
+          
+          PROMPT="Bạn là Lead Frontend Architect & Tech Lead chuyên review code web Awwwards.
+          Hãy soi kỹ đoạn git diff sau đây và chỉ ra:
+          1. Lỗi nghiêm trọng / Memory Leak (đặc biệt các hook useEffect, AudioContext, Canvas, requestAnimationFrame).
+          2. Rủi ro làm hỏng lõi phát nhạc AudioEngine (nếu có đụng vào).
+          3. Đánh giá chất lượng code, type safety và hiệu năng render.
+          4. Kết luận: NÊN MERGE hay CẦN SỬA LẠI?
+
+          Git diff:
+          "
+
+          # Tạo payload JSON gửi sang Gemini Flash (nhanh & miễn phí)
+          PAYLOAD=$(jq -n \
+            --arg prompt "$PROMPT" \
+            --arg diff "$(cat diff_trimmed.txt)" \
+            '{contents: [{parts: [{text: ($prompt + "\n\n```diff\n" + $diff + "\n```")}]}]}')
+
+          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+
+          # Trích xuất nội dung trả về từ Gemini
+          REVIEW_TEXT=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // "Không thể phân tích code."')
+          
+          # Lưu vào file để bước sau comment
+          echo "### 🤖 Đánh giá PR từ Gemini AI Reviewer" > review_comment.md
+          echo "" >> review_comment.md
+          echo "$REVIEW_TEXT" >> review_comment.md
+
+      - name: Đăng bình luận trực tiếp lên PR
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('review_comment.md', 'utf8');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
