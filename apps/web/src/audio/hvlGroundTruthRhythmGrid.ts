@@ -26,6 +26,7 @@ export function getGroundTruthProfile(query?: string | null): GroundTruthTrackPr
   if (!query) return null;
 
   const normalized = query.toLowerCase().trim();
+  if (!normalized) return null;
 
   // 1. Direct filename match
   if (rhythmData[query]) return rhythmData[query];
