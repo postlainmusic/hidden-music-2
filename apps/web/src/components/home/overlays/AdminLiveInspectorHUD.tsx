@@ -1,8 +1,8 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, ArrowUpRight } from "lucide-react";
-import { useAudioStore, DynamicSection } from "../../store/audioStore";
-import SectionElementEditorModal from "../admin/SectionElementEditorModal";
+import { useAudioStore, DynamicSection } from "../../../store/audioStore";
+import SectionElementEditorModal from "../../admin/SectionElementEditorModal";
 
 interface Props {
   isEditMode: boolean;
@@ -11,7 +11,7 @@ interface Props {
   setActiveEditingSection: (sec: DynamicSection | null) => void;
 }
 
-import { useIsMobile } from "../../hooks/useIsMobile";
+import { useIsMobile } from "../../../hooks/useIsMobile";
 
 export const AdminLiveInspectorHUD: React.FC<Props> = ({
   isEditMode,

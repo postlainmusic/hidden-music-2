@@ -1,8 +1,8 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Quote } from "lucide-react";
-import { SquareVinylSleeve } from "./SquareVinylSleeve";
-import { useIsMobile } from "../../hooks/useIsMobile";
+import { SquareVinylSleeve } from "../media/SquareVinylSleeve";
+import { useIsMobile } from "../../../hooks/useIsMobile";
 
 interface EditorialPressCardProps {
   quote?: string;

@@ -1,7 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Heart } from "lucide-react";
-import { Track } from "../../store/audioStore";
+import { Track } from "../../../store/audioStore";
 
 interface MinimalTracklistOverlayProps {
   tracks: Track[];

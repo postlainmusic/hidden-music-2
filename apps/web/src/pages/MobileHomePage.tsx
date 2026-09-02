@@ -2,9 +2,9 @@ import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart, ArrowRight } from "lucide-react";
 import { useAudioStore, Track, VaultSlot } from "../store/audioStore";
-import { SquareVinylSleeve } from "../components/home/SquareVinylSleeve";
-import { MagneticMarbleIndicator } from "../components/home/MagneticMarbleIndicator";
-import { MetallicSheenGlow } from "../components/home/MetallicSheenGlow";
+import { SquareVinylSleeve } from "../components/home/media/SquareVinylSleeve";
+import { MagneticMarbleIndicator } from "../components/home/core/MagneticMarbleIndicator";
+import { MetallicSheenGlow } from "../components/home/core/MetallicSheenGlow";
 
 const HVL_COVER = "/covers/HVL_Album_Cover.webp";
 

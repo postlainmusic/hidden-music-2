@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAudioStore, Track, VaultSlot, DynamicSection } from "../store/audioStore";
-import { SquareVinylSleeve } from "../components/home/SquareVinylSleeve";
-import { MinimalTracklistOverlay } from "../components/home/MinimalTracklistOverlay";
-import { SleeveCarouselRevolver } from "../components/home/SleeveCarouselRevolver";
-import { MagneticMarbleIndicator } from "../components/home/MagneticMarbleIndicator";
-import { MetallicSheenGlow } from "../components/home/MetallicSheenGlow";
-import { MinimalExploreTrigger } from "../components/home/MinimalExploreTrigger";
-import { HeroMusicBanner } from "../components/home/HeroMusicBanner";
-import { ArtistSpotlightCard } from "../components/home/ArtistSpotlightCard";
-import { VideoPremierePlayer } from "../components/home/VideoPremierePlayer";
-import { EditorialPressCard } from "../components/home/EditorialPressCard";
-import { AdminLiveInspectorHUD } from "../components/home/AdminLiveInspectorHUD";
+import { SquareVinylSleeve } from "../components/home/media/SquareVinylSleeve";
+import { MinimalTracklistOverlay } from "../components/home/overlays/MinimalTracklistOverlay";
+import { SleeveCarouselRevolver } from "../components/home/media/SleeveCarouselRevolver";
+import { MagneticMarbleIndicator } from "../components/home/core/MagneticMarbleIndicator";
+import { MetallicSheenGlow } from "../components/home/core/MetallicSheenGlow";
+import { MinimalExploreTrigger } from "../components/home/core/MinimalExploreTrigger";
+import { HeroMusicBanner } from "../components/home/core/HeroMusicBanner";
+import { ArtistSpotlightCard } from "../components/home/cards/ArtistSpotlightCard";
+import { VideoPremierePlayer } from "../components/home/media/VideoPremierePlayer";
+import { EditorialPressCard } from "../components/home/cards/EditorialPressCard";
+import { AdminLiveInspectorHUD } from "../components/home/overlays/AdminLiveInspectorHUD";
 import { Sliders } from "lucide-react";
 
 const HVL_COVER = "/covers/HVL_Album_Cover.webp";
