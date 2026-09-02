@@ -20,14 +20,29 @@ jobs:
       - name: Lấy nội dung Git Diff của PR
         id: get_diff
         run: |
-          git diff origin/${{ github.base_ref }}...origin/${{ github.head_ref }} > pr_diff.txt
+          # Lấy diff chuẩn xác giữa base branch và commit hiện tại
+          git diff origin/${{ github.base_ref }}...HEAD > pr_diff.txt
           head -c 50000 pr_diff.txt > diff_trimmed.txt
+          echo "Diff size: $(wc -c < diff_trimmed.txt) bytes"
 
       - name: Gọi Gemini API soi lỗi code
         id: gemini_review
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "### ⚠️ Lỗi cấu hình" > review_comment.md
+            echo "Chưa tìm thấy \`GEMINI_API_KEY\` trong GitHub Secrets." >> review_comment.md
+            exit 0
+          fi
+
+          DIFF_CONTENT=$(cat diff_trimmed.txt)
+          if [ -z "$DIFF_CONTENT" ]; then
+            echo "### 🤖 Đánh giá PR từ Gemini AI Reviewer" > review_comment.md
+            echo "PR này không có thay đổi file (Diff rỗng)." >> review_comment.md
+            exit 0
+          fi
+
           PROMPT="Bạn là Lead Frontend Architect & Tech Lead chuyên review code web Awwwards.
           Hãy soi kỹ đoạn git diff sau đây và chỉ ra:
           1. Lỗi nghiêm trọng / Memory Leak (đặc biệt các hook useEffect, AudioContext, Canvas, requestAnimationFrame).
@@ -40,18 +55,38 @@ jobs:
 
           PAYLOAD=$(jq -n \
             --arg prompt "$PROMPT" \
-            --arg diff "$(cat diff_trimmed.txt)" \
+            --arg diff "$DIFF_CONTENT" \
             '{contents: [{parts: [{text: ($prompt + "\n\n```diff\n" + $diff + "\n```")}]}]}')
 
-          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}" \
+          # Gọi curl kèm bắt HTTP Status Code
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST \
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD")
 
-          REVIEW_TEXT=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // "Không thể phân tích code."')
-          
-          echo "### 🤖 Đánh giá PR từ Gemini AI Reviewer (Gemini 3.8 Flash)" > review_comment.md
-          echo "" >> review_comment.md
-          echo "$REVIEW_TEXT" >> review_comment.md
+          HTTP_BODY=$(echo "$RESPONSE" | sed -e 's/HTTP_STATUS\:.*//g')
+          HTTP_CODE=$(echo "$RESPONSE" | tr -d '\n' | sed -e 's/.*HTTP_STATUS://')
+
+          echo "=== DEBUG INFO ==="
+          echo "HTTP CODE: $HTTP_CODE"
+          echo "RESPONSE BODY: $HTTP_BODY"
+          echo "=================="
+
+          REVIEW_TEXT=$(echo "$HTTP_BODY" | jq -r '.candidates[0].content.parts[0].text // empty')
+
+          if [ -z "$REVIEW_TEXT" ]; then
+            ERROR_MSG=$(echo "$HTTP_BODY" | jq -r '.error.message // "Không xác định"')
+            echo "### ⚠️ Lỗi từ Google API (HTTP $HTTP_CODE)" > review_comment.md
+            echo "**Chi tiết lỗi:** $ERROR_MSG" >> review_comment.md
+            echo "" >> review_comment.md
+            echo '```json' >> review_comment.md
+            echo "$HTTP_BODY" >> review_comment.md
+            echo '```' >> review_comment.md
+          else
+            echo "### 🤖 Đánh giá PR từ Gemini AI Reviewer (Gemini 3.8 Flash)" > review_comment.md
+            echo "" >> review_comment.md
+            echo "$REVIEW_TEXT" >> review_comment.md
+          fi
 
       - name: Đăng bình luận trực tiếp lên PR
         uses: actions/github-script@v7
