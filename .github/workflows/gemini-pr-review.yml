@@ -21,7 +21,6 @@ jobs:
         id: get_diff
         run: |
           git diff origin/${{ github.base_ref }}...origin/${{ github.head_ref }} > pr_diff.txt
-          # Giới hạn kích thước diff để tránh tràn context nếu PR quá lớn
           head -c 50000 pr_diff.txt > diff_trimmed.txt
 
       - name: Gọi Gemini API soi lỗi code
@@ -29,8 +28,6 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          DIFF_CONTENT=$(cat diff_trimmed.txt | jq -s -R .)
-          
           PROMPT="Bạn là Lead Frontend Architect & Tech Lead chuyên review code web Awwwards.
           Hãy soi kỹ đoạn git diff sau đây và chỉ ra:
           1. Lỗi nghiêm trọng / Memory Leak (đặc biệt các hook useEffect, AudioContext, Canvas, requestAnimationFrame).
@@ -41,21 +38,18 @@ jobs:
           Git diff:
           "
 
-          # Tạo payload JSON gửi sang Gemini Flash (nhanh & miễn phí)
           PAYLOAD=$(jq -n \
             --arg prompt "$PROMPT" \
             --arg diff "$(cat diff_trimmed.txt)" \
             '{contents: [{parts: [{text: ($prompt + "\n\n```diff\n" + $diff + "\n```")}]}]}')
 
-          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}" \
+          RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD")
 
-          # Trích xuất nội dung trả về từ Gemini
           REVIEW_TEXT=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // "Không thể phân tích code."')
           
-          # Lưu vào file để bước sau comment
-          echo "### 🤖 Đánh giá PR từ Gemini AI Reviewer" > review_comment.md
+          echo "### 🤖 Đánh giá PR từ Gemini AI Reviewer (Gemini 3.8 Flash)" > review_comment.md
           echo "" >> review_comment.md
           echo "$REVIEW_TEXT" >> review_comment.md
 
