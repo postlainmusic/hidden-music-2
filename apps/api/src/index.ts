@@ -1985,35 +1985,37 @@ app.post("/api/admin/restore", async (c) => {
   }
 
   // Restore tracks
-  if (Array.isArray(backup.tracks)) {
-    for (const t of backup.tracks) {
-      await c.env.DB.prepare(`
-        INSERT OR REPLACE INTO tracks (
-          id, album_id, title, artist, duration_sec, audio_url, video_url, cover_url, r2_key,
-          video_type, video_quality, audio_bitrate, lyrics_synced, bpm, mood_tier, palette_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `)
-        .bind(
-          t.id, t.album_id || "hvl-99", t.title, t.artist || "MCK", t.duration_sec || 200,
-          t.audio_url, t.video_url || null, t.cover_url || HVL_COVER, t.r2_key || null,
-          t.video_type || "r2_master", t.video_quality || "4K MASTER", t.audio_bitrate || "24-BIT / 96kHz",
-          t.lyrics_synced || "", t.bpm || 120, t.mood_tier || "melodic_ambient", t.palette_json || "{}"
-        )
-        .run();
-    }
+  if (Array.isArray(backup.tracks) && backup.tracks.length > 0) {
+    const trackStmt = c.env.DB.prepare(`
+      INSERT OR REPLACE INTO tracks (
+        id, album_id, title, artist, duration_sec, audio_url, video_url, cover_url, r2_key,
+        video_type, video_quality, audio_bitrate, lyrics_synced, bpm, mood_tier, palette_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const trackBatch = backup.tracks.map((t: any) =>
+      trackStmt.bind(
+        t.id, t.album_id || "hvl-99", t.title, t.artist || "MCK", t.duration_sec || 200,
+        t.audio_url, t.video_url || null, t.cover_url || HVL_COVER, t.r2_key || null,
+        t.video_type || "r2_master", t.video_quality || "4K MASTER", t.audio_bitrate || "24-BIT / 96kHz",
+        t.lyrics_synced || "", t.bpm || 120, t.mood_tier || "melodic_ambient", t.palette_json || "{}"
+      )
+    );
+    await c.env.DB.batch(trackBatch);
   }
 
   // Restore sections
   if (Array.isArray(backup.home_sections)) {
-    await c.env.DB.prepare("DELETE FROM home_sections").run();
-    for (const s of backup.home_sections) {
-      await c.env.DB.prepare(`
+    const sectionStmts = [c.env.DB.prepare("DELETE FROM home_sections")];
+    if (backup.home_sections.length > 0) {
+      const secStmt = c.env.DB.prepare(`
         INSERT INTO home_sections (id, title, template_type, order_index, is_enabled, config_json)
         VALUES (?, ?, ?, ?, ?, ?)
-      `)
-        .bind(s.id, s.title, s.template_type, s.order_index, s.is_enabled, s.config_json)
-        .run();
+      `);
+      for (const s of backup.home_sections) {
+        sectionStmts.push(secStmt.bind(s.id, s.title, s.template_type, s.order_index, s.is_enabled, s.config_json));
+      }
     }
+    await c.env.DB.batch(sectionStmts);
   }
 
   return c.json({ success: true, message: "Đã khôi phục toàn bộ dữ liệu hệ thống thành công!" });
