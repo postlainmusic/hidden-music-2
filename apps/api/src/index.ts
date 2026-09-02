@@ -34,6 +34,15 @@ const DEFAULT_ADMIN_EMAILS = [
   "admin@postlain.com"
 ];
 
+function escapeCsvCell(val: unknown): string {
+  if (val === null || val === undefined) return '""';
+  let str = String(val);
+  if (/^[=\+\-@\t\r]/.test(str)) {
+    str = `'${str}`;
+  }
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
 function isAdminEmail(email: string, envAdminEmails?: string): boolean {
   if (!email) return false;
   const list = envAdminEmails
@@ -2184,9 +2193,17 @@ app.get("/api/admin/logs", async (c) => {
         const location = [city, country, ip].filter(Boolean).join(" - ");
         const device = [details.device, details.os, details.browser].filter(Boolean).join(" / ") || details.userAgent || "";
         
-        const cleanTitle = `"${(row.title_vi || "").replace(/"/g, '""')}"`;
-        const cleanDetails = `"${JSON.stringify(details).replace(/"/g, '""')}"`;
-        csv += `${row.id},${row.created_at},${row.severity},${row.event_type},${cleanTitle},${row.user_email},"${location}","${device}",${cleanDetails}\n`;
+        const rowId = escapeCsvCell(row.id);
+        const createdAt = escapeCsvCell(row.created_at);
+        const severity = escapeCsvCell(row.severity);
+        const eventType = escapeCsvCell(row.event_type);
+        const cleanTitle = escapeCsvCell(row.title_vi || "");
+        const userEmail = escapeCsvCell(row.user_email);
+        const locCell = escapeCsvCell(location);
+        const devCell = escapeCsvCell(device);
+        const cleanDetails = escapeCsvCell(JSON.stringify(details));
+
+        csv += `${rowId},${createdAt},${severity},${eventType},${cleanTitle},${userEmail},${locCell},${devCell},${cleanDetails}\n`;
       }
       return new Response(csv, {
         headers: {
