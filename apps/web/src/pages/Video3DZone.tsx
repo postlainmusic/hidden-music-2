@@ -531,125 +531,22 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                 width: "100%",
                 height: "100%",
                 position: "relative",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
                 overflow: "hidden",
-                background: "#050508"
+                background: "#000000"
               }}
             >
-              {/* Blurred Ambient Background Artwork */}
-              <div
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=1&enablejsapi=1&rel=0&modestbranding=1&playsinline=1`}
+                title={selectedTrack?.title || "YouTube Video"}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; webshare"
+                allowFullScreen
                 style={{
-                  position: "absolute",
-                  inset: -20,
-                  backgroundImage: `url(${selectedTrack?.cover || "/covers/HVL_Album_Cover.webp"})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  filter: "blur(30px) brightness(0.35) contrast(1.2)",
-                  transform: isPlaying ? "scale(1.08)" : "scale(1)",
-                  transition: "transform 10s ease-out"
+                  width: "100%",
+                  height: "100%",
+                  border: "none",
+                  display: "block"
                 }}
               />
-
-              {/* Radial gradient spotlight */}
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: `radial-gradient(circle at center, transparent 30%, rgba(5,5,8,0.85) 90%)`,
-                  pointerEvents: "none"
-                }}
-              />
-
-              {/* Center Artwork Canvas with Vinyl Disc Peeking */}
-              <div
-                style={{
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  zIndex: 2,
-                  transform: isMobile ? "scale(0.85)" : "scale(1)"
-                }}
-              >
-                {/* Vinyl Record Behind Sleeve */}
-                <motion.div
-                  animate={{ rotate: isPlaying ? 360 : 0 }}
-                  transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-                  style={{
-                    position: "absolute",
-                    right: isPlaying ? "-40px" : "-10px",
-                    width: isMobile ? "160px" : "220px",
-                    height: isMobile ? "160px" : "220px",
-                    borderRadius: "50%",
-                    background: "radial-gradient(circle, #1a1a24 0%, #08080c 60%, #000000 100%)",
-                    border: "2px solid rgba(255,255,255,0.15)",
-                    boxShadow: "0 10px 30px rgba(0,0,0,0.8)",
-                    transition: "right 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center"
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "60px",
-                      height: "60px",
-                      borderRadius: "50%",
-                      backgroundImage: `url(${selectedTrack?.cover || "/covers/HVL_Album_Cover.webp"})`,
-                      backgroundSize: "cover",
-                      border: "2px solid rgba(255,255,255,0.3)"
-                    }}
-                  />
-                </motion.div>
-
-                {/* Album Cover Art */}
-                <div
-                  style={{
-                    position: "relative",
-                    width: isMobile ? "160px" : "220px",
-                    height: isMobile ? "160px" : "220px",
-                    borderRadius: "16px",
-                    overflow: "hidden",
-                    border: "1.5px solid rgba(255, 255, 255, 0.25)",
-                    boxShadow: "0 20px 50px rgba(0,0,0,0.9), 0 0 30px rgba(99, 102, 241, 0.3)",
-                    zIndex: 2
-                  }}
-                >
-                  <img
-                    src={selectedTrack?.cover || "/covers/HVL_Album_Cover.webp"}
-                    alt={selectedTrack?.title}
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  />
-                </div>
-              </div>
-
-              {/* Visualizer Badge */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: isMobile ? "12px" : "20px",
-                  left: isMobile ? "14px" : "24px",
-                  zIndex: 10,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "4px 10px",
-                  borderRadius: "999px",
-                  background: "rgba(0, 0, 0, 0.6)",
-                  backdropFilter: "blur(12px)",
-                  border: "1px solid rgba(255, 255, 255, 0.15)",
-                  color: "#ffffff",
-                  fontSize: "0.68rem",
-                  fontWeight: 800,
-                  letterSpacing: "0.06em",
-                  pointerEvents: "none"
-                }}
-              >
-                <Sparkles size={11} color="#a5b4fc" />
-                <span>STUDIO CINEMA VISUALIZER</span>
-              </div>
             </div>
           ) : (
             <video
@@ -771,9 +668,9 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
             )}
           </AnimatePresence>
 
-          {/* Controls Overlay */}
+          {/* Controls Overlay (Only for non-YouTube direct HTML5 video element) */}
           <AnimatePresence>
-            {(showControls || !isPlaying) && (
+            {!isYouTube && (showControls || !isPlaying) && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
