@@ -167,10 +167,12 @@ export function initErrorWatchdog() {
   });
 }
 
+import * as self from "./telemetry";
+
 // Helper Loggers
 export function logPlayTrack(trackTitle: string, artist: string, format = "Lossless FLAC") {
   const device = getDeviceInfo();
-  sendTelemetryLog({
+  self.sendTelemetryLog({
     eventType: "play_track",
     titleVi: `🎵 Bắt đầu phát: "${trackTitle}" (${artist}) [${format}] trên ${device.device} (${device.os})`,
     severity: "info",
@@ -179,7 +181,7 @@ export function logPlayTrack(trackTitle: string, artist: string, format = "Lossl
 }
 
 export function logFavorite(trackTitle: string, isFavorited: boolean) {
-  sendTelemetryLog({
+  self.sendTelemetryLog({
     eventType: "favorite",
     titleVi: isFavorited
       ? `❤️ Đã thả tim yêu thích bài hát: "${trackTitle}"`
@@ -190,7 +192,7 @@ export function logFavorite(trackTitle: string, isFavorited: boolean) {
 }
 
 export function logAdminAction(actionDescription: string, details?: any) {
-  sendTelemetryLog({
+  self.sendTelemetryLog({
     eventType: "admin_action",
     titleVi: `⚙️ Thao tác Quản trị: ${actionDescription}`,
     severity: "info",

@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "wrangler pages deploy dist --project-name=hidden-music-web"
+    "deploy": "wrangler pages deploy dist --project-name=hidden-music-web",
+    "test": "npx vitest run"
   },
   "dependencies": {
     "@types/three": "^0.185.4",

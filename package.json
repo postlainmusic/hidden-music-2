@@ -15,6 +15,7 @@
     "deploy:web": "npm run deploy --workspace=apps/web",
     "deploy:api": "npm run deploy --workspace=apps/api",
     "ship": "node scripts/auto-ship.mjs",
-    "auto-push": "git add . && git commit -m \"chore: update & auto-sync\" && git push origin main"
+    "auto-push": "git add . && git commit -m \"chore: update & auto-sync\" && git push origin main",
+    "test": "npx vitest run"
   }
 }
