@@ -12,9 +12,13 @@
     "build:web": "node node_modules/vite/bin/vite.js build apps/web",
     "build:api": "node node_modules/typescript/bin/tsc --project apps/api/tsconfig.json --noEmit",
     "build": "npm run build:web && npm run build:api",
+    "test": "vitest run",
     "deploy:web": "npm run deploy --workspace=apps/web",
     "deploy:api": "npm run deploy --workspace=apps/api",
     "ship": "node scripts/auto-ship.mjs",
     "auto-push": "git add . && git commit -m \"chore: update & auto-sync\" && git push origin main"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.11"
   }
 }
