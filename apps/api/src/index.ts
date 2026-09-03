@@ -57,6 +57,122 @@ function getJwtSecret(env: Bindings): string {
   return env?.JWT_SECRET || JWT_SECRET_FALLBACK;
 }
 
+// Auto-Ensure D1 Database Schema Tables Exist
+async function ensureTablesExist(db?: D1Database) {
+  if (!db) return;
+  try {
+    await db.batch([
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            google_id TEXT,
+            username TEXT,
+            email TEXT UNIQUE NOT NULL,
+            name TEXT,
+            password_hash TEXT DEFAULT 'oauth_google',
+            avatar_url TEXT,
+            role TEXT DEFAULT 'listener',
+            status TEXT DEFAULT 'active',
+            last_login_device TEXT,
+            last_ip TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_login_at INTEGER
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS user_favorites (
+            user_id TEXT NOT NULL,
+            track_id TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            PRIMARY KEY (user_id, track_id)
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS albums (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            artist TEXT NOT NULL,
+            cover_url TEXT NOT NULL,
+            model_3d_url TEXT,
+            palette_colors TEXT,
+            release_year INTEGER,
+            genre TEXT,
+            type TEXT DEFAULT 'album',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS tracks (
+            id TEXT PRIMARY KEY,
+            album_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            artist TEXT NOT NULL,
+            duration_sec INTEGER NOT NULL,
+            audio_url TEXT NOT NULL,
+            video_url TEXT,
+            cover_url TEXT NOT NULL,
+            r2_key TEXT,
+            video_type TEXT DEFAULT 'r2_master',
+            video_quality TEXT DEFAULT '4K MASTER',
+            video_aspect_ratio TEXT DEFAULT '16:9',
+            audio_source_type TEXT DEFAULT 'r2_flac',
+            audio_bitrate TEXT DEFAULT '24-BIT / 96kHz',
+            lyrics_synced TEXT,
+            bpm INTEGER DEFAULT 120,
+            key_signature TEXT,
+            mood_tier TEXT DEFAULT 'melodic_ambient',
+            palette_json TEXT,
+            play_count INTEGER DEFAULT 0,
+            release_status TEXT DEFAULT 'live',
+            scheduled_at INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(album_id) REFERENCES albums(id)
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS home_sections (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            template_type TEXT NOT NULL,
+            order_index INTEGER NOT NULL,
+            is_enabled INTEGER DEFAULT 1,
+            config_json TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS vault_slots (
+            id TEXT PRIMARY KEY,
+            slot_number INTEGER NOT NULL UNIQUE,
+            album_id TEXT,
+            title TEXT NOT NULL,
+            artist TEXT NOT NULL,
+            cover_url TEXT NOT NULL,
+            badge TEXT DEFAULT 'Lossless Ready',
+            status TEXT DEFAULT 'live',
+            release_date TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS activity_logs (
+            id TEXT PRIMARY KEY,
+            user_id TEXT,
+            user_email TEXT,
+            event_type TEXT NOT NULL,
+            title_vi TEXT NOT NULL,
+            details_json TEXT,
+            severity TEXT DEFAULT 'info',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+    ]).catch(() => {});
+  } catch (err) {
+    console.warn("Table auto-creation notice:", err);
+  }
+}
+
 // Extract Authenticated User from Session Token
 async function getAuthUser(c: any) {
   const authHeader = c.req.header("Authorization") || c.req.header("x-vault-token") || "";
@@ -163,6 +279,7 @@ app.post("/api/auth/google", async (c) => {
 
     if (c.env.DB) {
       try {
+        await ensureTablesExist(c.env.DB);
         await c.env.DB.prepare(
           `INSERT INTO users (id, google_id, email, username, name, password_hash, avatar_url, role, status, last_login_device, last_ip, created_at, last_login_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, datetime('now'), ?)
@@ -1099,36 +1216,50 @@ app.get("/api/admin/users", async (c) => {
   const guard = await requireAdmin(c);
   if (!guard.ok) return guard.response;
 
-  const defaultUsers = [
-    {
-      id: "usr_admin_01",
-      email: guard.user?.email || "admin@postlain.com",
-      name: guard.user?.name || "System Admin",
-      avatar_url: guard.user?.avatarUrl || HVL_COVER,
-      role: "admin",
-      status: "active",
-      last_login_device: "System Console",
-      last_ip: "127.0.0.1",
-      created_at: new Date().toISOString(),
-      favorites_count: 5
-    },
-    {
-      id: "usr_listener_01",
-      email: "listener@postlain.com",
-      name: "Thành Viên Thử Nghiệm",
-      avatar_url: HVL_COVER,
-      role: "listener",
-      status: "active",
-      last_login_device: "Mobile iOS",
-      last_ip: "113.161.0.1",
-      created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
-      favorites_count: 12
-    }
-  ];
-
-  if (!c.env.DB) return c.json({ success: true, users: defaultUsers });
+  if (!c.env.DB) {
+    return c.json({
+      success: true,
+      users: [
+        {
+          id: guard.user?.id || "usr_admin_01",
+          email: guard.user?.email || "admin@postlain.com",
+          name: guard.user?.name || "System Admin",
+          avatar_url: guard.user?.avatarUrl || HVL_COVER,
+          role: "admin",
+          status: "active",
+          last_login_device: "System Console",
+          last_ip: "127.0.0.1",
+          created_at: new Date().toISOString(),
+          favorites_count: 0
+        }
+      ]
+    });
+  }
 
   try {
+    await ensureTablesExist(c.env.DB);
+
+    // Auto-upsert active admin user into D1 users table if not present yet
+    if (guard.user && guard.user.email) {
+      await c.env.DB.prepare(`
+        INSERT INTO users (id, google_id, email, username, name, avatar_url, role, status, created_at, last_login_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'admin', 'active', datetime('now'), ?)
+        ON CONFLICT(email) DO UPDATE SET
+          role = 'admin',
+          name = COALESCE(excluded.name, name),
+          avatar_url = COALESCE(excluded.avatar_url, avatar_url),
+          last_login_at = excluded.last_login_at
+      `).bind(
+        guard.user.id || `usr_${Date.now()}`,
+        guard.user.googleId || null,
+        guard.user.email,
+        guard.user.email.split("@")[0],
+        guard.user.name || guard.user.email.split("@")[0],
+        guard.user.avatarUrl || HVL_COVER,
+        Date.now()
+      ).run().catch(() => {});
+    }
+
     const { results } = await c.env.DB.prepare(`
       SELECT u.id, u.email, u.name, u.avatar_url, u.role, u.status, u.created_at, u.last_login_at,
              u.last_login_device, u.last_ip,
@@ -1140,52 +1271,9 @@ app.get("/api/admin/users", async (c) => {
       LIMIT 100
     `).all();
 
-    if (results && results.length > 0) {
-      return c.json({ success: true, users: results });
-    }
-    return c.json({ success: true, users: defaultUsers });
+    return c.json({ success: true, users: results || [] });
   } catch (err: any) {
-    return c.json({ success: true, users: defaultUsers });
-  }
-});
-
-app.patch("/api/admin/users/:id/role", async (c) => {
-  const guard = await requireAdmin(c);
-  if (!guard.ok) return guard.response;
-  if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);
-
-  const userId = c.req.param("id");
-  const { role } = await c.req.json();
-
-  if (!["admin", "vip", "listener"].includes(role)) {
-    return c.json({ success: false, error: "Role không hợp lệ" }, 400);
-  }
-
-  try {
-    await c.env.DB.prepare("UPDATE users SET role = ? WHERE id = ?").bind(role, userId).run();
-    return c.json({ success: true, message: "Đã cập nhật vai trò thành công!" });
-  } catch (err: any) {
-    return c.json({ success: false, error: err.message }, 500);
-  }
-});
-
-app.patch("/api/admin/users/:id/status", async (c) => {
-  const guard = await requireAdmin(c);
-  if (!guard.ok) return guard.response;
-  if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);
-
-  const userId = c.req.param("id");
-  const { status } = await c.req.json();
-
-  if (!["active", "suspended"].includes(status)) {
-    return c.json({ success: false, error: "Trạng thái không hợp lệ" }, 400);
-  }
-
-  try {
-    await c.env.DB.prepare("UPDATE users SET status = ? WHERE id = ?").bind(status, userId).run();
-    return c.json({ success: true, message: "Đã cập nhật trạng thái người dùng!" });
-  } catch (err: any) {
-    return c.json({ success: false, error: err.message }, 500);
+    return c.json({ success: false, error: err.message, users: [] }, 500);
   }
 });
 

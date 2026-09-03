@@ -1,0 +1,13 @@
+
+> hidden-music-monorepo@1.0.0 dev:web
+> npm run dev --workspace=apps/web
+
+
+> @hidden-music/web@1.0.0 dev
+> vite
+
+
+  VITE v6.4.3  ready in 224 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: http://192.168.0.2:5173/

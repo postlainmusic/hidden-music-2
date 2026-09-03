@@ -29,7 +29,7 @@ interface Video3DZoneProps {
 const SPEED_OPTIONS = [0.75, 1.0, 1.25, 1.5, 2.0];
 
 export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => {
-  const { currentTrack, queue, favoritedTrackIds, toggleFavoriteTrack, selectedAlbum } = useAudioStore();
+  const { currentTrack, queue, favoritedTrackIds, toggleFavoriteTrack, selectedAlbum, albums } = useAudioStore();
   const isMobile = useIsMobile();
 
   // Local Video Track State
@@ -84,9 +84,10 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   const displayedVideoTracks = filterMode === "release" && releaseTracks.length > 0 ? releaseTracks : queue;
   const releaseTitle = selectedAlbum?.title || selectedTrack?.album || "HVL (99%)";
 
-  // Audio pause on Video Zone mount
+  // Audio pause on Video Zone mount & ensure background bridge audio is stopped
   useEffect(() => {
     dualDeckAudioEngine.pause();
+    youTubeAudioBridge.pause();
     useAudioStore.setState({ isPlaying: false });
 
     return () => {
@@ -100,38 +101,13 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     };
   }, []);
 
-  // Sync with Headless YouTube Audio Bridge (0% iframe visual on page)
+  // Ensure YouTube background audio bridge is paused when switching video tracks or playing on-screen
   useEffect(() => {
-    if (isYouTube && youtubeId) {
-      youTubeAudioBridge.playTrack(youtubeId);
-      youTubeAudioBridge.setVolume(isMuted ? 0 : volume);
+    youTubeAudioBridge.pause();
+    if (isYouTube) {
       setIsPlaying(true);
-
-      const unsubProgress = youTubeAudioBridge.onProgress((cur, dur) => {
-        if (!isDraggingSeekerRef.current) {
-          setCurrentTime(cur);
-        }
-        if (dur > 0) {
-          setDuration(dur);
-        }
-      });
-
-      const unsubState = youTubeAudioBridge.onStateChange((playing) => {
-        setIsPlaying(playing);
-      });
-
-      const unsubBuffer = youTubeAudioBridge.onBuffering((buffering) => {
-        setIsBuffering(buffering);
-      });
-
-      return () => {
-        unsubProgress();
-        unsubState();
-        unsubBuffer();
-        youTubeAudioBridge.pause();
-      };
     }
-  }, [isYouTube, youtubeId]);
+  }, [isYouTube, youtubeId, selectedTrack]);
 
   // Ambilight sync for YouTube video sources (from track palette)
   useEffect(() => {
@@ -821,31 +797,58 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
           </AnimatePresence>
         </div>
 
-        {/* Video Info */}
+        {/* Detailed Video & Album Metadata Info */}
         <div
           style={{
             width: "100%",
             padding: isMobile ? "10px 16px 6px" : "14px 0 8px",
             display: "flex",
             flexDirection: "column",
-            gap: "8px"
+            gap: "10px"
           }}
         >
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
-            <div style={{ minWidth: 0 }}>
-              <h2 style={{ margin: 0, fontSize: isMobile ? "1.05rem" : "1.25rem", fontWeight: 800, color: "#ffffff", letterSpacing: "0.02em" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                <span
+                  style={{
+                    padding: "2px 8px",
+                    borderRadius: "6px",
+                    backgroundColor: "rgba(99, 102, 241, 0.2)",
+                    border: "1px solid rgba(99, 102, 241, 0.4)",
+                    color: "#a5b4fc",
+                    fontSize: "0.68rem",
+                    fontWeight: 800,
+                    textTransform: "uppercase"
+                  }}
+                >
+                  {selectedTrack?.releaseType?.toUpperCase() || "ALBUM"}
+                </span>
+                <span style={{ fontSize: "0.78rem", color: "#ec4899", fontWeight: 700 }}>
+                  💿 Album: {selectedTrack?.album || releaseTitle}
+                </span>
+              </div>
+
+              <h2 style={{ margin: 0, fontSize: isMobile ? "1.1rem" : "1.35rem", fontWeight: 800, color: "#ffffff", letterSpacing: "0.02em" }}>
                 {selectedTrack?.title}
               </h2>
-              <p style={{ margin: "3px 0 0", fontSize: "0.82rem", color: "rgba(255, 255, 255, 0.55)", fontWeight: 600 }}>
-                {selectedTrack?.artist || "MCK"} • {releaseTitle}
-              </p>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px", flexWrap: "wrap" }}>
+                <span style={{ fontSize: "0.85rem", color: "rgba(255, 255, 255, 0.7)", fontWeight: 600 }}>
+                  Trình bày: <strong style={{ color: "#ffffff" }}>{selectedTrack?.artist || "MCK"}</strong>
+                </span>
+                <span style={{ fontSize: "0.78rem", color: "rgba(255, 255, 255, 0.45)" }}>•</span>
+                <span style={{ fontSize: "0.78rem", color: "rgba(255, 255, 255, 0.55)" }}>
+                  Thể loại: {selectedTrack?.genre || "Melodic Rap / R&B"}
+                </span>
+              </div>
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <button
                 onClick={() => selectedTrack?.id && toggleFavoriteTrack(selectedTrack.id)}
                 style={{
-                  padding: "6px 12px",
+                  padding: "6px 14px",
                   borderRadius: "999px",
                   backgroundColor: isFav ? "rgba(239, 68, 68, 0.2)" : "rgba(255, 255, 255, 0.08)",
                   border: isFav ? "1px solid rgba(239, 68, 68, 0.5)" : "1px solid rgba(255, 255, 255, 0.15)",
@@ -858,7 +861,7 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                   cursor: "pointer"
                 }}
               >
-                <Heart size={13} fill={isFav ? "#ef4444" : "none"} />
+                <Heart size={14} fill={isFav ? "#ef4444" : "none"} />
                 <span>{isFav ? "Đã Thích" : "Thích"}</span>
               </button>
             </div>
@@ -933,6 +936,9 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           {displayedVideoTracks.map((track, idx) => {
             const isCurrent = track.id === selectedTrack?.id;
+            const albumObj = albums.find((a) => a.id === track.album_id) ||
+                             albums.find((a) => a.title?.toLowerCase() === track.album?.toLowerCase());
+            const trackAlbumName = albumObj?.title || track.album || releaseTitle;
 
             return (
               <div
@@ -998,9 +1004,21 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
                     {track.title}
                   </span>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "3px" }}>
-                    <span style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.45)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "3px", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "0.72rem", color: "rgba(255, 255, 255, 0.55)" }}>
                       {track.artist || "MCK"}
+                    </span>
+                    <span
+                      style={{
+                        padding: "1px 6px",
+                        borderRadius: "4px",
+                        backgroundColor: "rgba(236, 72, 153, 0.15)",
+                        color: "#f472b6",
+                        fontSize: "0.65rem",
+                        fontWeight: 700
+                      }}
+                    >
+                      💿 {trackAlbumName}
                     </span>
                     {isCurrent && (
                       <span
