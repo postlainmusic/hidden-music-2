@@ -96,8 +96,8 @@ describe("YouTubeBridge", () => {
     });
   });
 
-  describe("URL utilities", () => {
-    it("should extract YouTube IDs correctly", () => {
+  describe("extractYouTubeId", () => {
+    it("should extract 11-character YouTube IDs correctly across various URL formats", () => {
       assert.strictEqual(
         extractYouTubeId("https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
         "dQw4w9WgXcQ"
@@ -110,21 +110,99 @@ describe("YouTubeBridge", () => {
         extractYouTubeId("https://www.youtube.com/embed/dQw4w9WgXcQ"),
         "dQw4w9WgXcQ"
       );
+      assert.strictEqual(
+        extractYouTubeId("https://www.youtube.com/v/dQw4w9WgXcQ"),
+        "dQw4w9WgXcQ"
+      );
+    });
+
+    it("should return null for invalid, empty, or missing inputs", () => {
       assert.strictEqual(extractYouTubeId("invalid-url"), null);
       assert.strictEqual(extractYouTubeId(""), null);
       assert.strictEqual(extractYouTubeId(undefined), null);
     });
+  });
 
-    it("should identify YouTube sources correctly", () => {
+  describe("isYouTubeSource", () => {
+    it("should return true for standard YouTube URLs", () => {
       assert.strictEqual(
         isYouTubeSource("https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
         true
       );
       assert.strictEqual(
+        isYouTubeSource("http://www.youtube.com/watch?v=dQw4w9WgXcQ"),
+        true
+      );
+      assert.strictEqual(
+        isYouTubeSource("https://youtube.com/watch?v=dQw4w9WgXcQ"),
+        true
+      );
+    });
+
+    it("should return true for mobile and music subdomains", () => {
+      assert.strictEqual(
+        isYouTubeSource("https://m.youtube.com/watch?v=dQw4w9WgXcQ"),
+        true
+      );
+      assert.strictEqual(
+        isYouTubeSource("https://music.youtube.com/watch?v=dQw4w9WgXcQ"),
+        true
+      );
+    });
+
+    it("should return true for shortened youtu.be links", () => {
+      assert.strictEqual(
+        isYouTubeSource("https://youtu.be/dQw4w9WgXcQ"),
+        true
+      );
+      assert.strictEqual(
+        isYouTubeSource("http://youtu.be/dQw4w9WgXcQ?t=30"),
+        true
+      );
+    });
+
+    it("should return true for embed and player URLs", () => {
+      assert.strictEqual(
+        isYouTubeSource("https://www.youtube.com/embed/dQw4w9WgXcQ"),
+        true
+      );
+      assert.strictEqual(
+        isYouTubeSource("https://www.youtube.com/v/dQw4w9WgXcQ"),
+        true
+      );
+    });
+
+    it("should return true for URLs with extra query parameters", () => {
+      assert.strictEqual(
+        isYouTubeSource("https://www.youtube.com/watch?v=dQw4w9WgXcQ&feature=shared"),
+        true
+      );
+      assert.strictEqual(
+        isYouTubeSource("https://www.youtube.com/watch?list=PL12345&v=dQw4w9WgXcQ&t=100s"),
+        true
+      );
+    });
+
+    it("should return false for non-YouTube audio or video URLs", () => {
+      assert.strictEqual(
         isYouTubeSource("https://media.postlain.com/audio/song.flac"),
         false
       );
+      assert.strictEqual(
+        isYouTubeSource("https://vimeo.com/123456789"),
+        false
+      );
+      assert.strictEqual(
+        isYouTubeSource("https://soundcloud.com/artist/track"),
+        false
+      );
+    });
+
+    it("should return false for invalid, empty, or undefined input", () => {
       assert.strictEqual(isYouTubeSource(undefined), false);
+      assert.strictEqual(isYouTubeSource(""), false);
+      assert.strictEqual(isYouTubeSource("   "), false);
+      assert.strictEqual(isYouTubeSource("invalid-string-not-a-url"), false);
     });
   });
 });
