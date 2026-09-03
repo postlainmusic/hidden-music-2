@@ -29,8 +29,18 @@ interface Video3DZoneProps {
 const SPEED_OPTIONS = [0.75, 1.0, 1.25, 1.5, 2.0];
 
 export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => {
-  const { currentTrack, queue, favoritedTrackIds, toggleFavoriteTrack, selectedAlbum } = useAudioStore();
+  const { currentTrack, queue, favoritedTrackIds, toggleFavoriteTrack, selectedAlbum, albums, fetchAlbums } = useAudioStore();
   const isMobile = useIsMobile();
+
+  // Active Selected Album filter for Video Zone
+  const [activeAlbumId, setActiveAlbumId] = useState<string>(() => selectedAlbum?.id || "hvl-99");
+
+  // Fetch albums if empty
+  useEffect(() => {
+    if (albums.length === 0) {
+      fetchAlbums();
+    }
+  }, [albums.length, fetchAlbums]);
 
   // Local Video Track State
   const [selectedTrack, setSelectedTrack] = useState<Track>(() => currentTrack || queue[0]);
@@ -70,23 +80,29 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDraggingSeekerRef = useRef<boolean>(false);
 
-  // Release filtered tracks
+  // Selected active album object
+  const activeAlbum = useMemo(() => {
+    return albums.find((a) => a.id === activeAlbumId) || selectedAlbum || { id: "hvl-99", title: "HVL (99%)", artist: "MCK" };
+  }, [albums, activeAlbumId, selectedAlbum]);
+
+  // Release filtered tracks matching activeAlbumId
   const releaseTracks = useMemo(() => {
     return queue.filter((t) => {
-      if (selectedAlbum?.id) return t.album_id === selectedAlbum.id;
-      if (selectedAlbum?.title) return t.album?.toLowerCase() === selectedAlbum.title.toLowerCase();
-      if (selectedTrack?.album_id) return t.album_id === selectedTrack.album_id;
-      if (selectedTrack?.album) return t.album?.toLowerCase() === selectedTrack.album.toLowerCase();
-      return true;
+      if (activeAlbumId) {
+        if (t.album_id === activeAlbumId) return true;
+        if (activeAlbum?.title && t.album?.toLowerCase() === activeAlbum.title.toLowerCase()) return true;
+      }
+      return false;
     });
-  }, [queue, selectedAlbum, selectedTrack]);
+  }, [queue, activeAlbumId, activeAlbum]);
 
   const displayedVideoTracks = filterMode === "release" && releaseTracks.length > 0 ? releaseTracks : queue;
-  const releaseTitle = selectedAlbum?.title || selectedTrack?.album || "HVL (99%)";
+  const releaseTitle = activeAlbum?.title || selectedTrack?.album || "HVL (99%)";
 
   // Audio pause on Video Zone mount
   useEffect(() => {
     dualDeckAudioEngine.pause();
+    youTubeAudioBridge.pause();
     useAudioStore.setState({ isPlaying: false });
 
     return () => {
@@ -100,37 +116,10 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
     };
   }, []);
 
-  // Sync with Headless YouTube Audio Bridge (0% iframe visual on page)
+  // Sync with Headless YouTube Audio Bridge (0% iframe visual on page) - ONLY for non-iframe mode
   useEffect(() => {
-    if (isYouTube && youtubeId) {
-      youTubeAudioBridge.playTrack(youtubeId);
-      youTubeAudioBridge.setVolume(isMuted ? 0 : volume);
-      setIsPlaying(true);
-
-      const unsubProgress = youTubeAudioBridge.onProgress((cur, dur) => {
-        if (!isDraggingSeekerRef.current) {
-          setCurrentTime(cur);
-        }
-        if (dur > 0) {
-          setDuration(dur);
-        }
-      });
-
-      const unsubState = youTubeAudioBridge.onStateChange((playing) => {
-        setIsPlaying(playing);
-      });
-
-      const unsubBuffer = youTubeAudioBridge.onBuffering((buffering) => {
-        setIsBuffering(buffering);
-      });
-
-      return () => {
-        unsubProgress();
-        unsubState();
-        unsubBuffer();
-        youTubeAudioBridge.pause();
-      };
-    }
+    // When an iframe is explicitly rendered in the DOM, we MUST pause the background audio bridge to prevent double sound!
+    youTubeAudioBridge.pause();
   }, [isYouTube, youtubeId]);
 
   // Ambilight sync for YouTube video sources (from track palette)
@@ -893,8 +882,40 @@ export const Video3DZone: React.FC<Video3DZoneProps> = ({ onBackTo3DAlbum }) => 
             </span>
           </div>
 
-          {/* Filter Pills: Release vs All Videos */}
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          {/* Album Selector Dropdown & Filter Pills */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            {albums.length > 0 && (
+              <select
+                value={activeAlbumId}
+                onChange={(e) => {
+                  const newAlbId = e.target.value;
+                  setActiveAlbumId(newAlbId);
+                  setFilterMode("release");
+                  const newAlbumTracks = queue.filter((t) => t.album_id === newAlbId || t.album?.toLowerCase() === albums.find((a) => a.id === newAlbId)?.title?.toLowerCase());
+                  if (newAlbumTracks.length > 0) {
+                    handleSelectTrack(newAlbumTracks[0]);
+                  }
+                }}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: "8px",
+                  backgroundColor: "rgba(255, 255, 255, 0.08)",
+                  border: "1px solid rgba(255, 255, 255, 0.2)",
+                  color: "#ffffff",
+                  fontSize: "0.75rem",
+                  fontWeight: 700,
+                  outline: "none",
+                  cursor: "pointer"
+                }}
+              >
+                {albums.map((alb) => (
+                  <option key={alb.id} value={alb.id} style={{ backgroundColor: "#111118", color: "#ffffff" }}>
+                    {alb.title} ({alb.artist})
+                  </option>
+                ))}
+              </select>
+            )}
+
             <button
               onClick={() => setFilterMode("release")}
               style={{

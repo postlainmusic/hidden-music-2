@@ -1099,36 +1099,63 @@ app.get("/api/admin/users", async (c) => {
   const guard = await requireAdmin(c);
   if (!guard.ok) return guard.response;
 
-  const defaultUsers = [
-    {
-      id: "usr_admin_01",
-      email: guard.user?.email || "admin@postlain.com",
-      name: guard.user?.name || "System Admin",
-      avatar_url: guard.user?.avatarUrl || HVL_COVER,
-      role: "admin",
-      status: "active",
-      last_login_device: "System Console",
-      last_ip: "127.0.0.1",
-      created_at: new Date().toISOString(),
-      favorites_count: 5
-    },
-    {
-      id: "usr_listener_01",
-      email: "listener@postlain.com",
-      name: "Thành Viên Thử Nghiệm",
-      avatar_url: HVL_COVER,
-      role: "listener",
-      status: "active",
-      last_login_device: "Mobile iOS",
-      last_ip: "113.161.0.1",
-      created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
-      favorites_count: 12
-    }
-  ];
-
-  if (!c.env.DB) return c.json({ success: true, users: defaultUsers });
+  if (!c.env.DB) {
+    return c.json({
+      success: true,
+      users: [
+        {
+          id: guard.user?.id || "usr_admin_01",
+          email: guard.user?.email || "admin@postlain.com",
+          name: guard.user?.name || "System Admin",
+          avatar_url: guard.user?.avatarUrl || HVL_COVER,
+          role: "admin",
+          status: "active",
+          last_login_device: "System Console",
+          last_ip: "127.0.0.1",
+          created_at: new Date().toISOString(),
+          favorites_count: 0
+        }
+      ]
+    });
+  }
 
   try {
+    // Ensure users table exists safely
+    await c.env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        google_id TEXT,
+        email TEXT UNIQUE NOT NULL,
+        username TEXT,
+        name TEXT,
+        password_hash TEXT,
+        avatar_url TEXT,
+        role TEXT DEFAULT 'listener',
+        status TEXT DEFAULT 'active',
+        last_login_device TEXT,
+        last_ip TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        last_login_at INTEGER
+      )
+    `).run().catch(() => {});
+
+    // Ensure current admin user exists in DB
+    if (guard.user?.email) {
+      await c.env.DB.prepare(`
+        INSERT INTO users (id, email, name, avatar_url, role, status, created_at)
+        VALUES (?, ?, ?, ?, 'admin', 'active', datetime('now'))
+        ON CONFLICT(email) DO UPDATE SET role = 'admin', status = 'active'
+      `)
+        .bind(
+          guard.user.id || `usr_${Date.now()}`,
+          guard.user.email,
+          guard.user.name || "System Admin",
+          guard.user.avatarUrl || guard.user.avatar_url || HVL_COVER
+        )
+        .run()
+        .catch(() => {});
+    }
+
     const { results } = await c.env.DB.prepare(`
       SELECT u.id, u.email, u.name, u.avatar_url, u.role, u.status, u.created_at, u.last_login_at,
              u.last_login_device, u.last_ip,
@@ -1140,12 +1167,9 @@ app.get("/api/admin/users", async (c) => {
       LIMIT 100
     `).all();
 
-    if (results && results.length > 0) {
-      return c.json({ success: true, users: results });
-    }
-    return c.json({ success: true, users: defaultUsers });
+    return c.json({ success: true, users: results || [] });
   } catch (err: any) {
-    return c.json({ success: true, users: defaultUsers });
+    return c.json({ success: false, error: err.message, users: [] }, 500);
   }
 });
 
