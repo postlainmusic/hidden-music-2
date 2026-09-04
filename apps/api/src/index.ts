@@ -1,17 +1,161 @@
-import { Hono } from "hono";
+import { Context, Hono } from "hono";
 import { cors } from "hono/cors";
 import { sign, verify } from "hono/jwt";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { z } from "zod";
 
-type Bindings = {
+export type Bindings = Env & {
   DB?: D1Database;
   MUSIC_ASSETS?: R2Bucket;
-  ENVIRONMENT?: string;
   JWT_SECRET?: string;
   ADMIN_EMAILS?: string;
 };
+
+export interface UserRow {
+  id: string;
+  google_id?: string | null;
+  username?: string | null;
+  email: string;
+  name?: string | null;
+  password_hash?: string;
+  avatar_url?: string | null;
+  role?: string;
+  status?: string;
+  last_login_device?: string | null;
+  last_ip?: string | null;
+  created_at?: string;
+  last_login_at?: number | null;
+  favorites_count?: number;
+}
+
+export interface UserFavoriteRow {
+  user_id: string;
+  track_id: string;
+  created_at: number;
+}
+
+export interface AlbumRow {
+  id: string;
+  title: string;
+  artist: string;
+  cover_url: string;
+  model_3d_url?: string | null;
+  palette_colors?: string | null;
+  release_year?: number | null;
+  genre?: string | null;
+  type?: string;
+  created_at?: string;
+  track_count?: number;
+}
+
+export interface TrackRow {
+  id: string;
+  album_id: string;
+  title: string;
+  artist: string;
+  duration_sec: number;
+  audio_url: string;
+  video_url?: string | null;
+  cover_url: string;
+  r2_key?: string | null;
+  video_type?: string;
+  video_quality?: string;
+  video_aspect_ratio?: string;
+  audio_source_type?: string;
+  audio_bitrate?: string;
+  lyrics_synced?: string | null;
+  bpm?: number;
+  key_signature?: string | null;
+  mood_tier?: string;
+  palette_json?: string | null;
+  play_count?: number;
+  release_status?: string;
+  scheduled_at?: number | null;
+  created_at?: string;
+  heart_count?: number;
+}
+
+export interface HomeSectionRow {
+  id: string;
+  title: string;
+  template_type: string;
+  order_index: number;
+  is_enabled: number;
+  config_json: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface VaultSlotRow {
+  id: string;
+  slot_number: number;
+  album_id?: string | null;
+  title: string;
+  artist: string;
+  cover_url: string;
+  badge?: string;
+  status?: string;
+  release_date?: string | null;
+  created_at?: string;
+}
+
+export interface ActivityLogRow {
+  id: string;
+  user_id?: string | null;
+  user_email?: string | null;
+  event_type: string;
+  title_vi: string;
+  details_json?: string | null;
+  severity?: string;
+  created_at?: string;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name?: string;
+  avatarUrl?: string;
+  googleId?: string;
+  role: string;
+  status: string;
+}
+
+export interface JWTPayload {
+  id?: string;
+  email?: string;
+  name?: string;
+  avatarUrl?: string;
+  googleId?: string;
+  role?: string;
+  status?: string;
+  user?: AuthUser;
+  exp?: number;
+}
+
+export interface GoogleOAuthPayload {
+  sub: string;
+  email: string;
+  name?: string;
+  picture?: string;
+  error_description?: string;
+}
+
+export interface CountResult {
+  count?: number;
+  cnt?: number;
+}
+
+export interface LrcLibItem {
+  syncedLyrics?: string;
+  plainLyrics?: string;
+}
+
+export interface NoEmbedResponse {
+  title?: string;
+  author_name?: string;
+  thumbnail_url?: string;
+}
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -57,9 +201,11 @@ function getJwtSecret(env: Bindings): string {
   return env?.JWT_SECRET || JWT_SECRET_FALLBACK;
 }
 
-function handleServerError(c: any, e: any) {
-  return c.json({ success: false, error: e?.message || "Internal server error" }, 500);
+function handleServerError(c: Context<{ Bindings: Bindings }>, e: unknown) {
+  const message = e instanceof Error ? e.message : (typeof e === "object" && e && "message" in e ? String((e as { message: unknown }).message) : "Internal server error");
+  return c.json({ success: false, error: message }, 500);
 }
+
 
 // Auto-Ensure D1 Database Schema Tables Exist
 async function ensureTablesExist(db?: D1Database) {
@@ -178,7 +324,7 @@ async function ensureTablesExist(db?: D1Database) {
 }
 
 // Extract Authenticated User from Session Token
-async function getAuthUser(c: any) {
+async function getAuthUser(c: Context<{ Bindings: Bindings }>): Promise<AuthUser | null> {
   const authHeader = c.req.header("Authorization") || c.req.header("x-vault-token") || "";
   let raw = "";
 
@@ -198,10 +344,10 @@ async function getAuthUser(c: any) {
 
   try {
     const secret = getJwtSecret(c.env);
-    const payload: any = await verify(raw, secret, "HS256");
+    const payload = (await verify(raw, secret, "HS256")) as unknown as JWTPayload;
     if (!payload) return null;
 
-    const user: any = payload.user || payload;
+    const user = (payload.user || payload) as AuthUser;
     if (!user || !user.email) return null;
 
     const isSystemAdmin = isAdminEmail(user.email, c.env.ADMIN_EMAILS);
@@ -209,11 +355,11 @@ async function getAuthUser(c: any) {
     // Check role in D1 if available
     if (c.env.DB) {
       try {
-        const dbUser: any = await c.env.DB.prepare(
+        const dbUser = await c.env.DB.prepare(
           "SELECT id, email, name, avatar_url, role, status FROM users WHERE email = ?"
         )
           .bind(user.email)
-          .first();
+          .first<UserRow>();
 
         if (dbUser) {
           return {
@@ -252,7 +398,7 @@ app.post("/api/auth/google", async (c) => {
       `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`
     );
     if (!googleRes.ok) {
-      const errJson: any = await googleRes.json().catch(() => ({}));
+      const errJson = (await googleRes.json().catch(() => ({}))) as Record<string, unknown>;
       return c.json(
         {
           success: false,
@@ -263,7 +409,7 @@ app.post("/api/auth/google", async (c) => {
       );
     }
 
-    const payload: any = await googleRes.json();
+    const payload = (await googleRes.json()) as GoogleOAuthPayload;
     const googleId = payload.sub;
     const email = payload.email;
     const name = payload.name || payload.email?.split("@")[0] || "Người dùng Google";
@@ -381,7 +527,7 @@ app.get("/api/favorites", async (c) => {
       .bind(user.id)
       .all();
 
-    const trackIds = results ? results.map((r: any) => r.track_id) : [];
+    const trackIds = results ? (results as unknown as UserFavoriteRow[]).map((r) => r.track_id) : [];
     return c.json({ success: true, favorites: trackIds });
   } catch (err: any) {
     return c.json({ favorites: [], error: err.message });
@@ -855,8 +1001,8 @@ app.get("/api/albums", async (c) => {
       if (results && results.length > 0) {
         return c.json({ success: true, albums: results });
       }
-    } catch (e: any) {
-      console.warn("D1 albums query notice:", e.message);
+    } catch (e: unknown) {
+      console.warn("D1 albums query notice:", e instanceof Error ? e.message : String(e));
     }
   }
   // Default HVL Album fallback
@@ -888,7 +1034,7 @@ app.get("/api/albums/:id", async (c) => {
         const { results: tracks } = await c.env.DB.prepare("SELECT * FROM tracks WHERE album_id = ? ORDER BY id ASC").bind(id).all();
         return c.json({ success: true, album: { ...album, tracks: tracks || [] } });
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       return handleServerError(c, e);
     }
   }
@@ -918,7 +1064,7 @@ app.get("/api/albums/:id/tracks", async (c) => {
       if (results && results.length > 0) {
         return c.json({ success: true, tracks: results });
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       return handleServerError(c, e);
     }
   }
@@ -981,7 +1127,7 @@ app.get("/api/sections", async (c) => {
       ).all();
 
       if (results && results.length > 0) {
-        const parsed = results.map((r: any) => ({
+        const parsed = (results as unknown as HomeSectionRow[]).map((r) => ({
           ...r,
           is_active: r.is_enabled === 1,
           is_enabled: r.is_enabled,
@@ -1066,7 +1212,7 @@ app.get("/api/vault-slots", async (c) => {
 
 // --- ADMIN GUARD MIDDLEWARE ---
 
-async function requireAdmin(c: any) {
+async function requireAdmin(c: Context<{ Bindings: Bindings }>) {
   const user = await getAuthUser(c);
   if (!user) {
     return { ok: false, response: c.json({ success: false, error: "Yêu cầu đăng nhập tài khoản Quản trị" }, 401) };
@@ -1089,7 +1235,7 @@ app.get("/api/admin/sections", async (c) => {
     "SELECT * FROM home_sections ORDER BY order_index ASC"
   ).all();
 
-  const parsed = (results || []).map((r: any) => ({
+  const parsed = ((results || []) as unknown as HomeSectionRow[]).map((r) => ({
     ...r,
     is_active: r.is_enabled === 1,
     is_enabled: r.is_enabled,
@@ -1275,7 +1421,7 @@ app.get("/api/admin/users", async (c) => {
       LIMIT 100
     `).all();
 
-    const d1Users = (results || []).map((u: any) => ({
+    const d1Users = ((results || []) as unknown as UserRow[]).map((u) => ({
       ...u,
       role: isAdminEmail(u.email, c.env.ADMIN_EMAILS) ? "admin" : (u.role || "listener")
     }));
@@ -1399,8 +1545,8 @@ app.delete("/api/admin/albums/:id", async (c) => {
   // Cascade delete child tracks & user favorites
   const { results: childTracks } = await c.env.DB.prepare("SELECT id FROM tracks WHERE album_id = ?").bind(id).all();
   if (childTracks && childTracks.length > 0) {
-    for (const t of childTracks) {
-      await c.env.DB.prepare("DELETE FROM user_favorites WHERE track_id = ?").bind((t as any).id).run();
+    for (const t of (childTracks as unknown as TrackRow[])) {
+      await c.env.DB.prepare("DELETE FROM user_favorites WHERE track_id = ?").bind(t.id).run();
     }
   }
   await c.env.DB.prepare("DELETE FROM tracks WHERE album_id = ?").bind(id).run();
@@ -1467,7 +1613,7 @@ app.post("/api/admin/seed-hvl", async (c) => {
     }
 
     // 3. Seed Vault Slots if empty
-    const slotCount: any = await c.env.DB.prepare("SELECT COUNT(*) as cnt FROM vault_slots").first();
+    const slotCount = await c.env.DB.prepare("SELECT COUNT(*) as cnt FROM vault_slots").first<CountResult>();
     if (!slotCount || slotCount.cnt === 0) {
       const defaultSlots = [
         { id: "slot-1", slot_number: 1, album_id: "hvl-99", title: "HVL (99%)", artist: "MCK", cover_url: HVL_COVER, badge: "Master Lossless", status: "live" },
@@ -1485,7 +1631,7 @@ app.post("/api/admin/seed-hvl", async (c) => {
     }
 
     // 4. Seed default sections if empty
-    const secCount: any = await c.env.DB.prepare("SELECT COUNT(*) as cnt FROM home_sections").first();
+    const secCount = await c.env.DB.prepare("SELECT COUNT(*) as cnt FROM home_sections").first<CountResult>();
     if (!secCount || secCount.cnt === 0) {
       const defaultSections = [
         {
@@ -1543,7 +1689,7 @@ app.post("/api/admin/sync-r2-to-d1", async (c) => {
   if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);
 
   try {
-    let r2Objects: any[] = [];
+    let r2Objects: R2Object[] = [];
     if (c.env.MUSIC_ASSETS) {
       try {
         const listed = await c.env.MUSIC_ASSETS.list({ limit: 1000 });
@@ -1624,8 +1770,8 @@ app.get("/api/admin/tracks", async (c) => {
   try {
     const { results } = await c.env.DB.prepare("SELECT * FROM tracks ORDER BY id ASC").all();
     return c.json({ success: true, tracks: results || [] });
-  } catch (e: any) {
-    return c.json({ success: false, error: e.message }, 500);
+  } catch (e: unknown) {
+    return c.json({ success: false, error: e instanceof Error ? e.message : String(e) }, 500);
   }
 });
 
@@ -1686,7 +1832,7 @@ app.post("/api/admin/tracks", async (c) => {
 
   // If adding to a single or release with default/empty cover, update parent album's cover
   try {
-    const parentAlbum: any = await c.env.DB.prepare("SELECT * FROM albums WHERE id = ?").bind(album_id).first();
+    const parentAlbum = await c.env.DB.prepare("SELECT * FROM albums WHERE id = ?").bind(album_id).first<AlbumRow>();
     if (parentAlbum && cover_url && (parentAlbum.type === "single" || !parentAlbum.cover_url || parentAlbum.cover_url === HVL_COVER)) {
       await c.env.DB.prepare("UPDATE albums SET cover_url = ? WHERE id = ?").bind(cover_url, album_id).run();
     }
@@ -1718,7 +1864,7 @@ app.post("/api/admin/import-release", async (c) => {
     try {
       const noembedRes = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
       if (noembedRes.ok) {
-        const data: any = await noembedRes.json();
+        const data = (await noembedRes.json()) as NoEmbedResponse;
         if (data.title) rawTitle = data.title;
         if (data.author_name) rawAuthor = data.author_name;
         if (data.thumbnail_url) coverUrl = data.thumbnail_url;
@@ -1883,10 +2029,10 @@ async function fetchSyncedLyrics(artist: string, title: string): Promise<string>
     });
 
     if (res.ok) {
-      const items: any = await res.json();
+      const items = (await res.json()) as LrcLibItem[];
       if (Array.isArray(items) && items.length > 0) {
         // Find best match with synced lyrics
-        const bestWithSynced = items.find((it: any) => it.syncedLyrics && it.syncedLyrics.trim().length > 0);
+        const bestWithSynced = items.find((it) => it.syncedLyrics && it.syncedLyrics.trim().length > 0);
         if (bestWithSynced && bestWithSynced.syncedLyrics) {
           return bestWithSynced.syncedLyrics;
         }
@@ -1936,7 +2082,7 @@ app.post("/api/admin/extract-metadata", async (c) => {
         // Try noembed first for robust cors & user-agent handling
         const noembedRes = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
         if (noembedRes.ok) {
-          const data: any = await noembedRes.json();
+          const data = (await noembedRes.json()) as NoEmbedResponse;
           if (data.title) rawTitle = data.title;
           if (data.author_name) rawAuthor = data.author_name;
           if (data.thumbnail_url) coverUrl = data.thumbnail_url;
@@ -1946,7 +2092,7 @@ app.post("/api/admin/extract-metadata", async (c) => {
             headers: { "User-Agent": "Mozilla/5.0 (compatible; HiddenMusicBot/2.0)" }
           });
           if (ytRes.ok) {
-            const ytData: any = await ytRes.json();
+            const ytData = (await ytRes.json()) as NoEmbedResponse;
             if (ytData.title) rawTitle = ytData.title;
             if (ytData.author_name) rawAuthor = ytData.author_name;
             if (ytData.thumbnail_url) coverUrl = ytData.thumbnail_url;
@@ -1984,7 +2130,7 @@ app.post("/api/admin/extract-metadata", async (c) => {
       try {
         const noembedRes = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
         if (noembedRes.ok) {
-          const data: any = await noembedRes.json();
+          const data = (await noembedRes.json()) as NoEmbedResponse;
           if (data.title) rawTitle = data.title;
           if (data.author_name) rawAuthor = data.author_name;
           if (data.thumbnail_url) coverUrl = data.thumbnail_url;
@@ -2178,7 +2324,7 @@ app.post("/api/admin/restore", async (c) => {
         video_type, video_quality, audio_bitrate, lyrics_synced, bpm, mood_tier, palette_json
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    const trackBatch = backup.tracks.map((t: any) =>
+    const trackBatch = (backup.tracks as TrackRow[]).map((t) =>
       trackStmt.bind(
         t.id, t.album_id || "hvl-99", t.title, t.artist || "MCK", t.duration_sec || 200,
         t.audio_url, t.video_url || null, t.cover_url || HVL_COVER, t.r2_key || null,
@@ -2197,7 +2343,7 @@ app.post("/api/admin/restore", async (c) => {
         INSERT INTO home_sections (id, title, template_type, order_index, is_enabled, config_json)
         VALUES (?, ?, ?, ?, ?, ?)
       `);
-      for (const s of backup.home_sections) {
+      for (const s of (backup.home_sections as HomeSectionRow[])) {
         sectionStmts.push(secStmt.bind(s.id, s.title, s.template_type, s.order_index, s.is_enabled, s.config_json));
       }
     }
@@ -2209,13 +2355,13 @@ app.post("/api/admin/restore", async (c) => {
 
 // --- HELPER TO RECORD ACTIVITY & AUDIT LOGS IN D1 ---
 async function recordActivityLog(
-  c: any,
+  c: Context<{ Bindings: Bindings }>,
   entry: {
     userId?: string;
     userEmail?: string;
     eventType: string; // 'login' | 'play_track' | 'favorite' | 'admin_action' | 'client_error' | 'api_error'
     titleVi: string;
-    details?: any;
+    details?: Record<string, unknown>;
     severity?: "info" | "warning" | "error";
   }
 ) {
@@ -2282,7 +2428,7 @@ app.post("/api/telemetry/log", async (c) => {
       eventType: event_type || "client_event",
       titleVi: title_vi || "Sự kiện người dùng",
       details: details || {},
-      severity: (severity as any) || "info"
+      severity: (severity as "info" | "warning" | "error") || "info"
     });
 
     return c.json({ success: true });
@@ -2343,14 +2489,14 @@ app.get("/api/admin/logs", async (c) => {
     const stmt = c.env.DB.prepare(sql);
     const { results } = await stmt.bind(...params).all();
 
-    const countRes: any = await c.env.DB.prepare("SELECT COUNT(*) as count FROM activity_logs").first();
+    const countRes = await c.env.DB.prepare("SELECT COUNT(*) as count FROM activity_logs").first<CountResult>();
     const total = countRes?.count || (results ? results.length : 0);
 
     // CSV Export formatting if requested
     if (format === "csv") {
       let csv = "ID,Thời Gian,Mức Độ,Loại Sự Kiện,Tiêu Đề (Tiếng Việt),Email Người Dùng,IP & Vị Trí,Thiết Bị,Chi Tiết\n";
-      for (const row of results as any[]) {
-        let details: any = {};
+      for (const row of (results as unknown as ActivityLogRow[])) {
+        let details: Record<string, unknown> = {};
         try { details = JSON.parse(row.details_json || "{}"); } catch {}
         const ip = details.ip || "";
         const country = details.country || "";
@@ -2477,12 +2623,12 @@ app.get("/api/admin/stats/overview", async (c) => {
 
   if (c.env.DB) {
     try {
-      const [tCount, uCount, fCount, sCount, lCount]: any = await Promise.all([
-        c.env.DB.prepare("SELECT COUNT(*) as count FROM tracks").first(),
-        c.env.DB.prepare("SELECT COUNT(*) as count FROM users").first(),
-        c.env.DB.prepare("SELECT COUNT(*) as count FROM user_favorites").first(),
-        c.env.DB.prepare("SELECT COUNT(*) as count FROM home_sections").first(),
-        c.env.DB.prepare("SELECT COUNT(*) as count FROM activity_logs").first().catch(() => ({ count: 0 }))
+      const [tCount, uCount, fCount, sCount, lCount] = await Promise.all([
+        c.env.DB.prepare("SELECT COUNT(*) as count FROM tracks").first<CountResult>(),
+        c.env.DB.prepare("SELECT COUNT(*) as count FROM users").first<CountResult>(),
+        c.env.DB.prepare("SELECT COUNT(*) as count FROM user_favorites").first<CountResult>(),
+        c.env.DB.prepare("SELECT COUNT(*) as count FROM home_sections").first<CountResult>(),
+        c.env.DB.prepare("SELECT COUNT(*) as count FROM activity_logs").first<CountResult>().catch(() => ({ count: 0 }))
       ]);
 
       totalTracks = tCount?.count ?? 30;
@@ -2746,9 +2892,9 @@ app.get("/api/stream/*", async (c) => {
     headers.set("Content-Type", "video/mp4");
   }
 
-  if (rangeHeader && object.range && typeof (object.range as any).offset === "number") {
-    const offset = (object.range as any).offset ?? 0;
-    const length = (object.range as any).length ?? (object.size - offset);
+  if (rangeHeader && object.range && object.range && "offset" in object.range) {
+    const offset = (object.range as { offset?: number; length?: number }).offset ?? 0;
+    const length = (object.range as { offset?: number; length?: number }).length ?? (object.size - offset);
     const end = offset + length - 1;
     headers.set("Content-Range", `bytes ${offset}-${end}/${object.size}`);
     headers.set("Content-Length", `${length}`);

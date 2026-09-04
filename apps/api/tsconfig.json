@@ -8,6 +8,6 @@
     "types": ["@cloudflare/workers-types"],
     "skipLibCheck": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "worker-configuration.d.ts"],
   "exclude": ["src/**/*.test.ts"]
 }
