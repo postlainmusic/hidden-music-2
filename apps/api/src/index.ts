@@ -57,6 +57,10 @@ function getJwtSecret(env: Bindings): string {
   return env?.JWT_SECRET || JWT_SECRET_FALLBACK;
 }
 
+function handleServerError(c: any, e: any) {
+  return c.json({ success: false, error: e?.message || "Internal server error" }, 500);
+}
+
 // Auto-Ensure D1 Database Schema Tables Exist
 async function ensureTablesExist(db?: D1Database) {
   if (!db) return;
@@ -885,7 +889,7 @@ app.get("/api/albums/:id", async (c) => {
         return c.json({ success: true, album: { ...album, tracks: tracks || [] } });
       }
     } catch (e: any) {
-      return c.json({ success: false, error: e.message }, 500);
+      return handleServerError(c, e);
     }
   }
   if (id === "hvl-99" || id === "hvl") {
@@ -915,7 +919,7 @@ app.get("/api/albums/:id/tracks", async (c) => {
         return c.json({ success: true, tracks: results });
       }
     } catch (e: any) {
-      return c.json({ success: false, error: e.message }, 500);
+      return handleServerError(c, e);
     }
   }
   return c.json({ success: true, tracks: id === "hvl-99" || id === "hvl" ? MCK_TRACKS : [] });
