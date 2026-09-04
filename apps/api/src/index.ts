@@ -1120,7 +1120,7 @@ app.post("/api/admin/sections", async (c) => {
   const activeVal = is_enabled !== undefined ? is_enabled : (is_active !== undefined ? (is_active ? 1 : 0) : 1);
   const orderVal = order_index !== undefined ? order_index : (sort_order !== undefined ? sort_order : 1);
 
-  const id = `sec_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const id = `sec_${crypto.randomUUID()}`;
   const configJson = typeof config === "string" ? config : JSON.stringify(config);
 
   // If inserting at specific index, shift existing sections
@@ -2235,7 +2235,7 @@ async function recordActivityLog(
       )
     `).run().catch(() => {});
 
-    const logId = `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const logId = `log_${crypto.randomUUID()}`;
     const ip = c.req.header("CF-Connecting-IP") || c.req.header("x-forwarded-for") || "127.0.0.1";
     const country = c.req.header("cf-ipcountry") || "VN";
     const city = c.req.header("cf-ipcity") || "Hanoi";
