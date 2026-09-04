@@ -10,7 +10,7 @@
     "dev:api": "npm run dev --workspace=apps/api",
     "dev": "npm run dev:web",
     "build:web": "node node_modules/vite/bin/vite.js build apps/web",
-    "build:api": "node node_modules/typescript/bin/tsc --project apps/api/tsconfig.json --noEmit",
+    "build:api": "node node_modules/typescript/bin/tsc --project apps/api/tsconfig.build.json --noEmit",
     "test": "npx tsx --test apps/**/*.test.ts",
     "build": "npm run build:web && npm run build:api",
     "deploy:web": "npm run deploy --workspace=apps/web",
