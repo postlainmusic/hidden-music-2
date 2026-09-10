@@ -1,0 +1,81 @@
+name: Repair Pass V2
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]' && startsWith(github.event.head_commit.message, 'chore: run repair pass v2')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch production defects
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          api = Path('apps/api/src/index.ts')
+          s = api.read_text(encoding='utf-8')
+
+          old = '''const JWT_SECRET_FALLBACK = "default_vault_jwt_secret_key_change_in_production";\n\nfunction getJwtSecret(env: Bindings): string {\n  return env?.JWT_SECRET || JWT_SECRET_FALLBACK;\n}'''
+          new = '''function getJwtSecret(env: Bindings): string {\n  const secret = env?.JWT_SECRET?.trim();\n  if (!secret) throw new Error("JWT_SECRET is not configured");\n  return secret;\n}'''
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif 'JWT_SECRET_FALLBACK' in s:
+              raise SystemExit('JWT fallback found in unexpected form')
+
+          marker = 'app.post("/api/admin/seed", async (c) => {'
+          guard = marker + '\n  const guard = await requireAdmin(c);\n  if (!guard.ok) return guard.response;'
+          if marker in s and guard not in s:
+              s = s.replace(marker, guard, 1)
+          api.write_text(s, encoding='utf-8')
+
+          audio = Path('apps/web/src/audio/DualDeckAudioEngine.ts')
+          s = audio.read_text(encoding='utf-8')
+          old = '''    this.currentTrack = track;\n    this.trackStartedAt = Date.now();\n    this.retryCount = 0;'''
+          new = '''    const previousTrack = this.currentTrack;\n    const wasPlaying = this.isPlaying;\n\n    this.currentTrack = track;\n    this.trackStartedAt = Date.now();\n    this.retryCount = 0;'''
+          if old in s and 'const previousTrack = this.currentTrack;' not in s:
+              s = s.replace(old, new, 1)
+          old = 'const useCrossfade = (options.crossfade ?? true) && this.isPlaying && (this.currentTrack?.id !== track.id);'
+          new = 'const useCrossfade = (options.crossfade ?? true) && wasPlaying && (previousTrack?.id !== track.id);'
+          if old in s:
+              s = s.replace(old, new, 1)
+          audio.write_text(s, encoding='utf-8')
+
+          gi = Path('.gitignore')
+          s = gi.read_text(encoding='utf-8') if gi.exists() else ''
+          lines = s.splitlines()
+          for item in ['dist/', '.env', '.env.*', '*.log']:
+              if item not in lines: lines.append(item)
+          gi.write_text('\n'.join(lines).rstrip() + '\n', encoding='utf-8')
+          PY
+
+      - name: Verify
+        run: |
+          grep -q 'JWT_SECRET is not configured' apps/api/src/index.ts
+          grep -q -A2 'app.post("/api/admin/seed"' apps/api/src/index.ts | grep -q 'requireAdmin'
+          grep -q 'const useCrossfade = (options.crossfade ?? true) && wasPlaying' apps/web/src/audio/DualDeckAudioEngine.ts
+
+      - name: Install and build
+        run: npm install --no-audit --no-fund
+      - name: Build web
+        run: npm run build:web
+
+      - name: Commit repairs and remove runner
+        shell: bash
+        run: |
+          set -e
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/workflows/repair-hidden-music-v2.yml
+          git add apps/api/src/index.ts apps/web/src/audio/DualDeckAudioEngine.ts .gitignore .github/workflows/repair-hidden-music-v2.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: harden auth admin seed and audio crossfade'
+          git push
