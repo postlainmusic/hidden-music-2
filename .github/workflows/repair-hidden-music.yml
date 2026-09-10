@@ -1,0 +1,93 @@
+name: Production Repair Pass
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]' && startsWith(github.event.head_commit.message, 'chore: run production repair pass')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply targeted production fixes
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          api = Path('apps/api/src/index.ts')
+          s = api.read_text(encoding='utf-8')
+
+          # 1) Never silently fall back to a known JWT secret.
+          old = '''const JWT_SECRET_FALLBACK = "default_vault_jwt_secret_key_change_in_production";\n\nfunction getJwtSecret(env: Bindings): string {\n  return env?.JWT_SECRET || JWT_SECRET_FALLBACK;\n}'''
+          new = '''function getJwtSecret(env: Bindings): string {\n  const secret = env?.JWT_SECRET?.trim();\n  if (!secret) {\n    throw new Error("JWT_SECRET is not configured");\n  }\n  return secret;\n}'''
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif 'JWT_SECRET_FALLBACK' in s:
+              raise SystemExit('Unexpected JWT fallback implementation; refusing unsafe blind edit')
+
+          # 2) Protect the legacy admin seed endpoint with the same RBAC guard as other admin routes.
+          seed_marker = 'app.post("/api/admin/seed", async (c) => {'
+          if seed_marker in s:
+              after = seed_marker + '\n  const guard = await requireAdmin(c);\n  if (!guard.ok) return guard.response;'
+              if after not in s:
+                  s = s.replace(seed_marker, after, 1)
+
+          api.write_text(s, encoding='utf-8')
+
+          # 3) Fix crossfade decision: compare against the previous track before replacing currentTrack.
+          audio = Path('apps/web/src/audio/DualDeckAudioEngine.ts')
+          s = audio.read_text(encoding='utf-8')
+          old = '''    this.currentTrack = track;\n    this.trackStartedAt = Date.now();\n    this.retryCount = 0;'''
+          new = '''    const previousTrack = this.currentTrack;\n    const wasPlaying = this.isPlaying;\n\n    this.currentTrack = track;\n    this.trackStartedAt = Date.now();\n    this.retryCount = 0;'''
+          if old in s and 'const previousTrack = this.currentTrack;' not in s:
+              s = s.replace(old, new, 1)
+          old = 'const useCrossfade = (options.crossfade ?? true) && this.isPlaying && (this.currentTrack?.id !== track.id);'
+          new = 'const useCrossfade = (options.crossfade ?? true) && wasPlaying && (previousTrack?.id !== track.id);'
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif new not in s:
+              raise SystemExit('Crossfade expression not found; refusing blind edit')
+          audio.write_text(s, encoding='utf-8')
+
+          # 4) Harden repository hygiene.
+          gi = Path('.gitignore')
+          s = gi.read_text(encoding='utf-8') if gi.exists() else ''
+          additions = ['dist/', '.env', '.env.*', '*.log']
+          lines = s.splitlines()
+          for item in additions:
+              if item not in lines:
+                  lines.append(item)
+          gi.write_text('\n'.join(lines).rstrip() + '\n', encoding='utf-8')
+
+      - name: Verify targeted fixes
+        shell: bash
+        run: |
+          grep -n "JWT_SECRET is not configured" apps/api/src/index.ts
+          grep -n -A3 'app.post("/api/admin/seed"' apps/api/src/index.ts
+          grep -n -A7 'const previousTrack = this.currentTrack' apps/web/src/audio/DualDeckAudioEngine.ts
+          grep -n 'const useCrossfade' apps/web/src/audio/DualDeckAudioEngine.ts
+          test -f apps/web/package.json
+          test -f apps/api/package.json
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build web
+        run: npm run build:web
+
+      - name: Commit repairs and remove one-shot workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/workflows/repair-hidden-music.yml
+          git add apps/api/src/index.ts apps/web/src/audio/DualDeckAudioEngine.ts .gitignore .github/workflows/repair-hidden-music.yml
+          git commit -m 'fix: harden auth admin seed and audio crossfade' || exit 0
+          git push
