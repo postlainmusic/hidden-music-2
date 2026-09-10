@@ -10,3 +10,9 @@ music/*.flac
 *.flac
 *.mkv
 !music/lrc/
+
+# Build outputs, local environment and logs
+dist/
+.env
+.env.*
+*.log
