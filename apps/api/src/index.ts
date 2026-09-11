@@ -195,10 +195,12 @@ function isAdminEmail(email: string, envAdminEmails?: string): boolean {
   return list.includes(email.toLowerCase());
 }
 
-const JWT_SECRET_FALLBACK = "default_vault_jwt_secret_key_change_in_production";
-
 function getJwtSecret(env: Bindings): string {
-  return env?.JWT_SECRET || JWT_SECRET_FALLBACK;
+  const secret = env?.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error("JWT_SECRET is required and must be at least 32 characters");
+  }
+  return secret;
 }
 
 function handleServerError(c: Context<{ Bindings: Bindings }>, e: unknown) {
@@ -2655,6 +2657,8 @@ app.get("/api/admin/stats/overview", async (c) => {
 
 // Admin Seed Endpoint with 7 Templates & 30 Tracks
 app.post("/api/admin/seed", async (c) => {
+  const guard = await requireAdmin(c);
+  if (!guard.ok) return guard.response;
   if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);
 
   try {
