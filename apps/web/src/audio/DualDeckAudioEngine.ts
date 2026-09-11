@@ -366,6 +366,16 @@ export class DualDeckAudioEngine {
     clearTimeout(this.retryTimeoutId);
     this.crossfadeTimer = null;
 
+    // Capture the outgoing state before replacing currentTrack. Otherwise the
+    // crossfade comparison below always sees the newly requested track.
+    const previousTrack = this.currentTrack;
+    const wasPlaying = this.isPlaying;
+    const useCrossfade =
+      (options.crossfade ?? true) &&
+      wasPlaying &&
+      !!previousTrack &&
+      previousTrack.id !== track.id;
+
     this.currentTrack = track;
     this.trackStartedAt = Date.now();
     this.retryCount = 0;
@@ -384,8 +394,6 @@ export class DualDeckAudioEngine {
 
     // Nếu chuyển từ bài YouTube sang bài R2 Lossless, dừng phát YouTube
     youTubeAudioBridge.pause();
-
-    const useCrossfade = (options.crossfade ?? true) && this.isPlaying && (this.currentTrack?.id !== track.id);
 
     // Determine target deck
     const nextDeckId: DeckId = useCrossfade ? (this.activeDeckId === "A" ? "B" : "A") : this.activeDeckId;
