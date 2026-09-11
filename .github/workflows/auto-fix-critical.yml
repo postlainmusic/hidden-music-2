@@ -1,0 +1,54 @@
+name: Apply Critical Fixes
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Patch critical source defects
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('apps/api/src/index.ts')
+          s = p.read_text()
+          old = '''const JWT_SECRET_FALLBACK = "default_vault_jwt_secret_key_change_in_production";\n\nfunction getJwtSecret(env: Bindings): string {\n  return env?.JWT_SECRET || JWT_SECRET_FALLBACK;\n}'''
+          new = '''function getJwtSecret(env: Bindings): string {\n  const secret = env?.JWT_SECRET;\n  if (!secret || secret.length < 32) {\n    throw new Error("JWT_SECRET is required and must be at least 32 characters");\n  }\n  return secret;\n}'''
+          if old not in s:
+              raise SystemExit('JWT fallback pattern not found')
+          s = s.replace(old, new, 1)
+
+          old = '''app.post("/api/admin/seed", async (c) => {\n  if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);'''
+          new = '''app.post("/api/admin/seed", async (c) => {\n  const guard = await requireAdmin(c);\n  if (!guard.ok) return guard.response;\n  if (!c.env.DB) return c.json({ success: false, error: "Database not connected" }, 500);'''
+          if old not in s:
+              raise SystemExit('admin seed pattern not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+      - name: Verify source changes
+        run: |
+          grep -n 'JWT_SECRET is required' apps/api/src/index.ts
+          grep -A3 -n 'app.post("/api/admin/seed"' apps/api/src/index.ts
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/api/src/index.ts
+          git diff --cached --quiet || git commit -m "fix(api): require JWT secret and protect admin seed"
+          git push
+      - name: Remove temporary workflow
+        if: always()
+        run: |
+          git rm -f .github/workflows/auto-fix-critical.yml || true
+          git diff --cached --quiet || git commit -m "chore: remove temporary repair workflow"
+          git push || true
